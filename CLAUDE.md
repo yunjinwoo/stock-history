@@ -1,17 +1,22 @@
 # stock-history — 주식 매매일지
 
-> 전체 규칙은 상위 `../CLAUDE.md` 참조. 여기엔 이 프로젝트 고유 내용만 작성.
-
 ## 프로젝트 한 줄 요약
 증권사 카톡 알림을 붙여넣어 매매 기록을 쌓고, 종목별 보유 기간·손익을 조회하는 웹앱.
+
+## 서버 정보
+| 항목 | 값 |
+|------|-----|
+| 포트 | **3002** |
+| nginx 경로 | `/stock/` |
+| VPS | 49.247.202.50 (deploy-user) |
+| PM2 앱 이름 | `stock-history` |
 
 ## 기술 스택
 | 역할 | 선택 |
 |------|------|
-| 프레임워크 | Next.js 14 (App Router) |
+| 프레임워크 | Next.js 15 (App Router) |
 | 스타일 | Tailwind CSS |
-| DB | SQLite (`better-sqlite3`) |
-| ORM | Drizzle ORM |
+| DB | SQLite (Prisma 6) |
 | 날짜 | day.js |
 
 ## 파일 구조
@@ -32,9 +37,12 @@ stock-history/
 │   ├── SummaryBar.tsx            # 요약 통계 바
 │   ├── AccountList.tsx           # 계좌 목록
 │   └── AccountMemoEditor.tsx     # 계좌 메모 인라인 편집
+├── prisma/
+│   └── schema.prisma             # Prisma 스키마 (accounts + trades)
 ├── lib/
-│   ├── db.ts                     # SQLite 연결 (싱글턴)
-│   ├── schema.ts                 # Drizzle 스키마 (accounts + trades)
+│   ├── db.ts                     # PrismaClient 싱글턴
+│   ├── types.ts                  # 공유 타입 정의
+│   ├── utils.ts                  # enrichTrade, formatKRW 등
 │   └── kakaoParser.ts            # 증권사별 파싱 유틸
 ├── skills/
 │   └── kakaoParser.md            # 증권사별 파싱 패턴 레퍼런스

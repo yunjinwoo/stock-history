@@ -1,0 +1,36 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:../data/stock-history.db"
+}
+
+model Account {
+  id            String   @id
+  broker        String
+  accountNumber String
+  nickname      String?
+  memo          String?
+  createdAt     String
+  updatedAt     String
+  trades        Trade[]
+}
+
+model Trade {
+  id           String   @id
+  accountId    String
+  symbol       String
+  symbolCode   String?
+  buyDate      String
+  buyPrice     Float
+  buyQuantity  Int
+  sellDate     String?
+  sellPrice    Float?
+  sellQuantity Int?
+  comment      String?
+  createdAt    String
+  updatedAt    String
+  account      Account  @relation(fields: [accountId], references: [id])
+}
