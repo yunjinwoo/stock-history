@@ -84,3 +84,4 @@ stock-history/
 | 파일 | 내용 |
 |------|------|
 | [skills/kakaoParser.md](skills/kakaoParser.md) | 증권사별 실제 알림 포맷 및 정규식 패턴 |
+| [skills/deploy.md](skills/deploy.md) | nginx 설정, PM2, GitHub Actions, 최초 서버 세팅 |

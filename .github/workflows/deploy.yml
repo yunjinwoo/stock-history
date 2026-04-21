@@ -1,0 +1,58 @@
+name: Deploy Stock History to iwinv
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. 코드를 깃허브 공장으로 가져오기 (Checkout)
+        uses: actions/checkout@v4
+
+      - name: 2. 깃허브 공장에 Node.js 24버전 설치
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: 3. 의존성 설치 및 Next.js 빌드
+        run: |
+          npm install
+          npx prisma generate
+          npm run build
+          # next build → .next/ 폴더에 빌드 결과물 생성
+
+      - name: 4. 빌드 결과물 서버로 전송 (SCP)
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          source: ".next,package.json,package-lock.json,next.config.ts,prisma"
+          target: "~/stock-history"
+          # 주의: data/ (SQLite DB) 는 서버 데이터이므로 전송하지 않음
+
+      - name: 5. 서버에서 의존성 설치 및 PM2 재시작
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            cd ~/stock-history
+
+            # 운영 패키지만 설치 (prisma generate 포함)
+            npm install --omit=dev
+
+            # DB 스키마 동기화 (최초 배포 및 스키마 변경 시 반영)
+            npx prisma db push
+
+            # 기존 프로세스 재시작, 없으면 신규 시작
+            pm2 restart stock-history || pm2 start npm --name "stock-history" -- start
+
+            # 재부팅 시 자동 시작 설정 저장
+            pm2 save
+            pm2 list
