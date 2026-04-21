@@ -29,11 +29,14 @@
 git push origin main
   → GitHub Actions 실행
   → npm install + prisma generate + next build  (CI/Linux)
-  → .next, package.json, next.config.ts, prisma/ → SCP 전송
-  → 서버: npm install --omit=dev
+  → .next/standalone/ 에 실행 파일 + 최소 node_modules 자동 생성
+  → .next/standalone/ → SCP 전송  (서버에서 npm install 불필요)
   → 서버: prisma db push  (스키마 변경 반영)
-  → 서버: pm2 restart stock-history
+  → 서버: PORT=3002 pm2 start server.js
 ```
+
+> **standalone 모드**: `output: 'standalone'` 설정으로 서버에서 `npm install` 없이 바로 실행 가능.
+> 저사양 VPS에서 배포 속도가 크게 빨라짐.
 
 ---
 
@@ -44,7 +47,7 @@ git push origin main
 
 ```bash
 ssh $SERVER_USER@$SERVER_IP
-mkdir -p ~/stock-history/data   # DB 저장 폴더 (없으면 prisma db push 실패)
+mkdir -p ~/stock-history/standalone/data   # DB 저장 폴더 (없으면 prisma db push 실패)
 ```
 
 <details>
@@ -69,12 +72,14 @@ pm2 startup   # → 출력된 sudo 명령어 실행
 `/etc/nginx/sites-available/default` (또는 해당 설정 파일)에 추가:
 
 ```nginx
+# 5. Stock History (경로: /stock)
+# ※ rewrite 사용 안 함 — Next.js basePath: '/stock' 이 직접 처리
 location /stock {
     proxy_pass http://localhost:3002;
-    proxy_http_version 1.1;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
 }
 ```
 

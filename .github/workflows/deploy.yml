@@ -21,7 +21,10 @@ jobs:
           npm install
           npx prisma generate
           npm run build
-          # next build → .next/ 폴더에 빌드 결과물 생성
+          # standalone 모드: .next/standalone/ 에 실행에 필요한 파일만 묶임
+          # 정적 파일을 standalone 디렉토리 안으로 복사 (서버 실행 시 필요)
+          cp -r .next/static .next/standalone/.next/static
+          cp -r prisma .next/standalone/prisma
 
       - name: 4. 빌드 결과물 서버로 전송 (SCP)
         uses: appleboy/scp-action@master
@@ -30,11 +33,12 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
-          source: ".next,package.json,package-lock.json,next.config.ts,prisma"
+          source: ".next/standalone"
           target: "~/stock-history"
-          # 주의: data/ (SQLite DB) 는 서버 데이터이므로 전송하지 않음
+          # node_modules 전송 불필요 — standalone에 필요한 것만 포함됨
+          # data/ (SQLite DB) 는 서버 데이터이므로 전송하지 않음
 
-      - name: 5. 서버에서 의존성 설치 및 PM2 재시작
+      - name: 5. 서버에서 DB 동기화 및 PM2 재시작
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_IP }}
@@ -42,16 +46,13 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
-            cd ~/stock-history
-
-            # 운영 패키지만 설치 (prisma generate 포함)
-            npm install --omit=dev
+            cd ~/stock-history/standalone
 
             # DB 스키마 동기화 (최초 배포 및 스키마 변경 시 반영)
-            npx prisma db push
+            node node_modules/.bin/prisma db push --schema=prisma/schema.prisma
 
             # 기존 프로세스 재시작, 없으면 신규 시작
-            pm2 restart stock-history || pm2 start npm --name "stock-history" -- start
+            pm2 restart stock-history || PORT=3002 pm2 start server.js --name "stock-history"
 
             # 재부팅 시 자동 시작 설정 저장
             pm2 save
