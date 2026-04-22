@@ -46,13 +46,13 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
-            cd ~/stock-history/standalone
+            cd ~/stock-history/.next/standalone
 
             # DB 스키마 동기화 (최초 배포 및 스키마 변경 시 반영)
             node node_modules/.bin/prisma db push --schema=prisma/schema.prisma
 
             # 기존 프로세스 재시작, 없으면 신규 시작
-            pm2 restart stock-history || PORT=3002 pm2 start server.js --name "stock-history"
+            pm2 restart stock-history || PORT=3002 pm2 start server.js --name "stock-history" --cwd ~/stock-history/.next/standalone
 
             # 재부팅 시 자동 시작 설정 저장
             pm2 save

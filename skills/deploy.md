@@ -47,7 +47,7 @@ git push origin main
 
 ```bash
 ssh $SERVER_USER@$SERVER_IP
-mkdir -p ~/stock-history/standalone/data   # DB 저장 폴더 (없으면 prisma db push 실패)
+mkdir -p ~/stock-history/.next/standalone/data   # DB 저장 폴더 (없으면 prisma db push 실패)
 ```
 
 <details>
