@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { Account } from '@/lib/types'
 import AccountMemoEditor from './AccountMemoEditor'
 import { apiFetch } from '@/lib/api'
@@ -12,6 +12,7 @@ interface Props {
 
 export default function AccountList({ accounts, onRefresh }: Props) {
   const [list, setList] = useState<Account[]>(accounts)
+  useEffect(() => { setList(accounts) }, [accounts])
   const [adding, setAdding] = useState(false)
   const [form, setForm] = useState({ broker: '', accountNumber: '', nickname: '' })
   const [saving, setSaving] = useState(false)

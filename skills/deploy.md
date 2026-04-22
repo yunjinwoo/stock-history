@@ -124,3 +124,37 @@ pm2 stop stock-history          # 중지
 - `data/stock-history.db` (SQLite)는 배포 시 **덮어쓰지 않음** — SCP 전송 대상에 포함 안 됨
 - 스키마 변경 시 `prisma db push` 가 서버에서 자동 실행됨 (데이터 유지)
 - `better-sqlite3` 는 Node.js 24 + Windows(VS Build Tools 없음) 환경에서 빌드 불가 → **Prisma 사용**
+
+---
+
+## 트러블슈팅 — 실제 발생한 문제들
+
+### API 호출 405 에러 (`POST /api/accounts`)
+- **원인**: Next.js `basePath: '/stock'`은 페이지 라우팅에만 적용됨. 클라이언트 `fetch('/api/...')`는 자동으로 prefix가 붙지 않아 nginx에서 경로 없음 → 405
+- **해결**: `lib/api.ts`의 `apiFetch` 헬퍼 사용. `NEXT_PUBLIC_BASE_PATH`를 자동으로 붙여줌
+- **주의**: 새 컴포넌트 작성 시 `fetch()` 직접 사용 금지, 반드시 `apiFetch()` 사용
+
+### SCP 전송 후 `standalone/` 경로 오류
+- **원인**: `source: ".next/standalone"` 지정 시 SCP가 디렉토리 구조 그대로 보존 → 서버에 `~/stock-history/.next/standalone/`으로 생성됨
+- **해결**: SSH 스크립트에서 `cd ~/stock-history/.next/standalone` 사용
+
+### `prisma db push` 실패 — Module not found
+- **원인**: standalone은 런타임 deps만 포함. prisma CLI(`prisma` 패키지)와 `@prisma/engines` 미포함
+- **해결**: 서버에 `sudo npm install -g prisma@6` 전역 설치 (최초 1회)
+
+### `npm install -g` 중 `Killed`
+- **원인**: 저사양 VPS RAM 부족
+- **해결**: swap 1GB 추가
+```bash
+sudo fallocate -l 1G /swapfile && sudo chmod 600 /swapfile
+sudo mkswap /swapfile && sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+```
+
+### Prisma v7 설치 오류 (`url` 속성 미지원)
+- **원인**: `npm install -g prisma` 버전 미지정 → v7 설치됨. v7은 `schema.prisma`의 `url =` 제거, `prisma.config.ts` 필요
+- **해결**: `sudo npm install -g prisma@6` (프로젝트가 Prisma 6 기준)
+
+### 계좌 목록 미표시
+- **원인**: `AccountList`의 `useState(accounts)`는 초기값(`[]`)만 사용. 부모 컴포넌트가 API 호출 후 prop을 업데이트해도 내부 `list` 상태가 갱신되지 않음
+- **해결**: `useEffect(() => { setList(accounts) }, [accounts])` 추가
