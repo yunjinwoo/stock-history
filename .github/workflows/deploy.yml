@@ -25,6 +25,11 @@ jobs:
           # 정적 파일을 standalone 디렉토리 안으로 복사 (서버 실행 시 필요)
           cp -r .next/static .next/standalone/.next/static
           cp -r prisma .next/standalone/prisma
+          # prisma CLI + 스키마 엔진 복사 (서버에서 db push 실행용)
+          # standalone 은 런타임 deps만 포함 → prisma CLI/engines 는 별도 복사 필요
+          cp -r node_modules/prisma .next/standalone/node_modules/
+          mkdir -p .next/standalone/node_modules/@prisma
+          cp -r node_modules/@prisma/engines .next/standalone/node_modules/@prisma/
 
       - name: 4. 빌드 결과물 서버로 전송 (SCP)
         uses: appleboy/scp-action@master
@@ -49,7 +54,7 @@ jobs:
             cd ~/stock-history/.next/standalone
 
             # DB 스키마 동기화 (최초 배포 및 스키마 변경 시 반영)
-            node node_modules/.bin/prisma db push --schema=prisma/schema.prisma
+            node node_modules/prisma/build/index.js db push --schema=prisma/schema.prisma
 
             # 기존 프로세스 재시작, 없으면 신규 시작
             pm2 restart stock-history || PORT=3002 pm2 start server.js --name "stock-history" --cwd ~/stock-history/.next/standalone
