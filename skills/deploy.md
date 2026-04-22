@@ -47,7 +47,12 @@ git push origin main
 
 ```bash
 ssh $SERVER_USER@$SERVER_IP
-mkdir -p ~/stock-history/.next/standalone/data   # DB 저장 폴더 (없으면 prisma db push 실패)
+
+# Prisma CLI 전역 설치 (v6 고정 — 프로젝트가 Prisma 6 사용, v7과 schema 형식 다름)
+sudo npm install -g prisma@6
+
+# DB 저장 폴더 생성 (없으면 Prisma가 SQLite 파일 생성 불가 → 500 에러)
+mkdir -p ~/stock-history/.next/standalone/data
 ```
 
 <details>
