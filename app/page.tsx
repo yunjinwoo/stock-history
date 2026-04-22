@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import type { Trade, Account } from '@/lib/types'
+import { apiFetch } from '@/lib/api'
 import TradeCard from '@/components/TradeCard'
 import SummaryBar from '@/components/SummaryBar'
 import TradeModal from '@/components/TradeModal'
@@ -23,8 +24,8 @@ export default function HomePage() {
     if (search) params.set('search', search)
 
     const [tradesData, accountsData] = await Promise.all([
-      fetch(`/api/trades?${params}`).then(r => r.json()),
-      fetch('/api/accounts').then(r => r.json()),
+      apiFetch(`/api/trades?${params}`).then(r => r.json()),
+      apiFetch('/api/accounts').then(r => r.json()),
     ])
     setTrades(tradesData)
     setAccounts(accountsData)
@@ -81,7 +82,7 @@ export default function HomePage() {
               trade={trade}
               account={accounts.find(a => a.id === trade.accountId)}
               onEdit={() => { setEditTrade(trade); setShowModal(true) }}
-              onDelete={async () => { await fetch(`/api/trades/${trade.id}`, { method: 'DELETE' }); load() }}
+              onDelete={async () => { await apiFetch(`/api/trades/${trade.id}`, { method: 'DELETE' }); load() }}
             />
           ))}
           {completed.map(trade => (
@@ -90,7 +91,7 @@ export default function HomePage() {
               trade={trade}
               account={accounts.find(a => a.id === trade.accountId)}
               onEdit={() => { setEditTrade(trade); setShowModal(true) }}
-              onDelete={async () => { await fetch(`/api/trades/${trade.id}`, { method: 'DELETE' }); load() }}
+              onDelete={async () => { await apiFetch(`/api/trades/${trade.id}`, { method: 'DELETE' }); load() }}
             />
           ))}
           {trades.length === 0 && (

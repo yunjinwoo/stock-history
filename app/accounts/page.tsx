@@ -3,13 +3,14 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import type { Account } from '@/lib/types'
+import { apiFetch } from '@/lib/api'
 import AccountList from '@/components/AccountList'
 
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([])
 
   async function load() {
-    const data = await fetch('/api/accounts').then(r => r.json())
+    const data = await apiFetch('/api/accounts').then(r => r.json())
     setAccounts(data)
   }
 

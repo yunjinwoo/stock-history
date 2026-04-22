@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import type { Account } from '@/lib/types'
+import { apiFetch } from '@/lib/api'
 
 interface Props {
   account: Account
@@ -15,7 +16,7 @@ export default function AccountMemoEditor({ account, onUpdated }: Props) {
 
   async function save() {
     setSaving(true)
-    const res = await fetch(`/api/accounts/${account.id}`, {
+    const res = await apiFetch(`/api/accounts/${account.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ memo }),

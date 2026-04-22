@@ -4,6 +4,7 @@ import { useState } from 'react'
 import type { Trade, Account } from '@/lib/types'
 import type { ParsedTrade } from '@/lib/kakaoParser'
 import KakaoParser from './KakaoParser'
+import { apiFetch } from '@/lib/api'
 
 interface Props {
   trade: Trade | null
@@ -110,7 +111,7 @@ export default function TradeModal({ trade, accounts, onClose, onSave }: Props) 
       }
       const url = trade ? `/api/trades/${trade.id}` : '/api/trades'
       const method = trade ? 'PATCH' : 'POST'
-      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      const res = await apiFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
       if (!res.ok) { const d = await res.json(); setError(d.error ?? '저장 실패'); return }
       onSave()
     } finally {

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { Account } from '@/lib/types'
 import AccountMemoEditor from './AccountMemoEditor'
+import { apiFetch } from '@/lib/api'
 
 interface Props {
   accounts: Account[]
@@ -24,7 +25,7 @@ export default function AccountList({ accounts, onRefresh }: Props) {
     e.preventDefault()
     if (!form.broker || !form.accountNumber) { setError('증권사명과 계좌번호는 필수입니다.'); return }
     setSaving(true)
-    const res = await fetch('/api/accounts', {
+    const res = await apiFetch('/api/accounts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form),
@@ -43,7 +44,7 @@ export default function AccountList({ accounts, onRefresh }: Props) {
 
   async function handleDelete(account: Account) {
     if (!confirm(`"${account.broker} ${account.accountNumber}" 계좌를 삭제하시겠습니까?`)) return
-    const res = await fetch(`/api/accounts/${account.id}`, { method: 'DELETE' })
+    const res = await apiFetch(`/api/accounts/${account.id}`, { method: 'DELETE' })
     if (res.ok) {
       onRefresh()
     } else {
