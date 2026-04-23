@@ -6,6 +6,7 @@ import type { Trade, Account } from '@/lib/types'
 import { apiFetch } from '@/lib/api'
 import TradeCard from '@/components/TradeCard'
 import TradeHistory from '@/components/TradeHistory'
+import TradeCalendar from '@/components/TradeCalendar'
 import SummaryBar from '@/components/SummaryBar'
 import TradeModal from '@/components/TradeModal'
 
@@ -17,7 +18,7 @@ export default function HomePage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [accountFilter, setAccountFilter] = useState<string>('all')
-  const [viewMode, setViewMode] = useState<'card' | 'table'>('table')
+  const [viewMode, setViewMode] = useState<'card' | 'table' | 'calendar'>('table')
 
   const loadAccounts = useCallback(async () => {
     const data = await apiFetch('/api/accounts').then(r => r.json())
@@ -48,6 +49,7 @@ export default function HomePage() {
           <div className="flex border rounded overflow-hidden">
             <button onClick={() => setViewMode('table')} className={`text-xs px-2 py-1.5 ${viewMode === 'table' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>≡ 목록</button>
             <button onClick={() => setViewMode('card')} className={`text-xs px-2 py-1.5 ${viewMode === 'card' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>▦ 카드</button>
+            <button onClick={() => setViewMode('calendar')} className={`text-xs px-2 py-1.5 ${viewMode === 'calendar' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>📅 캘린더</button>
           </div>
           <Link href="/accounts" className="text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">계좌관리</Link>
           <button
@@ -85,7 +87,13 @@ export default function HomePage() {
         </div>
         </div>
 
-        {viewMode === 'table' ? (
+        {viewMode === 'calendar' ? (
+          <TradeCalendar
+            trades={trades}
+            onEdit={trade => { setEditTrade(trade); setShowModal(true) }}
+            onDelete={async trade => { await apiFetch(`/api/trades/${trade.id}`, { method: 'DELETE' }); load() }}
+          />
+        ) : viewMode === 'table' ? (
           <TradeHistory
             trades={trades}
             accounts={accounts}

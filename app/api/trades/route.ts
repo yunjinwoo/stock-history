@@ -26,18 +26,6 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(enriched)
 }
 
-type EntryInput = { date: string; price: number; quantity: number }
-
-function makeEntries(entries: EntryInput[], now: string) {
-  return entries.map(e => ({
-    id: crypto.randomUUID(),
-    date: e.date,
-    price: Number(e.price),
-    quantity: Number(e.quantity),
-    createdAt: now,
-  }))
-}
-
 export async function POST(req: NextRequest) {
   const body = await req.json()
   const { accountId, symbol, symbolCode, comment, buyEntries = [], sellEntries = [] } = body
@@ -47,23 +35,8 @@ export async function POST(req: NextRequest) {
   }
 
   const now = new Date().toISOString()
-
-  // 같은 계좌+종목 거래가 있으면 새 내역만 추가 (별도 레코드 생성 안 함)
-  const existing = await prisma.trade.findFirst({ where: { accountId, symbol } })
-
-  if (existing) {
-    const trade = await prisma.trade.update({
-      where: { id: existing.id },
-      data: {
-        symbolCode: symbolCode || existing.symbolCode || null,
-        updatedAt: now,
-        buyEntries: { create: makeEntries(buyEntries, now) },
-        sellEntries: { create: makeEntries(sellEntries, now) },
-      },
-      include: { buyEntries: { orderBy: { date: 'asc' } }, sellEntries: { orderBy: { date: 'asc' } } },
-    })
-    return NextResponse.json(enrichTrade(trade), { status: 200 })
-  }
+  const makeEntries = (entries: { date: string; price: number; quantity: number }[]) =>
+    entries.map(e => ({ id: crypto.randomUUID(), date: e.date, price: Number(e.price), quantity: Number(e.quantity), createdAt: now }))
 
   const trade = await prisma.trade.create({
     data: {
@@ -72,8 +45,8 @@ export async function POST(req: NextRequest) {
       symbolCode: symbolCode || null,
       comment: comment || null,
       createdAt: now, updatedAt: now,
-      buyEntries: { create: makeEntries(buyEntries, now) },
-      sellEntries: { create: makeEntries(sellEntries, now) },
+      buyEntries: { create: makeEntries(buyEntries) },
+      sellEntries: { create: makeEntries(sellEntries) },
     },
     include: { buyEntries: true, sellEntries: true },
   })
