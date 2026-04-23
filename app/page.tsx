@@ -5,6 +5,7 @@ import Link from 'next/link'
 import type { Trade, Account } from '@/lib/types'
 import { apiFetch } from '@/lib/api'
 import TradeCard from '@/components/TradeCard'
+import TradeTable from '@/components/TradeTable'
 import SummaryBar from '@/components/SummaryBar'
 import TradeModal from '@/components/TradeModal'
 
@@ -16,6 +17,7 @@ export default function HomePage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [accountFilter, setAccountFilter] = useState<string>('all')
+  const [viewMode, setViewMode] = useState<'card' | 'table'>('table')
 
   const loadAccounts = useCallback(async () => {
     const data = await apiFetch('/api/accounts').then(r => r.json())
@@ -43,6 +45,10 @@ export default function HomePage() {
       <header className="bg-white border-b px-4 py-3 flex justify-between items-center sticky top-0 z-10">
         <h1 className="text-lg font-bold">매매일지</h1>
         <div className="flex gap-2">
+          <div className="flex border rounded overflow-hidden">
+            <button onClick={() => setViewMode('table')} className={`text-xs px-2 py-1.5 ${viewMode === 'table' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>≡ 목록</button>
+            <button onClick={() => setViewMode('card')} className={`text-xs px-2 py-1.5 ${viewMode === 'card' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>▦ 카드</button>
+          </div>
           <Link href="/accounts" className="text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">계좌관리</Link>
           <button
             onClick={() => { setEditTrade(null); setShowModal(true) }}
@@ -77,29 +83,59 @@ export default function HomePage() {
           </select>
         </div>
 
-        <div className="space-y-2">
-          {holding.map(trade => (
-            <TradeCard
-              key={trade.id}
-              trade={trade}
-              account={accounts.find(a => a.id === trade.accountId)}
-              onEdit={() => { setEditTrade(trade); setShowModal(true) }}
-              onDelete={async () => { await apiFetch(`/api/trades/${trade.id}`, { method: 'DELETE' }); load() }}
-            />
-          ))}
-          {completed.map(trade => (
-            <TradeCard
-              key={trade.id}
-              trade={trade}
-              account={accounts.find(a => a.id === trade.accountId)}
-              onEdit={() => { setEditTrade(trade); setShowModal(true) }}
-              onDelete={async () => { await apiFetch(`/api/trades/${trade.id}`, { method: 'DELETE' }); load() }}
-            />
-          ))}
-          {trades.length === 0 && (
-            <p className="text-center text-gray-400 py-16 text-sm">거래 기록이 없습니다<br/>새 거래를 입력해보세요</p>
-          )}
-        </div>
+        {viewMode === 'table' ? (
+          <div className="space-y-1">
+            {holding.length > 0 && (
+              <>
+                <p className="text-xs text-gray-400 font-medium px-1">보유중 {holding.length}건</p>
+                <TradeTable
+                  trades={holding}
+                  accounts={accounts}
+                  onEdit={trade => { setEditTrade(trade); setShowModal(true) }}
+                  onDelete={async trade => { await apiFetch(`/api/trades/${trade.id}`, { method: 'DELETE' }); load() }}
+                />
+              </>
+            )}
+            {completed.length > 0 && (
+              <>
+                <p className="text-xs text-gray-400 font-medium px-1 mt-3">매도완료 {completed.length}건</p>
+                <TradeTable
+                  trades={completed}
+                  accounts={accounts}
+                  onEdit={trade => { setEditTrade(trade); setShowModal(true) }}
+                  onDelete={async trade => { await apiFetch(`/api/trades/${trade.id}`, { method: 'DELETE' }); load() }}
+                />
+              </>
+            )}
+            {trades.length === 0 && (
+              <p className="text-center text-gray-400 py-16 text-sm">거래 기록이 없습니다<br/>새 거래를 입력해보세요</p>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {holding.map(trade => (
+              <TradeCard
+                key={trade.id}
+                trade={trade}
+                account={accounts.find(a => a.id === trade.accountId)}
+                onEdit={() => { setEditTrade(trade); setShowModal(true) }}
+                onDelete={async () => { await apiFetch(`/api/trades/${trade.id}`, { method: 'DELETE' }); load() }}
+              />
+            ))}
+            {completed.map(trade => (
+              <TradeCard
+                key={trade.id}
+                trade={trade}
+                account={accounts.find(a => a.id === trade.accountId)}
+                onEdit={() => { setEditTrade(trade); setShowModal(true) }}
+                onDelete={async () => { await apiFetch(`/api/trades/${trade.id}`, { method: 'DELETE' }); load() }}
+              />
+            ))}
+            {trades.length === 0 && (
+              <p className="text-center text-gray-400 py-16 text-sm">거래 기록이 없습니다<br/>새 거래를 입력해보세요</p>
+            )}
+          </div>
+        )}
       </div>
 
       {showModal && (

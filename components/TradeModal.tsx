@@ -139,7 +139,12 @@ export default function TradeModal({ trade, accounts, onClose, onSave }: Props) 
       const url = trade ? `/api/trades/${trade.id}` : '/api/trades'
       const method = trade ? 'PATCH' : 'POST'
       const res = await apiFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-      if (!res.ok) { const d = await res.json(); setError(d.error ?? '저장 실패'); return }
+      if (!res.ok) {
+        let msg = '저장 실패'
+        try { const d = await res.json(); msg = d.error ?? msg } catch {}
+        setError(msg)
+        return
+      }
       onSave()
     } finally {
       setSaving(false)
