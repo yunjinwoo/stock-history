@@ -17,20 +17,22 @@ export default function HomePage() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [accountFilter, setAccountFilter] = useState<string>('all')
 
+  const loadAccounts = useCallback(async () => {
+    const data = await apiFetch('/api/accounts').then(r => r.json())
+    if (Array.isArray(data)) setAccounts(data)
+  }, [])
+
   const load = useCallback(async () => {
     const params = new URLSearchParams()
     if (accountFilter !== 'all') params.set('accountId', accountFilter)
     if (statusFilter !== 'all') params.set('status', statusFilter)
     if (search) params.set('search', search)
 
-    const [tradesData, accountsData] = await Promise.all([
-      apiFetch(`/api/trades?${params}`).then(r => r.json()),
-      apiFetch('/api/accounts').then(r => r.json()),
-    ])
-    setTrades(tradesData)
-    setAccounts(accountsData)
+    const data = await apiFetch(`/api/trades?${params}`).then(r => r.json())
+    if (Array.isArray(data)) setTrades(data)
   }, [search, statusFilter, accountFilter])
 
+  useEffect(() => { loadAccounts() }, [loadAccounts])
   useEffect(() => { load() }, [load])
 
   const holding = trades.filter(t => !t.isCompleted)
@@ -105,7 +107,7 @@ export default function HomePage() {
           trade={editTrade}
           accounts={accounts}
           onClose={() => setShowModal(false)}
-          onSave={() => { setShowModal(false); load() }}
+          onSave={() => { setShowModal(false); load(); loadAccounts() }}
         />
       )}
     </div>
