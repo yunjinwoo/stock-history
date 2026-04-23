@@ -11,35 +11,60 @@ export async function GET(req: NextRequest) {
 
   const where: Prisma.TradeWhereInput = {}
   if (accountId) where.accountId = accountId
-  if (status === '보유중') where.sellDate = null
-  if (status === '매도완료') where.sellDate = { not: null }
   if (search) where.symbol = { contains: search }
 
-  const trades = await prisma.trade.findMany({ where, orderBy: { buyDate: 'desc' } })
-  return NextResponse.json(trades.map(enrichTrade))
+  const trades = await prisma.trade.findMany({
+    where,
+    include: { buyEntries: { orderBy: { date: 'asc' } }, sellEntries: { orderBy: { date: 'asc' } } },
+    orderBy: { createdAt: 'desc' },
+  })
+
+  let enriched = trades.map(enrichTrade)
+  if (status === '보유중') enriched = enriched.filter(t => !t.isCompleted)
+  if (status === '매도완료') enriched = enriched.filter(t => t.isCompleted)
+
+  return NextResponse.json(enriched)
 }
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { accountId, symbol, symbolCode, buyDate, buyPrice, buyQuantity,
-          sellDate, sellPrice, sellQuantity, comment } = body
+  const { accountId, symbol, symbolCode, comment, buyEntries = [], sellEntries = [] } = body
 
-  if (!accountId || !symbol || !buyDate || !buyPrice || !buyQuantity) {
-    return NextResponse.json({ error: '필수 항목이 누락되었습니다.' }, { status: 400 })
+  if (!accountId || !symbol || buyEntries.length === 0) {
+    return NextResponse.json({ error: '계좌, 종목명, 매수 내역은 필수입니다.' }, { status: 400 })
   }
+
   const now = new Date().toISOString()
   const trade = await prisma.trade.create({
     data: {
       id: crypto.randomUUID(),
-      accountId, symbol,
+      accountId,
+      symbol,
       symbolCode: symbolCode || null,
-      buyDate, buyPrice: Number(buyPrice), buyQuantity: Number(buyQuantity),
-      sellDate: sellDate || null,
-      sellPrice: sellPrice ? Number(sellPrice) : null,
-      sellQuantity: sellQuantity ? Number(sellQuantity) : null,
       comment: comment || null,
-      createdAt: now, updatedAt: now,
+      createdAt: now,
+      updatedAt: now,
+      buyEntries: {
+        create: buyEntries.map((e: { date: string; price: number; quantity: number }) => ({
+          id: crypto.randomUUID(),
+          date: e.date,
+          price: Number(e.price),
+          quantity: Number(e.quantity),
+          createdAt: now,
+        })),
+      },
+      sellEntries: {
+        create: sellEntries.map((e: { date: string; price: number; quantity: number }) => ({
+          id: crypto.randomUUID(),
+          date: e.date,
+          price: Number(e.price),
+          quantity: Number(e.quantity),
+          createdAt: now,
+        })),
+      },
     },
+    include: { buyEntries: true, sellEntries: true },
   })
+
   return NextResponse.json(enrichTrade(trade), { status: 201 })
 }

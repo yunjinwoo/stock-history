@@ -49,7 +49,8 @@ jobs:
             cd ~/stock-history/.next/standalone
 
             # DB 스키마 동기화 (prisma v6 전역 설치 필요 — 최초 서버 세팅 시 sudo npm install -g prisma@6)
-            prisma db push --schema=prisma/schema.prisma
+            # --accept-data-loss: 스키마 변경 시 컬럼 제거 허용 (SQLite 마이그레이션)
+            prisma db push --schema=prisma/schema.prisma --accept-data-loss
 
             # 기존 프로세스 재시작, 없으면 신규 시작
             pm2 restart stock-history || PORT=3002 pm2 start server.js --name "stock-history" --cwd ~/stock-history/.next/standalone

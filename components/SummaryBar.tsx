@@ -4,13 +4,13 @@ import type { Trade } from '@/lib/types'
 import { formatKRW, formatRate } from '@/lib/utils'
 
 export default function SummaryBar({ trades }: { trades: Trade[] }) {
-  const completed = trades.filter(t => t.sellDate && t.profitAmount !== undefined)
-  const totalProfit = completed.reduce((s, t) => s + (t.profitAmount ?? 0), 0)
+  const completed = trades.filter(t => t.isCompleted)
+  const totalProfit = completed.reduce((s, t) => s + t.profitAmount, 0)
   const avgRate = completed.length
-    ? completed.reduce((s, t) => s + (t.profitRate ?? 0), 0) / completed.length
+    ? completed.reduce((s, t) => s + t.profitRate, 0) / completed.length
     : 0
   const avgDays = trades.length
-    ? trades.reduce((s, t) => s + (t.holdingDays ?? 0), 0) / trades.length
+    ? trades.reduce((s, t) => s + t.holdingDays, 0) / trades.length
     : 0
 
   return (
@@ -22,7 +22,7 @@ export default function SummaryBar({ trades }: { trades: Trade[] }) {
       <div>
         <p className="text-gray-400 text-xs">총 손익</p>
         <p className={`font-semibold ${totalProfit >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
-          {totalProfit >= 0 ? '+' : ''}{formatKRW(totalProfit)}
+          {totalProfit >= 0 ? '+' : ''}{formatKRW(Math.round(totalProfit))}
         </p>
       </div>
       <div>

@@ -33,8 +33,8 @@ export default function HomePage() {
 
   useEffect(() => { load() }, [load])
 
-  const holding = trades.filter(t => !t.sellDate)
-  const completed = trades.filter(t => t.sellDate)
+  const holding = trades.filter(t => !t.isCompleted)
+  const completed = trades.filter(t => t.isCompleted)
 
   return (
     <div className="min-h-screen">

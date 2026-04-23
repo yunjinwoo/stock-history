@@ -19,18 +19,34 @@ model Account {
 }
 
 model Trade {
-  id           String   @id
-  accountId    String
-  symbol       String
-  symbolCode   String?
-  buyDate      String
-  buyPrice     Float
-  buyQuantity  Int
-  sellDate     String?
-  sellPrice    Float?
-  sellQuantity Int?
-  comment      String?
-  createdAt    String
-  updatedAt    String
-  account      Account  @relation(fields: [accountId], references: [id])
+  id          String      @id
+  accountId   String
+  symbol      String
+  symbolCode  String?
+  comment     String?
+  createdAt   String
+  updatedAt   String
+  account     Account     @relation(fields: [accountId], references: [id])
+  buyEntries  BuyEntry[]
+  sellEntries SellEntry[]
+}
+
+model BuyEntry {
+  id        String @id
+  tradeId   String
+  date      String
+  price     Float
+  quantity  Int
+  createdAt String
+  trade     Trade  @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+}
+
+model SellEntry {
+  id        String @id
+  tradeId   String
+  date      String
+  price     Float
+  quantity  Int
+  createdAt String
+  trade     Trade  @relation(fields: [tradeId], references: [id], onDelete: Cascade)
 }

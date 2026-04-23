@@ -13,33 +13,43 @@ interface Props {
   onSave: () => void
 }
 
+interface EntryRow {
+  key: string
+  date: string
+  time: string
+  price: string
+  quantity: string
+}
+
 interface FormState {
   accountId: string
   symbol: string
   symbolCode: string
-  buyDate: string
-  buyTime: string
-  buyPrice: string
-  buyQuantity: string
-  sellDate: string
-  sellTime: string
-  sellPrice: string
-  sellQuantity: string
   comment: string
+  buyEntries: EntryRow[]
+  sellEntries: EntryRow[]
 }
 
 function today() {
   return new Date().toISOString().slice(0, 10)
 }
 
-function toDateTimeStr(date: string, time: string) {
-  return time ? `${date}T${time}:00` : `${date}T00:00:00`
+function newRow(): EntryRow {
+  return { key: crypto.randomUUID(), date: today(), time: '', price: '', quantity: '' }
 }
 
-function splitDateTime(dt?: string | null) {
-  if (!dt) return { date: '', time: '' }
+function splitDateTime(dt: string): { date: string; time: string } {
   const [date, timePart] = dt.split('T')
   return { date: date ?? '', time: timePart ? timePart.slice(0, 5) : '' }
+}
+
+function toEntry(e: { date: string; price: number; quantity: number }): EntryRow {
+  const { date, time } = splitDateTime(e.date)
+  return { key: crypto.randomUUID(), date, time, price: e.price.toString(), quantity: e.quantity.toString() }
+}
+
+function toDateTimeStr(date: string, time: string) {
+  return time ? `${date}T${time}:00` : `${date}T00:00:00`
 }
 
 export default function TradeModal({ trade, accounts, onClose, onSave }: Props) {
@@ -47,67 +57,84 @@ export default function TradeModal({ trade, accounts, onClose, onSave }: Props) 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const buyDT = splitDateTime(trade?.buyDate)
-  const sellDT = splitDateTime(trade?.sellDate)
-
   const [form, setForm] = useState<FormState>({
     accountId: trade?.accountId ?? accounts[0]?.id ?? '',
     symbol: trade?.symbol ?? '',
     symbolCode: trade?.symbolCode ?? '',
-    buyDate: buyDT.date || today(),
-    buyTime: buyDT.time,
-    buyPrice: trade?.buyPrice?.toString() ?? '',
-    buyQuantity: trade?.buyQuantity?.toString() ?? '',
-    sellDate: sellDT.date,
-    sellTime: sellDT.time,
-    sellPrice: trade?.sellPrice?.toString() ?? '',
-    sellQuantity: trade?.sellQuantity?.toString() ?? '',
     comment: trade?.comment ?? '',
+    buyEntries: trade ? trade.buyEntries.map(toEntry) : [newRow()],
+    sellEntries: trade ? trade.sellEntries.map(toEntry) : [],
   })
 
-  function set(key: keyof FormState, value: string) {
+  function setField(key: keyof Omit<FormState, 'buyEntries' | 'sellEntries'>, value: string) {
     setForm(f => ({ ...f, [key]: value }))
   }
 
-  function handleParsed(parsed: ParsedTrade) {
-    const now = today()
+  function updateEntry(type: 'buyEntries' | 'sellEntries', rowKey: string, field: keyof EntryRow, value: string) {
     setForm(f => ({
       ...f,
-      symbol: parsed.symbol,
-      symbolCode: parsed.symbolCode ?? f.symbolCode,
-      ...(parsed.type === '매수'
-        ? { buyDate: now, buyTime: parsed.time ?? '', buyPrice: parsed.price.toString(), buyQuantity: parsed.quantity.toString() }
-        : { sellDate: now, sellTime: parsed.time ?? '', sellPrice: parsed.price.toString(), sellQuantity: parsed.quantity.toString() }
-      ),
+      [type]: f[type].map(r => r.key === rowKey ? { ...r, [field]: value } : r),
     }))
-    // 파싱 후 계좌 자동 매칭
-    if (parsed.accountNumber) {
-      const matched = accounts.find(a => a.accountNumber.includes(parsed.accountNumber!.replace(/\*/g, '').slice(0, 4)))
-      if (matched) setForm(f => ({ ...f, accountId: matched.id }))
+  }
+
+  function addEntry(type: 'buyEntries' | 'sellEntries') {
+    setForm(f => ({ ...f, [type]: [...f[type], newRow()] }))
+  }
+
+  function removeEntry(type: 'buyEntries' | 'sellEntries', rowKey: string) {
+    setForm(f => ({ ...f, [type]: f[type].filter(r => r.key !== rowKey) }))
+  }
+
+  function handleParsed(parsed: ParsedTrade) {
+    const row: EntryRow = {
+      key: crypto.randomUUID(),
+      date: today(),
+      time: parsed.time ?? '',
+      price: parsed.price.toString(),
+      quantity: parsed.quantity.toString(),
     }
+    setForm(f => {
+      const next = { ...f, symbol: parsed.symbol, symbolCode: parsed.symbolCode ?? f.symbolCode }
+      if (parsed.type === '매수') next.buyEntries = [...f.buyEntries, row]
+      else next.sellEntries = [...f.sellEntries, row]
+      if (parsed.accountNumber) {
+        const matched = accounts.find(a => a.accountNumber.includes(parsed.accountNumber!.replace(/\*/g, '').slice(0, 4)))
+        if (matched) next.accountId = matched.id
+      }
+      return next
+    })
     setTab('direct')
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-    if (!form.accountId || !form.symbol || !form.buyDate || !form.buyPrice || !form.buyQuantity) {
-      setError('계좌, 종목명, 매수 정보는 필수입니다.')
+    if (!form.accountId || !form.symbol || form.buyEntries.length === 0) {
+      setError('계좌, 종목명, 매수 내역은 필수입니다.')
       return
     }
+    const invalidBuy = form.buyEntries.find(r => !r.date || !r.price || !r.quantity)
+    if (invalidBuy) { setError('매수 내역의 날짜·단가·수량을 모두 입력해주세요.'); return }
+    const invalidSell = form.sellEntries.find(r => !r.date || !r.price || !r.quantity)
+    if (invalidSell) { setError('매도 내역의 날짜·단가·수량을 모두 입력해주세요.'); return }
+
     setSaving(true)
     try {
       const payload = {
         accountId: form.accountId,
         symbol: form.symbol.trim(),
         symbolCode: form.symbolCode.trim() || null,
-        buyDate: toDateTimeStr(form.buyDate, form.buyTime),
-        buyPrice: Number(form.buyPrice),
-        buyQuantity: Number(form.buyQuantity),
-        sellDate: form.sellDate ? toDateTimeStr(form.sellDate, form.sellTime) : null,
-        sellPrice: form.sellPrice ? Number(form.sellPrice) : null,
-        sellQuantity: form.sellQuantity ? Number(form.sellQuantity) : null,
         comment: form.comment.trim() || null,
+        buyEntries: form.buyEntries.map(r => ({
+          date: toDateTimeStr(r.date, r.time),
+          price: Number(r.price),
+          quantity: Number(r.quantity),
+        })),
+        sellEntries: form.sellEntries.map(r => ({
+          date: toDateTimeStr(r.date, r.time),
+          price: Number(r.price),
+          quantity: Number(r.quantity),
+        })),
       }
       const url = trade ? `/api/trades/${trade.id}` : '/api/trades'
       const method = trade ? 'PATCH' : 'POST'
@@ -121,6 +148,52 @@ export default function TradeModal({ trade, accounts, onClose, onSave }: Props) 
 
   const inputCls = 'border rounded px-2 py-1.5 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-400'
   const labelCls = 'text-xs text-gray-500 mb-0.5 block'
+
+  function EntrySection({ type, label, required }: { type: 'buyEntries' | 'sellEntries'; label: string; required?: boolean }) {
+    const entries = form[type]
+    return (
+      <fieldset className="border rounded-lg p-3 space-y-2">
+        <legend className={`text-xs font-medium px-1 ${required ? 'text-gray-600' : 'text-gray-400'}`}>
+          {label}{required ? ' *' : ' (선택)'}
+        </legend>
+
+        {entries.length === 0 && (
+          <p className="text-xs text-gray-400 text-center py-1">내역 없음</p>
+        )}
+
+        {entries.map((row, idx) => (
+          <div key={row.key} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end">
+            <div>
+              {idx === 0 && <label className={labelCls}>날짜</label>}
+              <input type="date" value={row.date} onChange={e => updateEntry(type, row.key, 'date', e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              {idx === 0 && <label className={labelCls}>단가 (원)</label>}
+              <input type="number" value={row.price} onChange={e => updateEntry(type, row.key, 'price', e.target.value)} className={inputCls} placeholder="75000" min="1" />
+            </div>
+            <div>
+              {idx === 0 && <label className={labelCls}>수량</label>}
+              <input type="number" value={row.quantity} onChange={e => updateEntry(type, row.key, 'quantity', e.target.value)} className={inputCls} placeholder="100" min="1" />
+            </div>
+            <button
+              type="button"
+              onClick={() => removeEntry(type, row.key)}
+              disabled={required && entries.length === 1}
+              className="text-red-400 hover:text-red-600 disabled:text-gray-200 pb-1 text-lg leading-none"
+            >×</button>
+          </div>
+        ))}
+
+        <button
+          type="button"
+          onClick={() => addEntry(type)}
+          className="text-xs text-blue-500 hover:text-blue-700 mt-1"
+        >
+          + {type === 'buyEntries' ? '매수' : '매도'} 추가
+        </button>
+      </fieldset>
+    )
+  }
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
@@ -149,7 +222,7 @@ export default function TradeModal({ trade, accounts, onClose, onSave }: Props) 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className={labelCls}>계좌 *</label>
-                <select value={form.accountId} onChange={e => set('accountId', e.target.value)} className={inputCls}>
+                <select value={form.accountId} onChange={e => setField('accountId', e.target.value)} className={inputCls}>
                   <option value="">계좌 선택</option>
                   {accounts.map(a => (
                     <option key={a.id} value={a.id}>{a.nickname || `${a.broker} ${a.accountNumber}`}</option>
@@ -160,63 +233,22 @@ export default function TradeModal({ trade, accounts, onClose, onSave }: Props) 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelCls}>종목명 *</label>
-                  <input value={form.symbol} onChange={e => set('symbol', e.target.value)} className={inputCls} placeholder="삼성전자" />
+                  <input value={form.symbol} onChange={e => setField('symbol', e.target.value)} className={inputCls} placeholder="삼성전자" />
                 </div>
                 <div>
                   <label className={labelCls}>종목코드</label>
-                  <input value={form.symbolCode} onChange={e => set('symbolCode', e.target.value)} className={inputCls} placeholder="005930" />
+                  <input value={form.symbolCode} onChange={e => setField('symbolCode', e.target.value)} className={inputCls} placeholder="005930" />
                 </div>
               </div>
 
-              <fieldset className="border rounded-lg p-3 space-y-3">
-                <legend className="text-xs font-medium text-gray-600 px-1">매수 정보 *</legend>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className={labelCls}>날짜</label>
-                    <input type="date" value={form.buyDate} onChange={e => set('buyDate', e.target.value)} className={inputCls} />
-                  </div>
-                  <div>
-                    <label className={labelCls}>시간</label>
-                    <input type="time" value={form.buyTime} onChange={e => set('buyTime', e.target.value)} className={inputCls} />
-                  </div>
-                  <div>
-                    <label className={labelCls}>수량</label>
-                    <input type="number" value={form.buyQuantity} onChange={e => set('buyQuantity', e.target.value)} className={inputCls} placeholder="100" min="1" />
-                  </div>
-                  <div>
-                    <label className={labelCls}>단가 (원)</label>
-                    <input type="number" value={form.buyPrice} onChange={e => set('buyPrice', e.target.value)} className={inputCls} placeholder="75000" min="1" />
-                  </div>
-                </div>
-              </fieldset>
-
-              <fieldset className="border rounded-lg p-3 space-y-3">
-                <legend className="text-xs font-medium text-gray-400 px-1">매도 정보 (선택)</legend>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className={labelCls}>날짜</label>
-                    <input type="date" value={form.sellDate} onChange={e => set('sellDate', e.target.value)} className={inputCls} />
-                  </div>
-                  <div>
-                    <label className={labelCls}>시간</label>
-                    <input type="time" value={form.sellTime} onChange={e => set('sellTime', e.target.value)} className={inputCls} />
-                  </div>
-                  <div>
-                    <label className={labelCls}>수량</label>
-                    <input type="number" value={form.sellQuantity} onChange={e => set('sellQuantity', e.target.value)} className={inputCls} placeholder="100" min="1" />
-                  </div>
-                  <div>
-                    <label className={labelCls}>단가 (원)</label>
-                    <input type="number" value={form.sellPrice} onChange={e => set('sellPrice', e.target.value)} className={inputCls} placeholder="82000" min="1" />
-                  </div>
-                </div>
-              </fieldset>
+              <EntrySection type="buyEntries" label="매수 내역" required />
+              <EntrySection type="sellEntries" label="매도 내역" />
 
               <div>
                 <label className={labelCls}>코멘트</label>
                 <textarea
                   value={form.comment}
-                  onChange={e => set('comment', e.target.value)}
+                  onChange={e => setField('comment', e.target.value)}
                   className={`${inputCls} h-20 resize-none`}
                   placeholder="매매 이유, 전략 등..."
                   maxLength={500}
