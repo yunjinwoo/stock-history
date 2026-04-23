@@ -2,6 +2,16 @@ import dayjs from 'dayjs'
 import type { Trade } from './types'
 import type { Trade as PrismaTrade, BuyEntry, SellEntry } from '@prisma/client'
 
+export function uuid(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16)
+  })
+}
+
 type TradeWithEntries = PrismaTrade & { buyEntries: BuyEntry[]; sellEntries: SellEntry[] }
 
 export function calcHoldingDays(from: string, to?: string | null): number {
