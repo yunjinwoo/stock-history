@@ -5,6 +5,7 @@ import type { Trade, Account } from '@/lib/types'
 import type { ParsedTrade } from '@/lib/kakaoParser'
 import KakaoParser from './KakaoParser'
 import { apiFetch } from '@/lib/api'
+import { uuid } from '@/lib/utils'
 
 interface Props {
   trade: Trade | null
@@ -35,7 +36,7 @@ function today() {
 }
 
 function newRow(): EntryRow {
-  return { key: crypto.randomUUID(), date: today(), time: '', price: '', quantity: '' }
+  return { key: uuid(), date: today(), time: '', price: '', quantity: '' }
 }
 
 function splitDateTime(dt: string): { date: string; time: string } {
@@ -45,7 +46,7 @@ function splitDateTime(dt: string): { date: string; time: string } {
 
 function toEntry(e: { date: string; price: number; quantity: number }): EntryRow {
   const { date, time } = splitDateTime(e.date)
-  return { key: crypto.randomUUID(), date, time, price: e.price.toString(), quantity: e.quantity.toString() }
+  return { key: uuid(), date, time, price: e.price.toString(), quantity: e.quantity.toString() }
 }
 
 function toDateTimeStr(date: string, time: string) {
@@ -87,7 +88,7 @@ export default function TradeModal({ trade, accounts, onClose, onSave }: Props) 
 
   function handleParsed(parsed: ParsedTrade) {
     const row: EntryRow = {
-      key: crypto.randomUUID(),
+      key: uuid(),
       date: today(),
       time: parsed.time ?? '',
       price: parsed.price.toString(),
