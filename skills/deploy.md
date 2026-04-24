@@ -100,10 +100,14 @@ sudo nginx -t && sudo systemctl reload nginx
 ssh $SERVER_USER@$SERVER_IP
 cd ~/stock-history
 npm install --omit=dev
-npx prisma db push
+prisma db push --schema=prisma/schema.prisma --accept-data-loss --skip-generate
 pm2 restart stock-history || pm2 start npm --name "stock-history" -- start
 pm2 save
 ```
+
+> **주의**: `npx prisma db push` 는 EACCES 권한 오류 발생.  
+> 전역 설치된 `prisma` 직접 사용 (`sudo npm install -g prisma@6` 로 설치된 것).  
+> 스키마 변경이 없으면 prisma 명령 자체가 불필요.
 
 ---
 
