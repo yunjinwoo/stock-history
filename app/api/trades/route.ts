@@ -30,8 +30,11 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   const { accountId, symbol, symbolCode, comment, buyEntries = [], sellEntries = [] } = body
 
-  if (!accountId || !symbol || buyEntries.length === 0) {
-    return NextResponse.json({ error: '계좌, 종목명, 매수 내역은 필수입니다.' }, { status: 400 })
+  if (!accountId || !symbol) {
+    return NextResponse.json({ error: '계좌와 종목명은 필수입니다.' }, { status: 400 })
+  }
+  if (buyEntries.length === 0 && sellEntries.length === 0) {
+    return NextResponse.json({ error: '매수 또는 매도 내역을 하나 이상 입력해주세요.' }, { status: 400 })
   }
 
   const now = new Date().toISOString()

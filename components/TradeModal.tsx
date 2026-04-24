@@ -10,6 +10,7 @@ import { uuid } from '@/lib/utils'
 interface Props {
   trade: Trade | null
   accounts: Account[]
+  defaultAccountId?: string
   onClose: () => void
   onSave: () => void
 }
@@ -53,17 +54,17 @@ function toDateTimeStr(date: string, time: string) {
   return time ? `${date}T${time}:00` : `${date}T00:00:00`
 }
 
-export default function TradeModal({ trade, accounts, onClose, onSave }: Props) {
+export default function TradeModal({ trade, accounts, defaultAccountId, onClose, onSave }: Props) {
   const [tab, setTab] = useState<'direct' | 'kakao'>('direct')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   const [form, setForm] = useState<FormState>({
-    accountId: trade?.accountId ?? accounts[0]?.id ?? '',
+    accountId: trade?.accountId ?? defaultAccountId ?? accounts[0]?.id ?? '',
     symbol: trade?.symbol ?? '',
     symbolCode: trade?.symbolCode ?? '',
     comment: trade?.comment ?? '',
-    buyEntries: trade ? trade.buyEntries.map(toEntry) : [newRow()],
+    buyEntries: trade ? trade.buyEntries.map(toEntry) : [],
     sellEntries: trade ? trade.sellEntries.map(toEntry) : [],
   })
 
@@ -110,14 +111,16 @@ export default function TradeModal({ trade, accounts, onClose, onSave }: Props) 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-    if (!form.accountId || !form.symbol || form.buyEntries.length === 0) {
-      setError('계좌, 종목명, 매수 내역은 필수입니다.')
+    if (!form.accountId || !form.symbol) {
+      setError('계좌와 종목명은 필수입니다.')
       return
     }
-    const invalidBuy = form.buyEntries.find(r => !r.date || !r.price || !r.quantity)
-    if (invalidBuy) { setError('매수 내역의 날짜·단가·수량을 모두 입력해주세요.'); return }
-    const invalidSell = form.sellEntries.find(r => !r.date || !r.price || !r.quantity)
-    if (invalidSell) { setError('매도 내역의 날짜·단가·수량을 모두 입력해주세요.'); return }
+    const validBuy = form.buyEntries.filter(r => r.date && r.price && r.quantity)
+    const validSell = form.sellEntries.filter(r => r.date && r.price && r.quantity)
+    if (validBuy.length === 0 && validSell.length === 0) {
+      setError('매수 또는 매도 내역을 하나 이상 입력해주세요.')
+      return
+    }
 
     setSaving(true)
     try {
@@ -126,12 +129,12 @@ export default function TradeModal({ trade, accounts, onClose, onSave }: Props) 
         symbol: form.symbol.trim(),
         symbolCode: form.symbolCode.trim() || null,
         comment: form.comment.trim() || null,
-        buyEntries: form.buyEntries.map(r => ({
+        buyEntries: validBuy.map(r => ({
           date: toDateTimeStr(r.date, r.time),
           price: Number(r.price),
           quantity: Number(r.quantity),
         })),
-        sellEntries: form.sellEntries.map(r => ({
+        sellEntries: validSell.map(r => ({
           date: toDateTimeStr(r.date, r.time),
           price: Number(r.price),
           quantity: Number(r.quantity),
@@ -247,8 +250,8 @@ export default function TradeModal({ trade, accounts, onClose, onSave }: Props) 
                 </div>
               </div>
 
-              <EntrySection type="buyEntries" label="매수 내역" required />
               <EntrySection type="sellEntries" label="매도 내역" />
+              <EntrySection type="buyEntries" label="매수 내역" />
 
               <div>
                 <label className={labelCls}>코멘트</label>

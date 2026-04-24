@@ -75,6 +75,18 @@ export default function TradeHistory({ trades, accounts, onEdit, onDelete }: Pro
                           <>
                             <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full">보유중 {trade.holdingDays}일</span>
                             <span className="text-xs text-gray-500">잔여 {trade.remainingQuantity}주</span>
+                            {trade.sellEntries.length > 0 && (
+                              <>
+                                <span className="text-gray-300 text-xs">|</span>
+                                <span className="text-xs text-gray-400">일부매도</span>
+                                <span className={`text-xs font-medium ${trade.profitAmount >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                                  {(trade.profitAmount >= 0 ? '+' : '') + formatKRW(Math.round(trade.profitAmount))}
+                                </span>
+                                <span className={`text-xs ${trade.profitAmount >= 0 ? 'text-red-400' : 'text-blue-400'}`}>
+                                  {formatRate(trade.profitRate)}
+                                </span>
+                              </>
+                            )}
                           </>
                         ) : (
                           <>

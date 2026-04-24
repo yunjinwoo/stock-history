@@ -30,7 +30,7 @@ export function enrichTrade(t: TradeWithEntries): Trade {
   const isCompleted = totalBuyQuantity > 0 && remainingQuantity <= 0
 
   const profitAmount = totalSellAmount - avgBuyPrice * totalSellQuantity
-  const profitRate = totalSellQuantity > 0
+  const profitRate = totalSellQuantity > 0 && avgBuyPrice > 0
     ? (profitAmount / (avgBuyPrice * totalSellQuantity)) * 100
     : 0
 
@@ -61,6 +61,7 @@ export function formatKRW(n: number): string {
   return n.toLocaleString('ko-KR') + '원'
 }
 
-export function formatRate(n: number): string {
+export function formatRate(n: number | null | undefined): string {
+  if (n == null || !isFinite(n)) return '-'
   return (n >= 0 ? '+' : '') + n.toFixed(1) + '%'
 }
