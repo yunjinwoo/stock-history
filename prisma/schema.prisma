@@ -31,6 +31,14 @@ model Trade {
   sellEntries SellEntry[]
 }
 
+model Memo {
+  id          String  @id
+  content     String
+  showOnMain  Boolean @default(true)
+  createdAt   String
+  updatedAt   String
+}
+
 model BuyEntry {
   id        String @id
   tradeId   String
