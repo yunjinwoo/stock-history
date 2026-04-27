@@ -36,11 +36,18 @@ export default function TradeCalendar({ trades, onEdit, onDelete }: Props) {
     return map
   }, [trades])
 
-  const monthTotal = useMemo(() => {
-    const prefix = `${year}-${String(month + 1).padStart(2, '0')}-`
-    return Object.entries(byDate)
-      .filter(([d]) => d.startsWith(prefix))
-      .reduce((s, [, ts]) => s + ts.reduce((ss, t) => ss + t.profitAmount, 0), 0)
+  const recentMonths = useMemo(() => {
+    return Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(year, month - (5 - i), 1)
+      const y = d.getFullYear()
+      const m = d.getMonth()
+      const prefix = `${y}-${String(m + 1).padStart(2, '0')}-`
+      const monthTrades = Object.entries(byDate)
+        .filter(([d]) => d.startsWith(prefix))
+        .flatMap(([, ts]) => ts)
+      const total = monthTrades.reduce((s, t) => s + t.profitAmount, 0)
+      return { year: y, month: m, label: `${m + 1}월`, total, count: monthTrades.length }
+    })
   }, [byDate, year, month])
 
   // Build calendar grid (Mon-start)
@@ -72,17 +79,38 @@ export default function TradeCalendar({ trades, onEdit, onDelete }: Props) {
 
   return (
     <div className="space-y-4 max-w-2xl mx-auto">
+      {/* 최근 6개월 실현손익 */}
+      <div className="rounded-lg border bg-white overflow-hidden">
+        <div className="grid grid-cols-6 divide-x">
+          {recentMonths.map((m) => {
+            const isCurrent = m.year === year && m.month === month
+            const isPos = m.total >= 0
+            return (
+              <button
+                key={`${m.year}-${m.month}`}
+                onClick={() => { setYear(m.year); setMonth(m.month); setSelectedDate(null) }}
+                className={`px-2 py-3 text-center transition-colors hover:bg-gray-50 ${isCurrent ? 'bg-gray-50' : ''}`}
+              >
+                <p className={`text-xs mb-1 ${isCurrent ? 'font-semibold text-gray-800' : 'text-gray-400'}`}>{m.label}</p>
+                {m.count === 0
+                  ? <p className="text-xs text-gray-300">-</p>
+                  : <>
+                      <p className={`text-xs font-medium ${isPos ? 'text-red-500' : 'text-blue-500'}`}>
+                        {isPos ? '+' : ''}{formatKRW(Math.round(m.total))}
+                      </p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">{m.count}건</p>
+                    </>
+                }
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
       {/* 월 네비게이션 */}
       <div className="flex items-center justify-between">
         <button onClick={prevMonth} className="px-3 py-1.5 text-gray-400 hover:text-gray-700 text-lg">‹</button>
-        <div className="text-center">
-          <span className="font-semibold">{year}년 {month + 1}월</span>
-          {monthTotal !== 0 && (
-            <span className={`ml-2 text-sm font-medium ${monthTotal >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
-              {monthTotal >= 0 ? '+' : ''}{formatKRW(Math.round(monthTotal))}
-            </span>
-          )}
-        </div>
+        <span className="font-semibold">{year}년 {month + 1}월</span>
         <button onClick={nextMonth} className="px-3 py-1.5 text-gray-400 hover:text-gray-700 text-lg">›</button>
       </div>
 
