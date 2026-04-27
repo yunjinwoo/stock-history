@@ -21,6 +21,7 @@ function firstEntryDate(trade: Trade): string {
 
 export default function TradeHistory({ trades, accounts, onEdit, onDelete }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [simPrices, setSimPrices] = useState<Record<string, string>>({})
 
   function toggle(id: string) {
     setExpanded(prev => {
@@ -28,6 +29,14 @@ export default function TradeHistory({ trades, accounts, onEdit, onDelete }: Pro
       next.has(id) ? next.delete(id) : next.add(id)
       return next
     })
+  }
+
+  function calcSim(trade: Trade, priceStr: string) {
+    const price = Number(priceStr.replace(/,/g, ''))
+    if (!price || price <= 0) return null
+    const profit = (price - trade.avgBuyPrice) * trade.remainingQuantity
+    const rate = (profit / (trade.avgBuyPrice * trade.remainingQuantity)) * 100
+    return { profit, rate }
   }
 
   if (trades.length === 0) return (
@@ -153,6 +162,39 @@ export default function TradeHistory({ trades, accounts, onEdit, onDelete }: Pro
                     </table>}
                     {isExpanded && trade.comment && (
                       <div className="px-4 py-1.5 text-xs text-gray-400 border-t bg-gray-50">💬 {trade.comment}</div>
+                    )}
+                    {isExpanded && !trade.isCompleted && (
+                      <div className="px-4 py-3 border-t bg-gray-50">
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <span className="text-xs text-gray-400 whitespace-nowrap">예상 매도가</span>
+                          <input
+                            type="number"
+                            value={simPrices[trade.id] ?? ''}
+                            onChange={e => setSimPrices(p => ({ ...p, [trade.id]: e.target.value }))}
+                            placeholder={String(Math.round(trade.avgBuyPrice))}
+                            className="border rounded px-2 py-1 text-sm w-36 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                            min="1"
+                          />
+                          {(() => {
+                            const sim = calcSim(trade, simPrices[trade.id] ?? '')
+                            if (!sim) return <span className="text-xs text-gray-300">가격을 입력하면 예상 손익이 표시됩니다</span>
+                            const isP = sim.profit >= 0
+                            return (
+                              <div className="flex items-center gap-2">
+                                <span className={`text-sm font-semibold ${isP ? 'text-red-500' : 'text-blue-500'}`}>
+                                  {(isP ? '+' : '') + formatKRW(Math.round(sim.profit))}
+                                </span>
+                                <span className={`text-xs ${isP ? 'text-red-400' : 'text-blue-400'}`}>
+                                  {formatRate(sim.rate)}
+                                </span>
+                                <span className="text-xs text-gray-400">
+                                  ({trade.remainingQuantity}주 기준)
+                                </span>
+                              </div>
+                            )
+                          })()}
+                        </div>
+                      </div>
                     )}
                   </div>
                 )
