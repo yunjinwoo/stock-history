@@ -7,12 +7,16 @@ import { apiFetch } from '@/lib/api'
 import TradeCard from '@/components/TradeCard'
 import TradeHistory from '@/components/TradeHistory'
 import TradeCalendar from '@/components/TradeCalendar'
+import MemoStrip from '@/components/MemoStrip'
 import SummaryBar from '@/components/SummaryBar'
 import TradeModal from '@/components/TradeModal'
+
+interface Memo { id: string; content: string; showOnMain: boolean }
 
 export default function HomePage() {
   const [trades, setTrades] = useState<Trade[]>([])
   const [accounts, setAccounts] = useState<Account[]>([])
+  const [memos, setMemos] = useState<Memo[]>([])
   const [showModal, setShowModal] = useState(false)
   const [editTrade, setEditTrade] = useState<Trade | null>(null)
   const [search, setSearch] = useState('')
@@ -23,6 +27,11 @@ export default function HomePage() {
   const loadAccounts = useCallback(async () => {
     const data = await apiFetch('/api/accounts').then(r => r.json())
     if (Array.isArray(data)) setAccounts(data)
+  }, [])
+
+  const loadMemos = useCallback(async () => {
+    const data = await apiFetch('/api/memos').then(r => r.json())
+    if (Array.isArray(data)) setMemos(data)
   }, [])
 
   const load = useCallback(async () => {
@@ -37,6 +46,7 @@ export default function HomePage() {
 
   useEffect(() => { loadAccounts() }, [loadAccounts])
   useEffect(() => { load() }, [load])
+  useEffect(() => { loadMemos() }, [loadMemos])
 
   const holding = trades.filter(t => !t.isCompleted)
   const completed = trades.filter(t => t.isCompleted)
@@ -51,6 +61,7 @@ export default function HomePage() {
             <button onClick={() => setViewMode('card')} className={`text-xs px-2 py-1.5 ${viewMode === 'card' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>▦ 카드</button>
             <button onClick={() => setViewMode('calendar')} className={`text-xs px-2 py-1.5 ${viewMode === 'calendar' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>📅 캘린더</button>
           </div>
+          <Link href="/memos" className="text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">메모</Link>
           <Link href="/accounts" className="text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">계좌관리</Link>
           <button
             onClick={() => { setEditTrade(null); setShowModal(true) }}
@@ -63,6 +74,7 @@ export default function HomePage() {
 
       <div className="px-4 py-4 space-y-3">
         <div className="max-w-2xl mx-auto space-y-3">
+          <MemoStrip memos={memos} />
           <SummaryBar trades={trades} />
 
           <div className="flex gap-2 flex-wrap">

@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import type { Trade, Account } from '@/lib/types'
 import { formatKRW, formatRate } from '@/lib/utils'
 
@@ -19,6 +20,16 @@ function firstEntryDate(trade: Trade): string {
 }
 
 export default function TradeHistory({ trades, accounts, onEdit, onDelete }: Props) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+
+  function toggle(id: string) {
+    setExpanded(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
   if (trades.length === 0) return (
     <p className="text-center text-gray-400 py-16 text-sm">거래 기록이 없습니다<br/>새 거래를 입력해보세요</p>
   )
@@ -59,10 +70,15 @@ export default function TradeHistory({ trades, accounts, onEdit, onDelete }: Pro
 
                 const isPos = trade.profitAmount >= 0
 
+                const isExpanded = expanded.has(trade.id)
+
                 return (
                   <div key={trade.id} className="rounded-lg border bg-white overflow-hidden">
                     {/* 종목 헤더 */}
-                    <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b">
+                    <div
+                      className="flex items-center justify-between px-4 py-2 bg-gray-50 cursor-pointer select-none"
+                      onClick={() => toggle(trade.id)}
+                    >
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{trade.symbol}</span>
                         {trade.symbolCode && <span className="text-gray-400 text-xs">({trade.symbolCode})</span>}
@@ -98,16 +114,17 @@ export default function TradeHistory({ trades, accounts, onEdit, onDelete }: Pro
                             </span>
                           </>
                         )}
-                        <button onClick={() => onEdit(trade)} className="text-xs text-gray-400 hover:text-gray-700 px-2 py-0.5 border rounded">수정</button>
+                        <button onClick={e => { e.stopPropagation(); onEdit(trade) }} className="text-xs text-gray-400 hover:text-gray-700 px-2 py-0.5 border rounded">수정</button>
                         <button
-                          onClick={() => { if (confirm(`"${trade.symbol}" 거래를 삭제하시겠습니까?`)) onDelete(trade) }}
+                          onClick={e => { e.stopPropagation(); if (confirm(`"${trade.symbol}" 거래를 삭제하시겠습니까?`)) onDelete(trade) }}
                           className="text-xs text-red-300 hover:text-red-500 px-2 py-0.5 border border-red-100 rounded"
                         >삭제</button>
+                        <span className="text-gray-300 text-xs ml-1">{isExpanded ? '▲' : '▼'}</span>
                       </div>
                     </div>
 
-                    {/* 거래 내역 */}
-                    <table className="w-full text-sm">
+                    {/* 거래 내역 (접기/펼치기) */}
+                    {isExpanded && <table className="w-full text-sm border-t">
                       <thead>
                         <tr className="text-xs text-gray-400 border-b bg-gray-50">
                           <th className="px-4 py-1.5 text-center font-normal w-24">구분</th>
@@ -133,8 +150,8 @@ export default function TradeHistory({ trades, accounts, onEdit, onDelete }: Pro
                         ))}
                       </tbody>
 
-                    </table>
-                    {trade.comment && (
+                    </table>}
+                    {isExpanded && trade.comment && (
                       <div className="px-4 py-1.5 text-xs text-gray-400 border-t bg-gray-50">💬 {trade.comment}</div>
                     )}
                   </div>

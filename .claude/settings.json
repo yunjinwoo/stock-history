@@ -5,6 +5,9 @@
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
       "Bash(npx tsc *)"
+    ],
+    "additionalDirectories": [
+      "d:\\_JINWOO\\antigravity\\stock-history\\app\\api\\memos"
     ]
   }
 }
