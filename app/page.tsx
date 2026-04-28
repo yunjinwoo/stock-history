@@ -61,6 +61,7 @@ export default function HomePage() {
             <button onClick={() => setViewMode('card')} className={`text-xs px-2 py-1.5 ${viewMode === 'card' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>▦ 카드</button>
             <button onClick={() => setViewMode('calendar')} className={`text-xs px-2 py-1.5 ${viewMode === 'calendar' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>📅 캘린더</button>
           </div>
+          <Link href="/coins" className="text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">코인</Link>
           <Link href="/memos" className="text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">메모</Link>
           <Link href="/accounts" className="text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">계좌관리</Link>
           <button

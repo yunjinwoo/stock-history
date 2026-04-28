@@ -31,6 +31,36 @@ model Trade {
   sellEntries SellEntry[]
 }
 
+model CoinTrade {
+  id          String           @id
+  symbol      String
+  comment     String?
+  createdAt   String
+  updatedAt   String
+  buyEntries  CoinBuyEntry[]
+  sellEntries CoinSellEntry[]
+}
+
+model CoinBuyEntry {
+  id        String    @id
+  tradeId   String
+  date      String
+  price     Float
+  quantity  Float
+  createdAt String
+  trade     CoinTrade @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+}
+
+model CoinSellEntry {
+  id        String    @id
+  tradeId   String
+  date      String
+  price     Float
+  quantity  Float
+  createdAt String
+  trade     CoinTrade @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+}
+
 model Memo {
   id          String  @id
   content     String
