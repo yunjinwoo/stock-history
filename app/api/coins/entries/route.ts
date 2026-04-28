@@ -20,10 +20,13 @@ export async function POST(req: NextRequest) {
 
   let trade
   if (existing) {
-    const table = type === '매수' ? prisma.coinBuyEntry : prisma.coinSellEntry
-    const dup = await table.findFirst({ where: { tradeId: existing.id, date, price: p, quantity: q } })
+    const dupWhere = { tradeId: existing.id, date, price: p, quantity: q }
+    const dup = type === '매수'
+      ? await prisma.coinBuyEntry.findFirst({ where: dupWhere })
+      : await prisma.coinSellEntry.findFirst({ where: dupWhere })
     if (!dup) {
-      await table.create({ data: { ...entry, tradeId: existing.id } })
+      if (type === '매수') await prisma.coinBuyEntry.create({ data: { ...entry, tradeId: existing.id } })
+      else await prisma.coinSellEntry.create({ data: { ...entry, tradeId: existing.id } })
       await prisma.coinTrade.update({ where: { id: existing.id }, data: { updatedAt: now } })
     }
     trade = await prisma.coinTrade.findUnique({
