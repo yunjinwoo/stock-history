@@ -26,6 +26,32 @@ export interface SellEntry {
   createdAt: string
 }
 
+export interface CoinBuyEntry {
+  id: string; tradeId: string; date: string; price: number; quantity: number; createdAt: string
+}
+export interface CoinSellEntry {
+  id: string; tradeId: string; date: string; price: number; quantity: number; createdAt: string
+}
+export interface CoinTrade {
+  id: string
+  symbol: string
+  comment?: string | null
+  createdAt: string
+  updatedAt: string
+  buyEntries: CoinBuyEntry[]
+  sellEntries: CoinSellEntry[]
+  avgBuyPrice: number
+  totalBuyQuantity: number
+  totalSellQuantity: number
+  remainingQuantity: number
+  totalBuyAmount: number
+  totalSellAmount: number
+  profitAmount: number
+  profitRate: number
+  holdingDays: number
+  isCompleted: boolean
+}
+
 export interface Trade {
   id: string
   accountId: string

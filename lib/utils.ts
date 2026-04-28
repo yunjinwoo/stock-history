@@ -1,6 +1,7 @@
 import dayjs from 'dayjs'
 import type { Trade } from './types'
-import type { Trade as PrismaTrade, BuyEntry, SellEntry } from '@prisma/client'
+import type { Trade as PrismaTrade, BuyEntry, SellEntry, CoinTrade as PrismaCoinTrade, CoinBuyEntry, CoinSellEntry } from '@prisma/client'
+import type { CoinTrade } from './types'
 
 export function uuid(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -53,6 +54,46 @@ export function enrichTrade(t: TradeWithEntries): Trade {
     profitAmount,
     profitRate,
     holdingDays,
+    isCompleted,
+  }
+}
+
+type CoinTradeWithEntries = PrismaCoinTrade & { buyEntries: CoinBuyEntry[]; sellEntries: CoinSellEntry[] }
+
+export function enrichCoinTrade(t: CoinTradeWithEntries): CoinTrade {
+  const totalBuyQuantity = t.buyEntries.reduce((s, e) => s + e.quantity, 0)
+  const totalBuyAmount = t.buyEntries.reduce((s, e) => s + e.price * e.quantity, 0)
+  const avgBuyPrice = totalBuyQuantity > 0 ? totalBuyAmount / totalBuyQuantity : 0
+
+  const totalSellQuantity = t.sellEntries.reduce((s, e) => s + e.quantity, 0)
+  const totalSellAmount = t.sellEntries.reduce((s, e) => s + e.price * e.quantity, 0)
+
+  const remainingQuantity = totalBuyQuantity - totalSellQuantity
+  const isCompleted = totalBuyQuantity > 0 && remainingQuantity <= 0
+
+  const profitAmount = totalSellAmount - avgBuyPrice * totalSellQuantity
+  const profitRate = totalSellQuantity > 0 && avgBuyPrice > 0
+    ? (profitAmount / (avgBuyPrice * totalSellQuantity)) * 100
+    : 0
+
+  const firstBuy = t.buyEntries.length > 0
+    ? t.buyEntries.reduce((min, e) => e.date < min ? e.date : min, t.buyEntries[0].date)
+    : t.createdAt
+  const lastSell = isCompleted && t.sellEntries.length > 0
+    ? t.sellEntries.reduce((max, e) => e.date > max ? e.date : max, t.sellEntries[0].date)
+    : null
+
+  return {
+    ...t,
+    avgBuyPrice,
+    totalBuyQuantity,
+    totalSellQuantity,
+    remainingQuantity,
+    totalBuyAmount,
+    totalSellAmount,
+    profitAmount,
+    profitRate,
+    holdingDays: calcHoldingDays(firstBuy, lastSell),
     isCompleted,
   }
 }

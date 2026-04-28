@@ -7,7 +7,8 @@
       "Bash(npx tsc *)"
     ],
     "additionalDirectories": [
-      "d:\\_JINWOO\\antigravity\\stock-history\\app\\api\\memos"
+      "d:\\_JINWOO\\antigravity\\stock-history\\app\\api\\memos",
+      "d:\\_JINWOO\\antigravity\\stock-history\\app\\api\\coins"
     ]
   }
 }
