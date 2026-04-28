@@ -38,7 +38,7 @@ function parseDateTime(s: string): string {
 function parsePastedText(text: string): ParsedEntry[] {
   // 헤더 행 제거 후 줄 단위로 분리
   const lines = text
-    .replace(/체결시간.*?주문시간/s, '')
+    .replace(/체결시간[\s\S]*?주문시간/, '')
     .split('\n')
     .map(l => l.trim())
     .filter(Boolean)
