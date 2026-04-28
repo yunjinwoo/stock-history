@@ -9,10 +9,16 @@ import CoinModal from '@/components/CoinModal'
 
 export default function CoinsPage() {
   const [trades, setTrades] = useState<CoinTrade[]>([])
+  const [allSymbols, setAllSymbols] = useState<string[]>([])
   const [showModal, setShowModal] = useState(false)
   const [editTrade, setEditTrade] = useState<CoinTrade | null>(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+
+  const loadSymbols = useCallback(async () => {
+    const data = await apiFetch('/api/coins').then(r => r.json())
+    if (Array.isArray(data)) setAllSymbols([...new Set((data as CoinTrade[]).map(t => t.symbol))])
+  }, [])
 
   const load = useCallback(async () => {
     const params = new URLSearchParams()
@@ -22,6 +28,7 @@ export default function CoinsPage() {
     if (Array.isArray(data)) setTrades(data)
   }, [search, statusFilter])
 
+  useEffect(() => { loadSymbols() }, [loadSymbols])
   useEffect(() => { load() }, [load])
 
   const holding = trades.filter(t => !t.isCompleted)
@@ -38,7 +45,7 @@ export default function CoinsPage() {
             onClick={() => { setEditTrade(null); setShowModal(true) }}
             className="bg-blue-600 text-white text-sm px-3 py-1.5 rounded hover:bg-blue-700"
           >
-            + 새 거래
+            + 내역 추가
           </button>
         </div>
       </header>
@@ -90,7 +97,8 @@ export default function CoinsPage() {
         <CoinModal
           trade={editTrade}
           onClose={() => setShowModal(false)}
-          onSave={() => { setShowModal(false); load() }}
+          onSave={() => { setShowModal(false); load(); loadSymbols() }}
+          symbols={allSymbols}
         />
       )}
     </div>

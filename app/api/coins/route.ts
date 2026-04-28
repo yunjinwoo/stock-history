@@ -32,16 +32,27 @@ export async function POST(req: NextRequest) {
   const makeEntries = (entries: { date: string; price: number; quantity: number }[]) =>
     entries.map(e => ({ id: uuid(), date: e.date, price: Number(e.price), quantity: Number(e.quantity), createdAt: now }))
 
-  const trade = await prisma.coinTrade.create({
-    data: {
-      id: uuid(), symbol,
-      comment: comment || null,
-      createdAt: now, updatedAt: now,
-      buyEntries: { create: makeEntries(buyEntries) },
-      sellEntries: { create: makeEntries(sellEntries) },
-    },
-    include: { buyEntries: true, sellEntries: true },
-  })
+  const existing = await prisma.coinTrade.findFirst({ where: { symbol } })
 
-  return NextResponse.json(enrichCoinTrade(trade), { status: 201 })
+  let trade
+  if (existing) {
+    await prisma.coinBuyEntry.createMany({ data: makeEntries(buyEntries).map(e => ({ ...e, tradeId: existing.id })) })
+    await prisma.coinSellEntry.createMany({ data: makeEntries(sellEntries).map(e => ({ ...e, tradeId: existing.id })) })
+    await prisma.coinTrade.update({ where: { id: existing.id }, data: { updatedAt: now } })
+    trade = await prisma.coinTrade.findUnique({
+      where: { id: existing.id },
+      include: { buyEntries: { orderBy: { date: 'asc' } }, sellEntries: { orderBy: { date: 'asc' } } },
+    })
+  } else {
+    trade = await prisma.coinTrade.create({
+      data: {
+        id: uuid(), symbol, comment: comment || null, createdAt: now, updatedAt: now,
+        buyEntries: { create: makeEntries(buyEntries) },
+        sellEntries: { create: makeEntries(sellEntries) },
+      },
+      include: { buyEntries: true, sellEntries: true },
+    })
+  }
+
+  return NextResponse.json(enrichCoinTrade(trade!), { status: 201 })
 }
