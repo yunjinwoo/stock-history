@@ -32,13 +32,24 @@ export async function POST(req: NextRequest) {
   const makeEntries = (entries: { date: string; price: number; quantity: number }[]) =>
     entries.map(e => ({ id: uuid(), date: e.date, price: Number(e.price), quantity: Number(e.quantity), createdAt: now }))
 
-  const existing = await prisma.coinTrade.findFirst({ where: { symbol } })
+  const existing = await prisma.coinTrade.findFirst({
+    where: { symbol },
+    include: { buyEntries: true, sellEntries: true },
+  })
+
+  const isDupBuy = (e: { date: string; price: number; quantity: number }) =>
+    existing?.buyEntries.some(x => x.date === e.date && x.price === e.price && x.quantity === e.quantity) ?? false
+  const isDupSell = (e: { date: string; price: number; quantity: number }) =>
+    existing?.sellEntries.some(x => x.date === e.date && x.price === e.price && x.quantity === e.quantity) ?? false
 
   let trade
   if (existing) {
-    await prisma.coinBuyEntry.createMany({ data: makeEntries(buyEntries).map(e => ({ ...e, tradeId: existing.id })) })
-    await prisma.coinSellEntry.createMany({ data: makeEntries(sellEntries).map(e => ({ ...e, tradeId: existing.id })) })
-    await prisma.coinTrade.update({ where: { id: existing.id }, data: { updatedAt: now } })
+    const newBuys = makeEntries(buyEntries).filter(e => !isDupBuy(e))
+    const newSells = makeEntries(sellEntries).filter(e => !isDupSell(e))
+    if (newBuys.length > 0) await prisma.coinBuyEntry.createMany({ data: newBuys.map(e => ({ ...e, tradeId: existing.id })) })
+    if (newSells.length > 0) await prisma.coinSellEntry.createMany({ data: newSells.map(e => ({ ...e, tradeId: existing.id })) })
+    if (newBuys.length > 0 || newSells.length > 0)
+      await prisma.coinTrade.update({ where: { id: existing.id }, data: { updatedAt: now } })
     trade = await prisma.coinTrade.findUnique({
       where: { id: existing.id },
       include: { buyEntries: { orderBy: { date: 'asc' } }, sellEntries: { orderBy: { date: 'asc' } } },

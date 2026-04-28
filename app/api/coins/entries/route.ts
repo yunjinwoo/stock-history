@@ -12,18 +12,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '구분은 매수 또는 매도여야 합니다.' }, { status: 400 })
 
   const now = new Date().toISOString()
-  const entry = { id: uuid(), date, price: Number(price), quantity: Number(quantity), createdAt: now }
+  const p = Number(price)
+  const q = Number(quantity)
+  const entry = { id: uuid(), date, price: p, quantity: q, createdAt: now }
 
   const existing = await prisma.coinTrade.findFirst({ where: { symbol } })
 
   let trade
   if (existing) {
-    if (type === '매수') {
-      await prisma.coinBuyEntry.create({ data: { ...entry, tradeId: existing.id } })
-    } else {
-      await prisma.coinSellEntry.create({ data: { ...entry, tradeId: existing.id } })
+    const table = type === '매수' ? prisma.coinBuyEntry : prisma.coinSellEntry
+    const dup = await table.findFirst({ where: { tradeId: existing.id, date, price: p, quantity: q } })
+    if (!dup) {
+      await table.create({ data: { ...entry, tradeId: existing.id } })
+      await prisma.coinTrade.update({ where: { id: existing.id }, data: { updatedAt: now } })
     }
-    await prisma.coinTrade.update({ where: { id: existing.id }, data: { updatedAt: now } })
     trade = await prisma.coinTrade.findUnique({
       where: { id: existing.id },
       include: { buyEntries: { orderBy: { date: 'asc' } }, sellEntries: { orderBy: { date: 'asc' } } },
