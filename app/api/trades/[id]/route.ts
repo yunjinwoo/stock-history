@@ -13,6 +13,15 @@ export async function PATCH(
   const { accountId, symbol, symbolCode, comment, buyEntries = [], sellEntries = [] } = body
   const now = new Date().toISOString()
 
+  if (symbolCode) {
+    const master = await prisma.stockMaster.findUnique({ where: { symbol } })
+    if (!master) {
+      await prisma.stockMaster.create({
+        data: { id: crypto.randomUUID(), symbol, symbolCode, createdAt: now, updatedAt: now },
+      })
+    }
+  }
+
   const trade = await prisma.$transaction(async (tx) => {
     await tx.buyEntry.deleteMany({ where: { tradeId: id } })
     await tx.sellEntry.deleteMany({ where: { tradeId: id } })

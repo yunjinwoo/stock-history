@@ -17,11 +17,11 @@ export default function MemoStrip({ memos, page }: Props) {
   if (visible.length === 0) return null
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="grid grid-cols-2 gap-2">
       {visible.map(m => (
         <div
           key={m.id}
-          className="bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-xs text-yellow-800 max-w-[240px] whitespace-pre-wrap break-words"
+          className="bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-xs text-yellow-800 whitespace-pre-wrap break-words"
         >
           {m.content}
         </div>

@@ -41,11 +41,21 @@ export async function POST(req: NextRequest) {
   const makeEntries = (entries: { date: string; price: number; quantity: number }[]) =>
     entries.map(e => ({ id: crypto.randomUUID(), date: e.date, price: Number(e.price), quantity: Number(e.quantity), createdAt: now }))
 
+  const master = await prisma.stockMaster.findUnique({ where: { symbol } })
+  const resolvedCode = symbolCode || master?.symbolCode || null
+
+  // 파싱으로 종목코드가 넘어왔고 마스터에 없으면 자동 등록
+  if (symbolCode && !master) {
+    await prisma.stockMaster.create({
+      data: { id: crypto.randomUUID(), symbol, symbolCode, createdAt: now, updatedAt: now },
+    })
+  }
+
   const trade = await prisma.trade.create({
     data: {
       id: crypto.randomUUID(),
       accountId, symbol,
-      symbolCode: symbolCode || null,
+      symbolCode: resolvedCode,
       comment: comment || null,
       createdAt: now, updatedAt: now,
       buyEntries: { create: makeEntries(buyEntries) },
