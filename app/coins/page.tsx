@@ -51,6 +51,7 @@ export default function CoinsPage() {
         <h1 className="text-lg font-bold">코인 매매일지</h1>
         <div className="flex gap-2">
           <Link href="/" className="text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">주식</Link>
+          <Link href="/memos" className="text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">메모</Link>
           <button
             onClick={() => { setEditTrade(null); setShowModal(true) }}
             className="bg-blue-600 text-white text-sm px-3 py-1.5 rounded hover:bg-blue-700"
