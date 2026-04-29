@@ -9,7 +9,8 @@
       "Bash(git diff *)",
       "Bash(npx tsc *)",
       "Bash(rm *)",
-      "PowerShell(& \"C:\\Program Files\\GitHub CLI\\gh.exe\" *)"
+      "PowerShell(& \"C:\\Program Files\\GitHub CLI\\gh.exe\" *)",
+      "Bash(git branch *)"
     ],
     "additionalDirectories": [
       "d:\\_JINWOO\\antigravity\\stock-history\\app\\api\\memos",

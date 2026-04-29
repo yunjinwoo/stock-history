@@ -11,7 +11,7 @@ import MemoStrip from '@/components/MemoStrip'
 import SummaryBar from '@/components/SummaryBar'
 import TradeModal from '@/components/TradeModal'
 
-interface Memo { id: string; content: string; showOnMain: boolean }
+interface Memo { id: string; content: string; showOnMain: boolean; showOnCoin: boolean }
 
 export default function HomePage() {
   const [trades, setTrades] = useState<Trade[]>([])
@@ -75,7 +75,7 @@ export default function HomePage() {
 
       <div className="px-4 py-4 space-y-3">
         <div className="max-w-2xl mx-auto space-y-3">
-          <MemoStrip memos={memos} />
+          <MemoStrip memos={memos} page="stock" />
           <SummaryBar trades={trades} />
 
           <div className="flex gap-2 flex-wrap">

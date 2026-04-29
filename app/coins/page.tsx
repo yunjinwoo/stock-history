@@ -6,14 +6,23 @@ import type { CoinTrade } from '@/lib/types'
 import { apiFetch } from '@/lib/api'
 import CoinHistory from '@/components/CoinHistory'
 import CoinModal from '@/components/CoinModal'
+import MemoStrip from '@/components/MemoStrip'
+
+interface Memo { id: string; content: string; showOnMain: boolean; showOnCoin: boolean }
 
 export default function CoinsPage() {
   const [trades, setTrades] = useState<CoinTrade[]>([])
   const [allSymbols, setAllSymbols] = useState<string[]>([])
+  const [memos, setMemos] = useState<Memo[]>([])
   const [showModal, setShowModal] = useState(false)
   const [editTrade, setEditTrade] = useState<CoinTrade | null>(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+
+  const loadMemos = useCallback(async () => {
+    const data = await apiFetch('/api/memos').then(r => r.json())
+    if (Array.isArray(data)) setMemos(data)
+  }, [])
 
   const loadSymbols = useCallback(async () => {
     const data = await apiFetch('/api/coins').then(r => r.json())
@@ -30,6 +39,7 @@ export default function CoinsPage() {
 
   useEffect(() => { loadSymbols() }, [loadSymbols])
   useEffect(() => { load() }, [load])
+  useEffect(() => { loadMemos() }, [loadMemos])
 
   const holding = trades.filter(t => !t.isCompleted)
   const completed = trades.filter(t => t.isCompleted)
@@ -51,6 +61,7 @@ export default function CoinsPage() {
       </header>
 
       <div className="px-4 py-4 space-y-3 max-w-4xl mx-auto">
+        <MemoStrip memos={memos} page="coin" />
         {/* 요약 */}
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-white rounded-lg border px-4 py-3">

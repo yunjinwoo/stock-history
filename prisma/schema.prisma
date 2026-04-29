@@ -65,6 +65,7 @@ model Memo {
   id          String  @id
   content     String
   showOnMain  Boolean @default(true)
+  showOnCoin  Boolean @default(true)
   createdAt   String
   updatedAt   String
 }
