@@ -23,9 +23,15 @@ stock-history/
 │       ├── memos/
 │       │   ├── route.ts          # GET, POST
 │       │   └── [id]/route.ts     # PATCH, DELETE
-│       └── stock-master/
-│           ├── route.ts          # GET, POST(upsert + 기존 trades 일괄 업데이트)
-│           └── [id]/route.ts     # PATCH, DELETE
+│       ├── stock-master/
+│       │   ├── route.ts          # GET, POST(upsert + 기존 trades 일괄 업데이트)
+│       │   └── [id]/route.ts     # PATCH, DELETE
+│       ├── uploads/
+│       │   └── route.ts          # POST(이미지 파일 업로드 → /data/images/ 저장)
+│       ├── images/
+│       │   └── [filename]/route.ts # GET(이미지 파일 서빙)
+│       └── trade-images/
+│           └── [id]/route.ts     # DELETE(이미지 삭제 — 파일 + DB)
 │
 ├── components/                   # 재사용 UI 컴포넌트
 │   ├── TradeModal.tsx            # 주식 거래 입력/수정 모달
@@ -38,6 +44,7 @@ stock-history/
 │   ├── CoinModal.tsx             # 코인 거래 입력/수정 모달
 │   ├── CoinHistory.tsx           # 코인 목록
 │   ├── MemoStrip.tsx             # 핀 메모 표시 띠
+│   ├── TradeImageZone.tsx        # 거래 이미지 업로드/표시 (드래그, 클립보드, 라이트박스)
 │   ├── AccountList.tsx           # 계좌 목록
 │   └── AccountMemoEditor.tsx     # 계좌 메모 인라인 편집
 │
@@ -72,3 +79,4 @@ stock-history/
 | `lib/kakaoParser.ts` | 증권사 카톡 알림 문자를 파싱해서 구조화된 데이터로 변환 |
 | `lib/coinParser.ts` | 코인 거래소 거래내역 붙여넣기를 파싱 |
 | `prisma/schema.prisma` | DB 테이블 구조 정의 (변경 후 `npx prisma db push` 필요) |
+| `components/TradeImageZone.tsx` | 이미지 드래그·클립보드 업로드, 썸네일, 라이트박스 |

@@ -12,6 +12,8 @@
 | [data-flow.md](./data-flow.md) | 거래 저장/조회 시 코드 실행 흐름 |
 | [key-concepts.md](./key-concepts.md) | 핵심 패턴 및 주의사항 (basePath, enrichTrade, 파서 등) |
 | [how-to-add-feature.md](./how-to-add-feature.md) | 새 기능 추가 방법 (페이지/API/DB/파서) |
+| [feature-trade-images.md](./feature-trade-images.md) | 거래 차트 이미지 첨부 기능 상세 |
+| [history.md](./history.md) | 개발 이력 (기능별 변경 내용) |
 
 ## 빠른 시작
 
@@ -34,3 +36,4 @@ npm run dev
 4. `key-concepts.md` — 자주 쓰는 패턴 숙지
 5. `file-structure.md` — 파일 찾는 법 익히기
 6. `how-to-add-feature.md` — 실제 기능 추가 시 참고
+7. `history.md` — 어떤 기능이 왜 만들어졌는지 맥락 파악

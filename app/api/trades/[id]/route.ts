@@ -52,7 +52,7 @@ export async function PATCH(
           })),
         },
       },
-      include: { buyEntries: true, sellEntries: true },
+      include: { buyEntries: true, sellEntries: true, images: true },
     })
   })
 

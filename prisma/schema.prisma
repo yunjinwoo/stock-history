@@ -19,16 +19,25 @@ model Account {
 }
 
 model Trade {
-  id          String      @id
+  id          String       @id
   accountId   String
   symbol      String
   symbolCode  String?
   comment     String?
   createdAt   String
   updatedAt   String
-  account     Account     @relation(fields: [accountId], references: [id])
+  account     Account      @relation(fields: [accountId], references: [id])
   buyEntries  BuyEntry[]
   sellEntries SellEntry[]
+  images      TradeImage[]
+}
+
+model TradeImage {
+  id        String @id
+  tradeId   String
+  filename  String
+  createdAt String
+  trade     Trade  @relation(fields: [tradeId], references: [id], onDelete: Cascade)
 }
 
 model CoinTrade {

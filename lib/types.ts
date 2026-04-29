@@ -52,6 +52,13 @@ export interface CoinTrade {
   isCompleted: boolean
 }
 
+export interface TradeImage {
+  id: string
+  tradeId: string
+  filename: string
+  createdAt: string
+}
+
 export interface Trade {
   id: string
   accountId: string
@@ -62,6 +69,7 @@ export interface Trade {
   updatedAt: string
   buyEntries: BuyEntry[]
   sellEntries: SellEntry[]
+  images: TradeImage[]
   // 조회 시 계산 (DB 저장 안 함)
   avgBuyPrice: number
   totalBuyQuantity: number
