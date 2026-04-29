@@ -65,7 +65,13 @@ export default function CoinHistory({ trades, onEdit, onDelete }: Props) {
               onClick={() => toggle(trade.id)}
             >
               <div className="flex items-center gap-2">
-                <span className="font-medium">{trade.symbol}</span>
+                <a
+                  href={`https://upbit.com/exchange?code=CRIX.UPBIT.KRW-${trade.symbol}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={e => e.stopPropagation()}
+                  className="font-medium hover:underline"
+                >{trade.symbol}</a>
                 <span className="text-xs text-gray-400">
                   매수 {trade.buyEntries.length}건{trade.sellEntries.length > 0 ? ` · 매도 ${trade.sellEntries.length}건` : ''}
                 </span>
