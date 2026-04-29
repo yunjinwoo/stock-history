@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import type { CoinTrade } from '@/lib/types'
-import { formatKRW, formatRate } from '@/lib/utils'
+import { formatKRW, formatRate, formatQty, lastEntryDate } from '@/lib/utils'
 
 interface Props {
   trades: CoinTrade[]
@@ -11,16 +11,6 @@ interface Props {
 }
 
 type EntryRow = { date: string; type: '매수' | '매도'; price: number; quantity: number }
-
-function firstEntryDate(trade: CoinTrade): string {
-  const all = [...trade.buyEntries, ...trade.sellEntries]
-  if (all.length === 0) return trade.createdAt
-  return all.reduce((min, e) => e.date < min ? e.date : min, all[0].date)
-}
-
-function formatQty(n: number): string {
-  return n % 1 === 0 ? n.toString() : n.toFixed(8).replace(/\.?0+$/, '')
-}
 
 export default function CoinHistory({ trades, onEdit, onDelete }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
@@ -38,7 +28,7 @@ export default function CoinHistory({ trades, onEdit, onDelete }: Props) {
     <p className="text-center text-gray-400 py-16 text-sm">코인 거래 기록이 없습니다<br/>새 거래를 입력해보세요</p>
   )
 
-  const sorted = [...trades].sort((a, b) => firstEntryDate(b).localeCompare(firstEntryDate(a)))
+  const sorted = [...trades].sort((a, b) => lastEntryDate(b).localeCompare(lastEntryDate(a)))
 
   return (
     <div className="space-y-3">

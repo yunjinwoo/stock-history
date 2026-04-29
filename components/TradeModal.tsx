@@ -5,7 +5,7 @@ import type { Trade, Account } from '@/lib/types'
 import type { ParsedTrade } from '@/lib/kakaoParser'
 import KakaoParser from './KakaoParser'
 import { apiFetch } from '@/lib/api'
-import { uuid } from '@/lib/utils'
+import { uuid, today, splitDateTime, toDateTimeStr } from '@/lib/utils'
 
 interface Props {
   trade: Trade | null
@@ -32,26 +32,13 @@ interface FormState {
   sellEntries: EntryRow[]
 }
 
-function today() {
-  return new Date().toISOString().slice(0, 10)
-}
-
 function newRow(): EntryRow {
   return { key: uuid(), date: today(), time: '', price: '', quantity: '' }
-}
-
-function splitDateTime(dt: string): { date: string; time: string } {
-  const [date, timePart] = dt.split('T')
-  return { date: date ?? '', time: timePart ? timePart.slice(0, 5) : '' }
 }
 
 function toEntry(e: { date: string; price: number; quantity: number }): EntryRow {
   const { date, time } = splitDateTime(e.date)
   return { key: uuid(), date, time, price: e.price.toString(), quantity: e.quantity.toString() }
-}
-
-function toDateTimeStr(date: string, time: string) {
-  return time ? `${date}T${time}:00` : `${date}T00:00:00`
 }
 
 const inputCls = 'border rounded px-2 py-1.5 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-400'

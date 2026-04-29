@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import type { Trade, Account } from '@/lib/types'
-import { formatKRW, formatRate } from '@/lib/utils'
+import { formatKRW, formatRate, lastEntryDate } from '@/lib/utils'
 
 interface Props {
   trades: Trade[]
@@ -12,12 +12,6 @@ interface Props {
 }
 
 type EntryRow = { date: string; type: '매수' | '매도'; price: number; quantity: number }
-
-function firstEntryDate(trade: Trade): string {
-  const all = [...trade.buyEntries, ...trade.sellEntries]
-  if (all.length === 0) return trade.createdAt
-  return all.reduce((min, e) => e.date < min ? e.date : min, all[0].date)
-}
 
 export default function TradeHistory({ trades, accounts, onEdit, onDelete }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
@@ -58,7 +52,7 @@ export default function TradeHistory({ trades, accounts, onEdit, onDelete }: Pro
       {accountIds.map(accountId => {
         const account = accounts.find(a => a.id === accountId)
         const accountTrades = [...byAccount[accountId]]
-          .sort((a, b) => firstEntryDate(b).localeCompare(firstEntryDate(a)))
+          .sort((a, b) => lastEntryDate(b).localeCompare(lastEntryDate(a)))
 
         return (
           <div key={accountId}>

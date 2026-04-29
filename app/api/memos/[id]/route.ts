@@ -13,6 +13,7 @@ export async function PATCH(
     data: {
       ...(body.content !== undefined && { content: body.content.trim() }),
       ...(body.showOnMain !== undefined && { showOnMain: body.showOnMain }),
+      ...(body.showOnCoin !== undefined && { showOnCoin: body.showOnCoin }),
       updatedAt: now,
     },
   })

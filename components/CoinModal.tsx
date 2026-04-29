@@ -3,7 +3,9 @@
 import { useState } from 'react'
 import type { CoinTrade } from '@/lib/types'
 import { apiFetch } from '@/lib/api'
-import { uuid } from '@/lib/utils'
+import { uuid, today } from '@/lib/utils'
+import { parsePastedText } from '@/lib/coinParser'
+import type { ParsedEntry } from '@/lib/coinParser'
 
 interface Props {
   trade: CoinTrade | null
@@ -13,14 +15,6 @@ interface Props {
 }
 
 interface EntryRow { key: string; date: string; price: string; quantity: string }
-
-interface ParsedEntry {
-  date: string
-  symbol: string
-  type: '매수' | '매도'
-  price: number
-  quantity: number
-}
 
 const inputCls = 'border rounded px-2 py-1.5 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-400'
 const labelCls = 'text-xs text-gray-500 mb-0.5 block'
@@ -63,51 +57,10 @@ function EntrySection({ type, label, entries, onUpdate, onAdd, onRemove }: Entry
   )
 }
 
-function today() { return new Date().toISOString().slice(0, 10) }
 function newRow(): EntryRow { return { key: uuid(), date: today(), price: '', quantity: '' } }
 
 function toEntry(e: { date: string; price: number; quantity: number }): EntryRow {
   return { key: uuid(), date: e.date.slice(0, 10), price: e.price.toString(), quantity: e.quantity.toString() }
-}
-
-function parseDateTime(s: string): string {
-  const m = s.match(/(\d{4})\.(\d{2})\.(\d{2})\s+(\d{2}):(\d{2})/)
-  if (!m) return ''
-  return `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:00`
-}
-
-function parsePastedText(text: string): ParsedEntry[] {
-  const lines = text
-    .replace(/체결시간[\s\S]*?주문시간/, '')
-    .split('\n')
-    .map(l => l.trim())
-    .filter(Boolean)
-
-  const dateRegex = /^\d{4}\.\d{2}\.\d{2}\s+\d{2}:\d{2}$/
-  const results: ParsedEntry[] = []
-
-  let start = lines.findIndex(l => dateRegex.test(l))
-  if (start === -1) return []
-
-  while (start + 9 < lines.length) {
-    const block = lines.slice(start, start + 10)
-    const date = parseDateTime(block[0])
-    const symbol = block[1]
-    const type = block[3]
-
-    if (date && symbol && (type === '매수' || type === '매도')) {
-      const quantityMatch = block[4].match(/^([\d.]+)/)
-      const priceMatch = block[5].match(/^([\d,.]+)/)
-      if (quantityMatch && priceMatch) {
-        const quantity = Number(quantityMatch[1])
-        const price = Number(priceMatch[1].replace(/,/g, ''))
-        if (quantity && price) results.push({ date, symbol, type, price, quantity })
-      }
-    }
-    start += 10
-  }
-
-  return results
 }
 
 export default function CoinModal({ trade, onClose, onSave, symbols = [] }: Props) {

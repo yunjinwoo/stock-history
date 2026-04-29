@@ -98,6 +98,33 @@ export function enrichCoinTrade(t: CoinTradeWithEntries): CoinTrade {
   }
 }
 
+export function today(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
+export function formatQty(n: number): string {
+  return n % 1 === 0 ? n.toString() : n.toFixed(8).replace(/\.?0+$/, '')
+}
+
+export function lastEntryDate(trade: {
+  buyEntries: { date: string }[]
+  sellEntries: { date: string }[]
+  createdAt: string
+}): string {
+  const all = [...trade.buyEntries, ...trade.sellEntries]
+  if (all.length === 0) return trade.createdAt
+  return all.reduce((max, e) => e.date > max ? e.date : max, all[0].date)
+}
+
+export function splitDateTime(dt: string): { date: string; time: string } {
+  const [date, timePart] = dt.split('T')
+  return { date: date ?? '', time: timePart ? timePart.slice(0, 5) : '' }
+}
+
+export function toDateTimeStr(date: string, time: string): string {
+  return time ? `${date}T${time}:00` : `${date}T00:00:00`
+}
+
 export function formatKRW(n: number): string {
   return n.toLocaleString('ko-KR') + '원'
 }

@@ -8,6 +8,7 @@ interface Memo {
   id: string
   content: string
   showOnMain: boolean
+  showOnCoin: boolean
   createdAt: string
 }
 
@@ -38,11 +39,11 @@ export default function MemosPage() {
     load()
   }
 
-  async function handleToggle(memo: Memo) {
+  async function handleToggle(memo: Memo, field: 'showOnMain' | 'showOnCoin') {
     await apiFetch(`/api/memos/${memo.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ showOnMain: !memo.showOnMain }),
+      body: JSON.stringify({ [field]: !memo[field] }),
     })
     load()
   }
@@ -119,15 +120,24 @@ export default function MemosPage() {
                     <div className="flex-1 text-sm text-gray-700 whitespace-pre-wrap">{memo.content}</div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <button
-                        onClick={() => handleToggle(memo)}
+                        onClick={() => handleToggle(memo, 'showOnMain')}
                         className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
                           memo.showOnMain
                             ? 'bg-yellow-50 border-yellow-300 text-yellow-700'
                             : 'border-gray-200 text-gray-400'
                         }`}
-                        title="메인에 표시 여부"
                       >
-                        {memo.showOnMain ? '📌 표시중' : '숨김'}
+                        {memo.showOnMain ? '주식 📌' : '주식 숨김'}
+                      </button>
+                      <button
+                        onClick={() => handleToggle(memo, 'showOnCoin')}
+                        className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                          memo.showOnCoin
+                            ? 'bg-blue-50 border-blue-300 text-blue-700'
+                            : 'border-gray-200 text-gray-400'
+                        }`}
+                      >
+                        {memo.showOnCoin ? '코인 📌' : '코인 숨김'}
                       </button>
                       <button
                         onClick={() => { setEditId(memo.id); setEditContent(memo.content) }}
