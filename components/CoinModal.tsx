@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import type { CoinTrade } from '@/lib/types'
 import { apiFetch } from '@/lib/api'
-import { uuid } from '@/lib/utils'
+import { uuid, today } from '@/lib/utils'
 
 interface Props {
   trade: CoinTrade | null
@@ -63,7 +63,6 @@ function EntrySection({ type, label, entries, onUpdate, onAdd, onRemove }: Entry
   )
 }
 
-function today() { return new Date().toISOString().slice(0, 10) }
 function newRow(): EntryRow { return { key: uuid(), date: today(), price: '', quantity: '' } }
 
 function toEntry(e: { date: string; price: number; quantity: number }): EntryRow {
