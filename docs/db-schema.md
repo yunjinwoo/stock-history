@@ -11,7 +11,8 @@ DB 파일: `../data/stock-history.db` (SQLite)
 
 ```
 Account ──< Trade ──< BuyEntry
-                 └──< SellEntry
+                 ├──< SellEntry
+                 └──< TradeImage
 
 CoinTrade ──< CoinBuyEntry
           └──< CoinSellEntry
@@ -62,6 +63,21 @@ Memo         (독립 테이블)
 | price | Float | 단가 |
 | quantity | Int | 수량 |
 | createdAt | String | |
+
+---
+
+## TradeImage (거래 첨부 이미지)
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| id | String (UUID) | PK |
+| tradeId | String | Trade FK (삭제 시 cascade) |
+| filename | String | 저장된 파일명 (UUID + 확장자) |
+| createdAt | String | |
+
+> 실제 파일은 서버 `../data/images/` 디렉터리에 저장됩니다.  
+> DB에는 파일명만 저장하고, `/api/images/[filename]`으로 파일을 서빙합니다.  
+> Trade 삭제 시 DB 레코드는 cascade로 자동 삭제되지만, 파일은 `DELETE /api/trade-images/[id]` 호출 시에만 삭제됩니다.
 
 ---
 

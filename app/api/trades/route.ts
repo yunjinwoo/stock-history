@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
 
   const trades = await prisma.trade.findMany({
     where,
-    include: { buyEntries: { orderBy: { date: 'asc' } }, sellEntries: { orderBy: { date: 'asc' } } },
+    include: { buyEntries: { orderBy: { date: 'asc' } }, sellEntries: { orderBy: { date: 'asc' } }, images: { orderBy: { createdAt: 'asc' } } },
     orderBy: { createdAt: 'desc' },
   })
 
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
       buyEntries: { create: makeEntries(buyEntries) },
       sellEntries: { create: makeEntries(sellEntries) },
     },
-    include: { buyEntries: true, sellEntries: true },
+    include: { buyEntries: true, sellEntries: true, images: true },
   })
 
   return NextResponse.json(enrichTrade(trade), { status: 201 })

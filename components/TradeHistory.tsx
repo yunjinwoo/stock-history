@@ -1,8 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import type { Trade, Account } from '@/lib/types'
+import type { Trade, Account, TradeImage } from '@/lib/types'
+// TradeImage used in imagesMap state below
 import { formatKRW, formatRate, lastEntryDate } from '@/lib/utils'
+import TradeImageZone from './TradeImageZone'
 
 interface Props {
   trades: Trade[]
@@ -16,6 +18,7 @@ type EntryRow = { date: string; type: '매수' | '매도'; price: number; quanti
 export default function TradeHistory({ trades, accounts, onEdit, onDelete }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [simPrices, setSimPrices] = useState<Record<string, string>>({})
+  const [imagesMap, setImagesMap] = useState<Record<string, TradeImage[]>>({})
 
   function toggle(id: string) {
     setExpanded(prev => {
@@ -164,6 +167,13 @@ export default function TradeHistory({ trades, accounts, onEdit, onDelete }: Pro
                     </table>}
                     {isExpanded && trade.comment && (
                       <div className="px-4 py-1.5 text-xs text-gray-400 border-t bg-gray-50">💬 {trade.comment}</div>
+                    )}
+                    {isExpanded && (
+                      <TradeImageZone
+                        tradeId={trade.id}
+                        images={imagesMap[trade.id] ?? trade.images}
+                        onUpdate={imgs => setImagesMap(m => ({ ...m, [trade.id]: imgs }))}
+                      />
                     )}
                     {isExpanded && !trade.isCompleted && (
                       <div className="px-4 py-3 border-t bg-gray-50">

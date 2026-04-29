@@ -1,6 +1,6 @@
 import dayjs from 'dayjs'
 import type { Trade } from './types'
-import type { Trade as PrismaTrade, BuyEntry, SellEntry, CoinTrade as PrismaCoinTrade, CoinBuyEntry, CoinSellEntry } from '@prisma/client'
+import type { Trade as PrismaTrade, BuyEntry, SellEntry, TradeImage, CoinTrade as PrismaCoinTrade, CoinBuyEntry, CoinSellEntry } from '@prisma/client'
 import type { CoinTrade } from './types'
 
 export function uuid(): string {
@@ -13,7 +13,7 @@ export function uuid(): string {
   })
 }
 
-type TradeWithEntries = PrismaTrade & { buyEntries: BuyEntry[]; sellEntries: SellEntry[] }
+type TradeWithEntries = PrismaTrade & { buyEntries: BuyEntry[]; sellEntries: SellEntry[]; images: TradeImage[] }
 
 export function calcHoldingDays(from: string, to?: string | null): number {
   return Math.max(0, (to ? dayjs(to) : dayjs()).diff(dayjs(from), 'day'))
