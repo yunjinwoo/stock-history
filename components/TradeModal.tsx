@@ -54,6 +54,57 @@ function toDateTimeStr(date: string, time: string) {
   return time ? `${date}T${time}:00` : `${date}T00:00:00`
 }
 
+const inputCls = 'border rounded px-2 py-1.5 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-400'
+const labelCls = 'text-xs text-gray-500 mb-0.5 block'
+
+interface EntrySectionProps {
+  type: 'buyEntries' | 'sellEntries'
+  label: string
+  required?: boolean
+  entries: EntryRow[]
+  onUpdate: (type: 'buyEntries' | 'sellEntries', key: string, field: keyof EntryRow, value: string) => void
+  onAdd: (type: 'buyEntries' | 'sellEntries') => void
+  onRemove: (type: 'buyEntries' | 'sellEntries', key: string) => void
+}
+
+function EntrySection({ type, label, required, entries, onUpdate, onAdd, onRemove }: EntrySectionProps) {
+  return (
+    <fieldset className="border rounded-lg p-3 space-y-2">
+      <legend className={`text-xs font-medium px-1 ${required ? 'text-gray-600' : 'text-gray-400'}`}>
+        {label}{required ? ' *' : ' (선택)'}
+      </legend>
+      {entries.length === 0 && (
+        <p className="text-xs text-gray-400 text-center py-1">내역 없음</p>
+      )}
+      {entries.map((row, idx) => (
+        <div key={row.key} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end">
+          <div>
+            {idx === 0 && <label className={labelCls}>날짜</label>}
+            <input type="date" value={row.date} onChange={e => onUpdate(type, row.key, 'date', e.target.value)} className={inputCls} />
+          </div>
+          <div>
+            {idx === 0 && <label className={labelCls}>단가 (원)</label>}
+            <input type="number" value={row.price} onChange={e => onUpdate(type, row.key, 'price', e.target.value)} className={inputCls} placeholder="75000" min="1" />
+          </div>
+          <div>
+            {idx === 0 && <label className={labelCls}>수량</label>}
+            <input type="number" value={row.quantity} onChange={e => onUpdate(type, row.key, 'quantity', e.target.value)} className={inputCls} placeholder="100" min="1" />
+          </div>
+          <button
+            type="button"
+            onClick={() => onRemove(type, row.key)}
+            disabled={required && entries.length === 1}
+            className="text-red-400 hover:text-red-600 disabled:text-gray-200 pb-1 text-lg leading-none"
+          >×</button>
+        </div>
+      ))}
+      <button type="button" onClick={() => onAdd(type)} className="text-xs text-blue-500 hover:text-blue-700 mt-1">
+        + {type === 'buyEntries' ? '매수' : '매도'} 추가
+      </button>
+    </fieldset>
+  )
+}
+
 export default function TradeModal({ trade, accounts, defaultAccountId, onClose, onSave }: Props) {
   const [tab, setTab] = useState<'direct' | 'kakao'>('direct')
   const [saving, setSaving] = useState(false)
@@ -155,55 +206,6 @@ export default function TradeModal({ trade, accounts, defaultAccountId, onClose,
     }
   }
 
-  const inputCls = 'border rounded px-2 py-1.5 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-400'
-  const labelCls = 'text-xs text-gray-500 mb-0.5 block'
-
-  function EntrySection({ type, label, required }: { type: 'buyEntries' | 'sellEntries'; label: string; required?: boolean }) {
-    const entries = form[type]
-    return (
-      <fieldset className="border rounded-lg p-3 space-y-2">
-        <legend className={`text-xs font-medium px-1 ${required ? 'text-gray-600' : 'text-gray-400'}`}>
-          {label}{required ? ' *' : ' (선택)'}
-        </legend>
-
-        {entries.length === 0 && (
-          <p className="text-xs text-gray-400 text-center py-1">내역 없음</p>
-        )}
-
-        {entries.map((row, idx) => (
-          <div key={row.key} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end">
-            <div>
-              {idx === 0 && <label className={labelCls}>날짜</label>}
-              <input type="date" value={row.date} onChange={e => updateEntry(type, row.key, 'date', e.target.value)} className={inputCls} />
-            </div>
-            <div>
-              {idx === 0 && <label className={labelCls}>단가 (원)</label>}
-              <input type="number" value={row.price} onChange={e => updateEntry(type, row.key, 'price', e.target.value)} className={inputCls} placeholder="75000" min="1" />
-            </div>
-            <div>
-              {idx === 0 && <label className={labelCls}>수량</label>}
-              <input type="number" value={row.quantity} onChange={e => updateEntry(type, row.key, 'quantity', e.target.value)} className={inputCls} placeholder="100" min="1" />
-            </div>
-            <button
-              type="button"
-              onClick={() => removeEntry(type, row.key)}
-              disabled={required && entries.length === 1}
-              className="text-red-400 hover:text-red-600 disabled:text-gray-200 pb-1 text-lg leading-none"
-            >×</button>
-          </div>
-        ))}
-
-        <button
-          type="button"
-          onClick={() => addEntry(type)}
-          className="text-xs text-blue-500 hover:text-blue-700 mt-1"
-        >
-          + {type === 'buyEntries' ? '매수' : '매도'} 추가
-        </button>
-      </fieldset>
-    )
-  }
-
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
@@ -250,8 +252,8 @@ export default function TradeModal({ trade, accounts, defaultAccountId, onClose,
                 </div>
               </div>
 
-              <EntrySection type="sellEntries" label="매도 내역" />
-              <EntrySection type="buyEntries" label="매수 내역" />
+              <EntrySection type="sellEntries" label="매도 내역" entries={form.sellEntries} onUpdate={updateEntry} onAdd={addEntry} onRemove={removeEntry} />
+              <EntrySection type="buyEntries" label="매수 내역" entries={form.buyEntries} onUpdate={updateEntry} onAdd={addEntry} onRemove={removeEntry} />
 
               <div>
                 <label className={labelCls}>코멘트</label>

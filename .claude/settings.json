@@ -10,7 +10,8 @@
       "PowerShell(& \"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" auth status)",
       "PowerShell(& \"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" pr create --title \"���� ���� �߰� UX ����\" --body-file \"d:\\\\_JINWOO\\\\antigravity\\\\stock-history\\\\_pr_body.md\" --base main --head feature/jinwoo/coin-trades)",
       "PowerShell(& \"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" pr list --state all --limit 5)",
-      "PowerShell(& \"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" pr create --title \"���� �ߺ� ���� ���� ����\" --body-file \"d:\\\\_JINWOO\\\\antigravity\\\\stock-history\\\\_pr_body.md\" --base main --head feature/jinwoo/coin-trades)"
+      "PowerShell(& \"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" pr create --title \"���� �ߺ� ���� ���� ����\" --body-file \"d:\\\\_JINWOO\\\\antigravity\\\\stock-history\\\\_pr_body.md\" --base main --head feature/jinwoo/coin-trades)",
+      "PowerShell(& \"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" pr create --title \"TypeScript ���� ���� ���� \\(PR #8 �ļ�\\)\" --body-file \"d:\\\\_JINWOO\\\\antigravity\\\\stock-history\\\\_pr_body.md\" --base main --head feature/jinwoo/coin-trades)"
     ],
     "additionalDirectories": [
       "d:\\_JINWOO\\antigravity\\stock-history\\app\\api\\memos",

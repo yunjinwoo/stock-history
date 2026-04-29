@@ -22,6 +22,47 @@ interface ParsedEntry {
   quantity: number
 }
 
+const inputCls = 'border rounded px-2 py-1.5 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-400'
+const labelCls = 'text-xs text-gray-500 mb-0.5 block'
+
+interface EntrySectionProps {
+  type: 'buy' | 'sell'
+  label: string
+  entries: EntryRow[]
+  onUpdate: (type: 'buy' | 'sell', key: string, field: keyof EntryRow, value: string) => void
+  onAdd: (type: 'buy' | 'sell') => void
+  onRemove: (type: 'buy' | 'sell', key: string) => void
+}
+
+function EntrySection({ type, label, entries, onUpdate, onAdd, onRemove }: EntrySectionProps) {
+  return (
+    <fieldset className="border rounded-lg p-3 space-y-2">
+      <legend className="text-xs font-medium px-1 text-gray-500">{label} (선택)</legend>
+      {entries.length === 0 && <p className="text-xs text-gray-400 text-center py-1">내역 없음</p>}
+      {entries.map((row, idx) => (
+        <div key={row.key} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end">
+          <div>
+            {idx === 0 && <label className={labelCls}>날짜</label>}
+            <input type="date" value={row.date} onChange={e => onUpdate(type, row.key, 'date', e.target.value)} className={inputCls} />
+          </div>
+          <div>
+            {idx === 0 && <label className={labelCls}>단가 (원)</label>}
+            <input type="number" value={row.price} onChange={e => onUpdate(type, row.key, 'price', e.target.value)} className={inputCls} placeholder="50000000" min="0" step="any" />
+          </div>
+          <div>
+            {idx === 0 && <label className={labelCls}>수량</label>}
+            <input type="number" value={row.quantity} onChange={e => onUpdate(type, row.key, 'quantity', e.target.value)} className={inputCls} placeholder="0.5" min="0" step="any" />
+          </div>
+          <button type="button" onClick={() => onRemove(type, row.key)} className="text-red-400 hover:text-red-600 pb-1 text-lg leading-none">×</button>
+        </div>
+      ))}
+      <button type="button" onClick={() => onAdd(type)} className="text-xs text-blue-500 hover:text-blue-700 mt-1">
+        + {type === 'buy' ? '매수' : '매도'} 추가
+      </button>
+    </fieldset>
+  )
+}
+
 function today() { return new Date().toISOString().slice(0, 10) }
 function newRow(): EntryRow { return { key: uuid(), date: today(), price: '', quantity: '' } }
 
@@ -208,39 +249,6 @@ export default function CoinModal({ trade, onClose, onSave, symbols = [] }: Prop
     ;(acc[e.symbol] ??= []).push(e); return acc
   }, {})
 
-  const inputCls = 'border rounded px-2 py-1.5 text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-400'
-  const labelCls = 'text-xs text-gray-500 mb-0.5 block'
-
-  function EntrySection({ type, label }: { type: 'buy' | 'sell'; label: string }) {
-    const entries = type === 'buy' ? buyEntries : sellEntries
-    return (
-      <fieldset className="border rounded-lg p-3 space-y-2">
-        <legend className="text-xs font-medium px-1 text-gray-500">{label} (선택)</legend>
-        {entries.length === 0 && <p className="text-xs text-gray-400 text-center py-1">내역 없음</p>}
-        {entries.map((row, idx) => (
-          <div key={row.key} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end">
-            <div>
-              {idx === 0 && <label className={labelCls}>날짜</label>}
-              <input type="date" value={row.date} onChange={e => updateEntry(type, row.key, 'date', e.target.value)} className={inputCls} />
-            </div>
-            <div>
-              {idx === 0 && <label className={labelCls}>단가 (원)</label>}
-              <input type="number" value={row.price} onChange={e => updateEntry(type, row.key, 'price', e.target.value)} className={inputCls} placeholder="50000000" min="0" step="any" />
-            </div>
-            <div>
-              {idx === 0 && <label className={labelCls}>수량</label>}
-              <input type="number" value={row.quantity} onChange={e => updateEntry(type, row.key, 'quantity', e.target.value)} className={inputCls} placeholder="0.5" min="0" step="any" />
-            </div>
-            <button type="button" onClick={() => removeEntry(type, row.key)} className="text-red-400 hover:text-red-600 pb-1 text-lg leading-none">×</button>
-          </div>
-        ))}
-        <button type="button" onClick={() => addEntry(type)} className="text-xs text-blue-500 hover:text-blue-700 mt-1">
-          + {type === 'buy' ? '매수' : '매도'} 추가
-        </button>
-      </fieldset>
-    )
-  }
-
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
@@ -257,8 +265,8 @@ export default function CoinModal({ trade, onClose, onSave, symbols = [] }: Prop
                 <label className={labelCls}>종목명 *</label>
                 <input value={symbol} onChange={e => setSymbol(e.target.value)} className={inputCls} placeholder="BTC, ETH, XRP..." />
               </div>
-              <EntrySection type="sell" label="매도 내역" />
-              <EntrySection type="buy" label="매수 내역" />
+              <EntrySection type="sell" label="매도 내역" entries={sellEntries} onUpdate={updateEntry} onAdd={addEntry} onRemove={removeEntry} />
+              <EntrySection type="buy" label="매수 내역" entries={buyEntries} onUpdate={updateEntry} onAdd={addEntry} onRemove={removeEntry} />
               <div>
                 <label className={labelCls}>코멘트</label>
                 <textarea value={comment} onChange={e => setComment(e.target.value)} className={`${inputCls} h-20 resize-none`} placeholder="매매 이유, 전략 등..." maxLength={500} />
