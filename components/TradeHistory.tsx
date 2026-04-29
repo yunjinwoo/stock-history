@@ -89,7 +89,15 @@ export default function TradeHistory({ trades, accounts, onEdit, onDelete }: Pro
                       onClick={() => toggle(trade.id)}
                     >
                       <div className="flex items-center gap-2">
-                        <span className="font-medium">{trade.symbol}</span>
+                        <a
+                          href={trade.symbolCode
+                            ? `https://finance.naver.com/item/main.naver?code=${trade.symbolCode}`
+                            : `https://finance.naver.com/search/searchList.naver?query=${encodeURIComponent(trade.symbol)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={e => e.stopPropagation()}
+                          className="font-medium hover:underline"
+                        >{trade.symbol}</a>
                         {trade.symbolCode && <span className="text-gray-400 text-xs">({trade.symbolCode})</span>}
                         <span className="text-xs text-gray-400">
                           매수 {trade.buyEntries.length}건{trade.sellEntries.length > 0 ? ` · 매도 ${trade.sellEntries.length}건` : ''}
