@@ -63,6 +63,7 @@ export default function HomePage() {
           </div>
           <Link href="/coins" className="text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">코인</Link>
           <Link href="/memos" className="text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">메모</Link>
+          <Link href="/stock-master" className="text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">종목관리</Link>
           <Link href="/accounts" className="text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">계좌관리</Link>
           <button
             onClick={() => { setEditTrade(null); setShowModal(true) }}

@@ -61,6 +61,14 @@ model CoinSellEntry {
   trade     CoinTrade @relation(fields: [tradeId], references: [id], onDelete: Cascade)
 }
 
+model StockMaster {
+  id          String @id
+  symbol      String @unique
+  symbolCode  String
+  createdAt   String
+  updatedAt   String
+}
+
 model Memo {
   id          String  @id
   content     String
