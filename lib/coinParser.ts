@@ -32,10 +32,10 @@ export function parsePastedText(text: string): ParsedEntry[] {
     const type = block[3]
 
     if (date && symbol && (type === '매수' || type === '매도')) {
-      const quantityMatch = block[4].match(/^([\d.]+)/)
+      const quantityMatch = block[4].match(/^([\d,.]+)/)
       const priceMatch = block[5].match(/^([\d,.]+)/)
       if (quantityMatch && priceMatch) {
-        const quantity = Number(quantityMatch[1])
+        const quantity = Number(quantityMatch[1].replace(/,/g, ''))
         const price = Number(priceMatch[1].replace(/,/g, ''))
         if (quantity && price) results.push({ date, symbol, type, price, quantity })
       }

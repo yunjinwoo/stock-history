@@ -41,11 +41,11 @@ function EntrySection({ type, label, entries, onUpdate, onAdd, onRemove }: Entry
           </div>
           <div>
             {idx === 0 && <label className={labelCls}>단가 (원)</label>}
-            <input type="number" value={row.price} onChange={e => onUpdate(type, row.key, 'price', e.target.value)} className={inputCls} placeholder="50000000" min="0" step="any" />
+            <input type="text" inputMode="decimal" value={row.price} onChange={e => onUpdate(type, row.key, 'price', e.target.value.replace(/,/g, ''))} className={inputCls} placeholder="50000000" />
           </div>
           <div>
             {idx === 0 && <label className={labelCls}>수량</label>}
-            <input type="number" value={row.quantity} onChange={e => onUpdate(type, row.key, 'quantity', e.target.value)} className={inputCls} placeholder="0.5" min="0" step="any" />
+            <input type="text" inputMode="decimal" value={row.quantity} onChange={e => onUpdate(type, row.key, 'quantity', e.target.value.replace(/,/g, ''))} className={inputCls} placeholder="0.5" />
           </div>
           <button type="button" onClick={() => onRemove(type, row.key)} className="text-red-400 hover:text-red-600 pb-1 text-lg leading-none">×</button>
         </div>
@@ -116,8 +116,8 @@ export default function CoinModal({ trade, onClose, onSave, symbols = [] }: Prop
           symbol: addSymbol.trim(),
           type: addType,
           date: `${addDate}T00:00:00`,
-          price: Number(addPrice),
-          quantity: Number(addQuantity),
+          price: Number(addPrice.replace(/,/g, '')),
+          quantity: Number(addQuantity.replace(/,/g, '')),
         }),
       })
       if (!res.ok) {
@@ -143,8 +143,8 @@ export default function CoinModal({ trade, onClose, onSave, symbols = [] }: Prop
       const payload = {
         symbol: symbol.trim(),
         comment: comment.trim() || null,
-        buyEntries: validBuy.map(r => ({ date: `${r.date}T00:00:00`, price: Number(r.price), quantity: Number(r.quantity) })),
-        sellEntries: validSell.map(r => ({ date: `${r.date}T00:00:00`, price: Number(r.price), quantity: Number(r.quantity) })),
+        buyEntries: validBuy.map(r => ({ date: `${r.date}T00:00:00`, price: Number(r.price.replace(/,/g, '')), quantity: Number(r.quantity.replace(/,/g, '')) })),
+        sellEntries: validSell.map(r => ({ date: `${r.date}T00:00:00`, price: Number(r.price.replace(/,/g, '')), quantity: Number(r.quantity.replace(/,/g, '')) })),
       }
       const res = await apiFetch(`/api/coins/${trade!.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
       if (!res.ok) {
@@ -289,11 +289,11 @@ export default function CoinModal({ trade, onClose, onSave, symbols = [] }: Prop
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className={labelCls}>단가 (원) *</label>
-                      <input type="number" value={addPrice} onChange={e => setAddPrice(e.target.value)} className={inputCls} placeholder="50000000" min="0" step="any" />
+                      <input type="text" inputMode="decimal" value={addPrice} onChange={e => setAddPrice(e.target.value.replace(/,/g, ''))} className={inputCls} placeholder="50000000" />
                     </div>
                     <div>
                       <label className={labelCls}>수량 *</label>
-                      <input type="number" value={addQuantity} onChange={e => setAddQuantity(e.target.value)} className={inputCls} placeholder="0.5" min="0" step="any" />
+                      <input type="text" inputMode="decimal" value={addQuantity} onChange={e => setAddQuantity(e.target.value.replace(/,/g, ''))} className={inputCls} placeholder="0.5" />
                     </div>
                   </div>
                   {error && <p className="text-red-500 text-sm">{error}</p>}

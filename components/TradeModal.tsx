@@ -71,11 +71,11 @@ function EntrySection({ type, label, required, entries, onUpdate, onAdd, onRemov
           </div>
           <div>
             {idx === 0 && <label className={labelCls}>단가 (원)</label>}
-            <input type="number" value={row.price} onChange={e => onUpdate(type, row.key, 'price', e.target.value)} className={inputCls} placeholder="75000" min="1" />
+            <input type="text" inputMode="numeric" value={row.price} onChange={e => onUpdate(type, row.key, 'price', e.target.value.replace(/,/g, ''))} className={inputCls} placeholder="75000" />
           </div>
           <div>
             {idx === 0 && <label className={labelCls}>수량</label>}
-            <input type="number" value={row.quantity} onChange={e => onUpdate(type, row.key, 'quantity', e.target.value)} className={inputCls} placeholder="100" min="1" />
+            <input type="text" inputMode="numeric" value={row.quantity} onChange={e => onUpdate(type, row.key, 'quantity', e.target.value.replace(/,/g, ''))} className={inputCls} placeholder="100" />
           </div>
           <button
             type="button"
@@ -169,13 +169,13 @@ export default function TradeModal({ trade, accounts, defaultAccountId, onClose,
         comment: form.comment.trim() || null,
         buyEntries: validBuy.map(r => ({
           date: toDateTimeStr(r.date, r.time),
-          price: Number(r.price),
-          quantity: Number(r.quantity),
+          price: Number(r.price.replace(/,/g, '')),
+          quantity: Number(r.quantity.replace(/,/g, '')),
         })),
         sellEntries: validSell.map(r => ({
           date: toDateTimeStr(r.date, r.time),
-          price: Number(r.price),
-          quantity: Number(r.quantity),
+          price: Number(r.price.replace(/,/g, '')),
+          quantity: Number(r.quantity.replace(/,/g, '')),
         })),
       }
       const url = trade ? `/api/trades/${trade.id}` : '/api/trades'
