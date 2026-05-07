@@ -90,11 +90,17 @@ export default function CoinsPage() {
             onChange={e => setSearch(e.target.value)}
             className="border rounded px-3 py-1.5 text-sm flex-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
           />
-          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="border rounded px-2 py-1.5 text-sm bg-white">
-            <option value="all">전체</option>
-            <option value="보유중">보유중</option>
-            <option value="매도완료">매도완료</option>
-          </select>
+          <div className="flex border rounded overflow-hidden text-sm">
+            {(['all', '보유중', '매도완료'] as const).map(v => (
+              <button
+                key={v}
+                onClick={() => setStatusFilter(v)}
+                className={`px-3 py-1.5 ${statusFilter === v ? 'bg-gray-100 text-gray-800 font-medium' : 'text-gray-400 hover:text-gray-600'}`}
+              >
+                {v === 'all' ? '전체' : v}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* 목록 */}

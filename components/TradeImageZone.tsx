@@ -32,6 +32,7 @@ export default function TradeImageZone({ tradeId, images, onUpdate }: Props) {
   }
 
   async function handleDelete(id: string) {
+    if (!confirm('이미지를 삭제하시겠습니까?')) return
     await apiFetch(`/api/trade-images/${id}`, { method: 'DELETE' })
     onUpdate(images.filter(img => img.id !== id))
   }
