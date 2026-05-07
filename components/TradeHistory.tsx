@@ -103,7 +103,7 @@ export default function TradeHistory({ trades, accounts, onEdit, onDelete }: Pro
                       <div className="flex items-center gap-2">
                         {!trade.isCompleted ? (
                           <>
-                            <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full">보유중 {trade.holdingDays}일</span>
+                            <span className="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">보유중 {trade.holdingDays}일</span>
                             <span className="text-xs text-gray-500">잔여 {trade.remainingQuantity}주</span>
                             {trade.sellEntries.length > 0 && (
                               <>
