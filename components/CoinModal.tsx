@@ -29,9 +29,12 @@ interface EntrySectionProps {
 }
 
 function EntrySection({ type, label, entries, onUpdate, onAdd, onRemove }: EntrySectionProps) {
+  const totalQty = entries.reduce((s, r) => s + (Number(r.quantity.replace(/,/g, '')) || 0), 0)
+  const totalAmt = entries.reduce((s, r) => s + (Number(r.price.replace(/,/g, '')) || 0) * (Number(r.quantity.replace(/,/g, '')) || 0), 0)
+
   return (
     <fieldset className="border rounded-lg p-3 space-y-2">
-      <legend className="text-xs font-medium px-1 text-gray-500">{label} (선택)</legend>
+      <legend className="text-xs font-medium px-1 text-gray-500">{label}</legend>
       {entries.length === 0 && <p className="text-xs text-gray-400 text-center py-1">내역 없음</p>}
       {entries.map((row, idx) => (
         <div key={row.key} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end">
@@ -50,9 +53,17 @@ function EntrySection({ type, label, entries, onUpdate, onAdd, onRemove }: Entry
           <button type="button" onClick={() => onRemove(type, row.key)} className="text-red-400 hover:text-red-600 pb-1 text-lg leading-none">×</button>
         </div>
       ))}
-      <button type="button" onClick={() => onAdd(type)} className="text-xs text-blue-500 hover:text-blue-700 mt-1">
-        + {type === 'buy' ? '매수' : '매도'} 추가
-      </button>
+      <div className="flex items-center justify-between pt-1">
+        <button type="button" onClick={() => onAdd(type)} className="text-xs text-blue-500 hover:text-blue-700">
+          + {type === 'buy' ? '매수' : '매도'} 추가
+        </button>
+        {entries.length > 0 && (
+          <span className="text-xs text-gray-400">
+            합계 <span className="font-medium text-gray-600">{totalQty % 1 === 0 ? totalQty : totalQty.toFixed(8).replace(/\.?0+$/, '')}</span>개
+            {totalAmt > 0 && <> · <span className="font-medium text-gray-600">{Math.round(totalAmt).toLocaleString('ko-KR')}원</span></>}
+          </span>
+        )}
+      </div>
     </fieldset>
   )
 }
@@ -220,6 +231,30 @@ export default function CoinModal({ trade, onClose, onSave, symbols = [] }: Prop
               </div>
               <EntrySection type="sell" label="매도 내역" entries={sellEntries} onUpdate={updateEntry} onAdd={addEntry} onRemove={removeEntry} />
               <EntrySection type="buy" label="매수 내역" entries={buyEntries} onUpdate={updateEntry} onAdd={addEntry} onRemove={removeEntry} />
+              {(() => {
+                const sellQty = sellEntries.reduce((s, r) => s + (Number(r.quantity.replace(/,/g, '')) || 0), 0)
+                const buyQty = buyEntries.reduce((s, r) => s + (Number(r.quantity.replace(/,/g, '')) || 0), 0)
+                const diff = Math.round((sellQty - buyQty) * 1e8) / 1e8
+                if (diff <= 0) return null
+                const avgBuyPrice = buyQty > 0
+                  ? Math.round(buyEntries.reduce((s, r) => s + (Number(r.price.replace(/,/g, '')) || 0) * (Number(r.quantity.replace(/,/g, '')) || 0), 0) / buyQty)
+                  : 0
+                const diffStr = diff % 1 === 0 ? String(diff) : diff.toFixed(8).replace(/\.?0+$/, '')
+                return (
+                  <div className="flex items-center justify-between bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">
+                    <span className="text-xs text-orange-700">
+                      매도가 매수보다 <span className="font-semibold">{diffStr}개</span> 많습니다
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setBuyEntries(prev => [...prev, { key: uuid(), date: today(), price: avgBuyPrice > 0 ? String(avgBuyPrice) : '', quantity: diffStr }])}
+                      className="text-xs bg-orange-500 text-white px-3 py-1 rounded hover:bg-orange-600"
+                    >
+                      매수 {diffStr}개 추가
+                    </button>
+                  </div>
+                )
+              })()}
               <div>
                 <label className={labelCls}>코멘트</label>
                 <textarea value={comment} onChange={e => setComment(e.target.value)} className={`${inputCls} h-20 resize-none`} placeholder="매매 이유, 전략 등..." maxLength={500} />
