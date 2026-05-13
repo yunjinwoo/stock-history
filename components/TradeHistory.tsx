@@ -100,19 +100,19 @@ export default function TradeHistory({ trades, accounts, onEdit, onDelete }: Pro
                           매수 {trade.buyEntries.length}건{trade.sellEntries.length > 0 ? ` · 매도 ${trade.sellEntries.length}건` : ''}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5 flex-wrap justify-end">
                         {!trade.isCompleted ? (
                           <>
                             <span className="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">보유중 {trade.holdingDays}일</span>
-                            <span className="text-xs text-gray-500">잔여 {trade.remainingQuantity}주</span>
+                            <span className="hidden sm:inline text-xs text-gray-500">잔여 {trade.remainingQuantity}주</span>
                             {trade.sellEntries.length > 0 && (
                               <>
-                                <span className="text-gray-300 text-xs">|</span>
-                                <span className="text-xs text-gray-400">일부매도</span>
+                                <span className="hidden sm:inline text-gray-300 text-xs">|</span>
+                                <span className="hidden sm:inline text-xs text-gray-400">일부매도</span>
                                 <span className={`text-xs font-medium ${trade.profitAmount >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
                                   {(trade.profitAmount >= 0 ? '+' : '') + formatKRW(Math.round(trade.profitAmount))}
                                 </span>
-                                <span className={`text-xs ${trade.profitAmount >= 0 ? 'text-red-400' : 'text-blue-400'}`}>
+                                <span className={`hidden sm:inline text-xs ${trade.profitAmount >= 0 ? 'text-red-400' : 'text-blue-400'}`}>
                                   {formatRate(trade.profitRate)}
                                 </span>
                               </>
@@ -138,7 +138,7 @@ export default function TradeHistory({ trades, accounts, onEdit, onDelete }: Pro
                     </div>
 
                     {/* 거래 내역 (접기/펼치기) */}
-                    {isExpanded && <table className="w-full text-sm border-t">
+                    {isExpanded && <div className="overflow-x-auto"><table className="w-full text-sm border-t">
                       <thead>
                         <tr className="text-xs text-gray-400 border-b bg-gray-50">
                           <th className="px-4 py-1.5 text-center font-normal w-24">구분</th>
@@ -164,7 +164,7 @@ export default function TradeHistory({ trades, accounts, onEdit, onDelete }: Pro
                         ))}
                       </tbody>
 
-                    </table>}
+                    </table></div>}
                     {isExpanded && trade.comment && (
                       <div className="px-4 py-1.5 text-xs text-gray-400 border-t bg-gray-50">💬 {trade.comment}</div>
                     )}
