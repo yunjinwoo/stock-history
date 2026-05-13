@@ -185,19 +185,23 @@ export default function MemosPage() {
               categoryFilter === null ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'
             }`}
           >
-            전체
+            전체 <span className={`ml-0.5 ${categoryFilter === null ? 'text-white/70' : 'text-gray-400'}`}>{memos.length}</span>
           </button>
-          {CATEGORIES.map(c => (
-            <button
-              key={c}
-              onClick={() => setCategoryFilter(categoryFilter === c ? null : c)}
-              className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                categoryFilter === c ? CATEGORY_COLORS[c] : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              {c}
-            </button>
-          ))}
+          {CATEGORIES.map(c => {
+            const count = memos.filter(m => m.category === c).length
+            if (count === 0) return null
+            return (
+              <button
+                key={c}
+                onClick={() => setCategoryFilter(categoryFilter === c ? null : c)}
+                className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                  categoryFilter === c ? CATEGORY_COLORS[c] : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                {c} <span className="ml-0.5 opacity-60">{count}</span>
+              </button>
+            )
+          })}
         </div>
 
         {/* 메모 목록 */}
