@@ -56,15 +56,15 @@ export default function HomePage() {
       <header className="bg-white border-b px-4 py-3 flex justify-between items-center sticky top-0 z-10">
         <h1 className="text-lg font-bold">매매일지</h1>
         <div className="flex gap-2">
-          <div className="flex border rounded overflow-hidden">
+          <div className="hidden sm:flex border rounded overflow-hidden">
             <button onClick={() => setViewMode('table')} className={`text-xs px-2 py-1.5 ${viewMode === 'table' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>≡ 목록</button>
             <button onClick={() => setViewMode('card')} className={`text-xs px-2 py-1.5 ${viewMode === 'card' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>▦ 카드</button>
             <button onClick={() => setViewMode('calendar')} className={`text-xs px-2 py-1.5 ${viewMode === 'calendar' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>📅 캘린더</button>
           </div>
           <Link href="/coins" className="text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">코인</Link>
-          <Link href="/memos" className="text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">메모</Link>
-          <Link href="/stock-master" className="text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">종목관리</Link>
-          <Link href="/accounts" className="text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">계좌관리</Link>
+          <Link href="/memos" className="hidden sm:inline-flex text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">메모</Link>
+          <Link href="/stock-master" className="hidden sm:inline-flex text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">종목관리</Link>
+          <Link href="/accounts" className="hidden sm:inline-flex text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">계좌관리</Link>
           <button
             onClick={() => { setEditTrade(null); setShowModal(true) }}
             className="bg-blue-600 text-white text-sm px-3 py-1.5 rounded hover:bg-blue-700"
