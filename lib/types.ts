@@ -59,6 +59,13 @@ export interface TradeImage {
   createdAt: string
 }
 
+export interface MemoImage {
+  id: string
+  memoId: string
+  filename: string
+  createdAt: string
+}
+
 export interface Trade {
   id: string
   accountId: string

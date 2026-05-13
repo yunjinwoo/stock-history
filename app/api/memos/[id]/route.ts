@@ -14,8 +14,11 @@ export async function PATCH(
       ...(body.content !== undefined && { content: body.content.trim() }),
       ...(body.showOnMain !== undefined && { showOnMain: body.showOnMain }),
       ...(body.showOnCoin !== undefined && { showOnCoin: body.showOnCoin }),
+      ...(body.rating !== undefined && { rating: body.rating != null ? Number(body.rating) : null }),
+      ...(body.category !== undefined && { category: body.category ?? null }),
       updatedAt: now,
     },
+    include: { images: { orderBy: { createdAt: 'asc' } } },
   })
   return NextResponse.json(memo)
 }

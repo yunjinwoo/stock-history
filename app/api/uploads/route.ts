@@ -7,7 +7,8 @@ const IMAGES_DIR = join(process.cwd(), '..', 'data', 'images')
 
 export async function POST(req: NextRequest) {
   const tradeId = req.nextUrl.searchParams.get('tradeId')
-  if (!tradeId) return NextResponse.json({ error: 'tradeId 필수' }, { status: 400 })
+  const memoId = req.nextUrl.searchParams.get('memoId')
+  if (!tradeId && !memoId) return NextResponse.json({ error: 'tradeId 또는 memoId 필수' }, { status: 400 })
 
   const formData = await req.formData()
   const file = formData.get('file') as File | null
@@ -23,9 +24,16 @@ export async function POST(req: NextRequest) {
   await writeFile(join(IMAGES_DIR, filename), buffer)
 
   const now = new Date().toISOString()
-  const image = await prisma.tradeImage.create({
-    data: { id: crypto.randomUUID(), tradeId, filename, createdAt: now },
-  })
 
+  if (memoId) {
+    const image = await prisma.memoImage.create({
+      data: { id: crypto.randomUUID(), memoId, filename, createdAt: now },
+    })
+    return NextResponse.json(image, { status: 201 })
+  }
+
+  const image = await prisma.tradeImage.create({
+    data: { id: crypto.randomUUID(), tradeId: tradeId!, filename, createdAt: now },
+  })
   return NextResponse.json(image, { status: 201 })
 }
