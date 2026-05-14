@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import type { Trade } from '@/lib/types'
-import { formatKRW, formatRate } from '@/lib/utils'
+import { formatKRW } from '@/lib/utils'
 
 interface Props {
   trades: Trade[]
@@ -10,11 +10,12 @@ interface Props {
   onDelete: (trade: Trade) => void
 }
 
-function lastSellDate(trade: Trade): string | null {
-  if (trade.sellEntries.length === 0) return null
-  return trade.sellEntries
-    .reduce((max, e) => (e.date > max ? e.date : max), trade.sellEntries[0].date)
-    .slice(0, 10)
+type SellEntry = { trade: Trade; price: number; quantity: number }
+type BuyEntry  = { trade: Trade; price: number; quantity: number }
+type DayData   = { sells: SellEntry[]; buys: BuyEntry[] }
+
+function sellProfit(s: SellEntry) {
+  return (s.price - s.trade.avgBuyPrice) * s.quantity
 }
 
 const DOW_LABELS = ['월', '화', '수', '목', '금', '토', '일']
@@ -26,12 +27,18 @@ export default function TradeCalendar({ trades, onEdit, onDelete }: Props) {
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
 
   const byDate = useMemo(() => {
-    const map: Record<string, Trade[]> = {}
+    const map: Record<string, DayData> = {}
     for (const trade of trades) {
-      if (!trade.isCompleted) continue
-      const date = lastSellDate(trade)
-      if (!date) continue
-      ;(map[date] ??= []).push(trade)
+      for (const e of trade.buyEntries) {
+        const date = e.date.slice(0, 10)
+        const day = map[date] ??= { sells: [], buys: [] }
+        day.buys.push({ trade, price: e.price, quantity: e.quantity })
+      }
+      for (const e of trade.sellEntries) {
+        const date = e.date.slice(0, 10)
+        const day = map[date] ??= { sells: [], buys: [] }
+        day.sells.push({ trade, price: e.price, quantity: e.quantity })
+      }
     }
     return map
   }, [trades])
@@ -42,11 +49,12 @@ export default function TradeCalendar({ trades, onEdit, onDelete }: Props) {
       const y = d.getFullYear()
       const m = d.getMonth()
       const prefix = `${y}-${String(m + 1).padStart(2, '0')}-`
-      const monthTrades = Object.entries(byDate)
+      const daySells = Object.entries(byDate)
         .filter(([d]) => d.startsWith(prefix))
-        .flatMap(([, ts]) => ts)
-      const total = monthTrades.reduce((s, t) => s + t.profitAmount, 0)
-      return { year: y, month: m, label: `${m + 1}월`, total, count: monthTrades.length }
+        .flatMap(([, day]) => day.sells)
+      const total = daySells.reduce((s, e) => s + sellProfit(e), 0)
+      const count = daySells.length
+      return { year: y, month: m, label: `${m + 1}월`, total, count }
     })
   }, [byDate, year, month])
 
@@ -74,8 +82,6 @@ export default function TradeCalendar({ trades, onEdit, onDelete }: Props) {
     if (month === 11) { setYear(y => y + 1); setMonth(0) } else setMonth(m => m + 1)
     setSelectedDate(null)
   }
-
-  const selectedTrades = selectedDate ? (byDate[selectedDate] ?? []) : []
 
   return (
     <div className="space-y-4 max-w-2xl mx-auto">
@@ -128,9 +134,12 @@ export default function TradeCalendar({ trades, onEdit, onDelete }: Props) {
             {week.map((day, di) => {
               if (!day) return <div key={di} className="min-h-[72px] bg-gray-50/50" />
               const key = dateKey(day)
-              const dayTrades = byDate[key] ?? []
-              const total = dayTrades.reduce((s, t) => s + t.profitAmount, 0)
-              const isToday = key === todayKey
+              const dayData = byDate[key]
+              const hasSells = dayData && dayData.sells.length > 0
+              const hasBuys  = dayData && dayData.buys.length > 0
+              const hasAny   = hasSells || hasBuys
+              const sellTotal = hasSells ? dayData.sells.reduce((s, e) => s + sellProfit(e), 0) : 0
+              const isToday    = key === todayKey
               const isSelected = key === selectedDate
               const isSun = di === 6
               const isSat = di === 5
@@ -138,9 +147,9 @@ export default function TradeCalendar({ trades, onEdit, onDelete }: Props) {
               return (
                 <div
                   key={di}
-                  onClick={() => dayTrades.length > 0 && setSelectedDate(isSelected ? null : key)}
+                  onClick={() => hasAny && setSelectedDate(isSelected ? null : key)}
                   className={`min-h-[72px] p-1.5 flex flex-col transition-colors
-                    ${dayTrades.length > 0 ? 'cursor-pointer hover:bg-gray-50' : ''}
+                    ${hasAny ? 'cursor-pointer hover:bg-gray-50' : ''}
                     ${isSelected ? 'bg-blue-50 ring-1 ring-inset ring-blue-200' : ''}`}
                 >
                   <span className={`text-xs w-6 h-6 flex items-center justify-center rounded-full mb-0.5
@@ -150,13 +159,18 @@ export default function TradeCalendar({ trades, onEdit, onDelete }: Props) {
                       : 'text-gray-600'}`}>
                     {day}
                   </span>
-                  {dayTrades.length > 0 && (
-                    <>
-                      <span className={`text-xs font-medium leading-tight ${total >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
-                        {total >= 0 ? '+' : ''}{formatKRW(Math.round(total))}
-                      </span>
-                      <span className="text-[10px] text-gray-400 mt-0.5">{dayTrades.length}건</span>
-                    </>
+                  {hasSells && (
+                    <span className={`text-xs font-medium leading-tight ${sellTotal >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                      {sellTotal >= 0 ? '+' : ''}{formatKRW(Math.round(sellTotal))}
+                    </span>
+                  )}
+                  {hasAny && (
+                    <span className="text-[10px] text-gray-400 mt-0.5">
+                      {[
+                        hasBuys  && `매수 ${dayData.buys.length}건`,
+                        hasSells && `매도 ${dayData.sells.length}건`,
+                      ].filter(Boolean).join(' · ')}
+                    </span>
                   )}
                 </div>
               )
@@ -166,85 +180,96 @@ export default function TradeCalendar({ trades, onEdit, onDelete }: Props) {
       </div>
 
       {/* 선택일 거래내역 */}
-      {selectedDate && selectedTrades.length > 0 && (
+      {selectedDate && byDate[selectedDate] && (
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-gray-700">
-              {selectedDate}
-              <span className={`ml-2 font-semibold ${selectedTrades.reduce((s, t) => s + t.profitAmount, 0) >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
-                {(() => {
-                  const t = selectedTrades.reduce((s, t) => s + t.profitAmount, 0)
-                  return (t >= 0 ? '+' : '') + formatKRW(Math.round(t))
-                })()}
-              </span>
-            </span>
-            <button onClick={() => setSelectedDate(null)} className="text-xs text-gray-400 hover:text-gray-600">닫기</button>
-          </div>
-
-          {selectedTrades.map(trade => {
-            const isPos = trade.profitAmount >= 0
-            const entries = [
-              ...trade.buyEntries.map(e => ({ date: e.date, type: '매수' as const, price: e.price, quantity: e.quantity })),
-              ...trade.sellEntries.map(e => ({ date: e.date, type: '매도' as const, price: e.price, quantity: e.quantity })),
-            ].sort((a, b) => a.date.localeCompare(b.date))
+          {(() => {
+            const dayData = byDate[selectedDate]
+            const daySellProfit = dayData.sells.reduce((s, e) => s + sellProfit(e), 0)
+            // 해당 날짜에 활동 있는 종목 모아 그룹화
+            const tradeMap = new Map<string, Trade>()
+            ;[...dayData.buys, ...dayData.sells].forEach(e => tradeMap.set(e.trade.id, e.trade))
+            const dayTrades = Array.from(tradeMap.values())
 
             return (
-              <div key={trade.id} className="rounded-lg border bg-white overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{trade.symbol}</span>
-                    {trade.symbolCode && <span className="text-gray-400 text-xs">({trade.symbolCode})</span>}
-                    <span className="text-xs text-gray-400">
-                      매수 {trade.buyEntries.length}건{trade.sellEntries.length > 0 ? ` · 매도 ${trade.sellEntries.length}건` : ''}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${isPos ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
-                      완료 {formatRate(trade.profitRate)}
-                    </span>
-                    <span className={`text-xs font-medium ${isPos ? 'text-red-500' : 'text-blue-500'}`}>
-                      {(isPos ? '+' : '') + formatKRW(Math.round(trade.profitAmount))}
-                    </span>
-                    <button onClick={() => onEdit(trade)} className="text-xs text-gray-400 hover:text-gray-700 px-2 py-0.5 border rounded">수정</button>
-                    <button
-                      onClick={() => { if (confirm(`"${trade.symbol}" 거래를 삭제하시겠습니까?`)) onDelete(trade) }}
-                      className="text-xs text-red-300 hover:text-red-500 px-2 py-0.5 border border-red-100 rounded"
-                    >삭제</button>
-                  </div>
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">
+                    {selectedDate}
+                    {dayData.sells.length > 0 && (
+                      <span className={`ml-2 font-semibold ${daySellProfit >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                        {daySellProfit >= 0 ? '+' : ''}{formatKRW(Math.round(daySellProfit))}
+                      </span>
+                    )}
+                  </span>
+                  <button onClick={() => setSelectedDate(null)} className="text-xs text-gray-400 hover:text-gray-600">닫기</button>
                 </div>
 
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-xs text-gray-400 border-b bg-gray-50">
-                      <th className="px-4 py-1.5 text-center font-normal w-24">구분</th>
-                      <th className="px-4 py-1.5 text-left font-normal">날짜</th>
-                      <th className="px-4 py-1.5 text-right font-normal">단가</th>
-                      <th className="px-4 py-1.5 text-right font-normal">수량</th>
-                      <th className="px-4 py-1.5 text-right font-normal">금액</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {entries.map((e, i) => (
-                      <tr key={i} className="hover:bg-gray-50">
-                        <td className="px-4 py-2 text-center">
-                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${e.type === '매수' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-500'}`}>
-                            {e.type}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2 text-gray-500 text-xs">{e.date.slice(0, 10)}</td>
-                        <td className="px-4 py-2 text-right">{formatKRW(e.price)}</td>
-                        <td className="px-4 py-2 text-right">{e.quantity}주</td>
-                        <td className="px-4 py-2 text-right">{formatKRW(e.price * e.quantity)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {trade.comment && (
-                  <div className="px-4 py-1.5 text-xs text-gray-400 border-t bg-gray-50">💬 {trade.comment}</div>
-                )}
-              </div>
+                {dayTrades.map(trade => {
+                  const daySells = dayData.sells.filter(e => e.trade.id === trade.id)
+                  const dayBuys  = dayData.buys.filter(e => e.trade.id === trade.id)
+                  const dayProfit = daySells.reduce((s, e) => s + sellProfit(e), 0)
+                  const entries = [
+                    ...dayBuys.map(e  => ({ type: '매수' as const, price: e.price,  quantity: e.quantity })),
+                    ...daySells.map(e => ({ type: '매도' as const, price: e.price,  quantity: e.quantity })),
+                  ]
+
+                  return (
+                    <div key={trade.id} className="rounded-lg border bg-white overflow-hidden">
+                      <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{trade.symbol}</span>
+                          {trade.symbolCode && <span className="text-gray-400 text-xs">({trade.symbolCode})</span>}
+                          {dayBuys.length > 0  && <span className="text-xs text-blue-500">매수 {dayBuys.length}건</span>}
+                          {daySells.length > 0 && <span className="text-xs text-orange-500">매도 {daySells.length}건</span>}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {daySells.length > 0 && (
+                            <span className={`text-xs font-medium ${dayProfit >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                              {dayProfit >= 0 ? '+' : ''}{formatKRW(Math.round(dayProfit))}
+                            </span>
+                          )}
+                          <button onClick={() => onEdit(trade)} className="text-xs text-gray-400 hover:text-gray-700 px-2 py-0.5 border rounded">수정</button>
+                          <button
+                            onClick={() => { if (confirm(`"${trade.symbol}" 거래를 삭제하시겠습니까?`)) onDelete(trade) }}
+                            className="text-xs text-red-300 hover:text-red-500 px-2 py-0.5 border border-red-100 rounded"
+                          >삭제</button>
+                        </div>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="text-xs text-gray-400 border-b bg-gray-50">
+                              <th className="px-4 py-1.5 text-center font-normal w-24">구분</th>
+                              <th className="px-4 py-1.5 text-right font-normal">단가</th>
+                              <th className="px-4 py-1.5 text-right font-normal">수량</th>
+                              <th className="px-4 py-1.5 text-right font-normal">금액</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-50">
+                            {entries.map((e, i) => (
+                              <tr key={i} className="hover:bg-gray-50">
+                                <td className="px-4 py-2 text-center">
+                                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${e.type === '매수' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-500'}`}>
+                                    {e.type}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-2 text-right">{formatKRW(e.price)}</td>
+                                <td className="px-4 py-2 text-right">{e.quantity}주</td>
+                                <td className="px-4 py-2 text-right">{formatKRW(e.price * e.quantity)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      {trade.comment && (
+                        <div className="px-4 py-1.5 text-xs text-gray-400 border-t bg-gray-50">💬 {trade.comment}</div>
+                      )}
+                    </div>
+                  )
+                })}
+              </>
             )
-          })}
+          })()}
         </div>
       )}
     </div>
