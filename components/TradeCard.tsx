@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import type { Trade, Account } from '@/lib/types'
+import type { Trade, Account, TradeImage } from '@/lib/types'
 import { formatKRW, formatRate } from '@/lib/utils'
+import TradeImageZone from '@/components/TradeImageZone'
 
 interface Props {
   trade: Trade
@@ -14,6 +15,7 @@ interface Props {
 export default function TradeCard({ trade, account, onEdit, onDelete }: Props) {
   const [showEntries, setShowEntries] = useState(false)
   const [showFullComment, setShowFullComment] = useState(false)
+  const [images, setImages] = useState<TradeImage[]>(trade.images)
 
   const statusBadge = !trade.isCompleted
     ? <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full">보유중 {trade.holdingDays}일</span>
@@ -103,6 +105,10 @@ export default function TradeCard({ trade, account, onEdit, onDelete }: Props) {
           )}
         </div>
       )}
+
+      <div className="border-t pt-2 mt-1">
+        <TradeImageZone tradeId={trade.id} images={images} onUpdate={setImages} />
+      </div>
 
       <div className="flex gap-2 justify-end pt-1">
         <button onClick={onEdit} className="text-xs text-gray-500 hover:text-gray-800 px-2 py-1 border rounded">수정</button>
