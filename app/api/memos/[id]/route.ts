@@ -16,6 +16,7 @@ export async function PATCH(
       ...(body.showOnCoin !== undefined && { showOnCoin: body.showOnCoin }),
       ...(body.rating !== undefined && { rating: body.rating != null ? Number(body.rating) : null }),
       ...(body.category !== undefined && { category: body.category ?? null }),
+      ...(body.symbol !== undefined && { symbol: body.symbol ?? null }),
       updatedAt: now,
     },
     include: { images: { orderBy: { createdAt: 'asc' } } },

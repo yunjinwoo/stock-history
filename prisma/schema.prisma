@@ -86,6 +86,7 @@ model Memo {
   showOnCoin  Boolean     @default(true)
   rating      Int?
   category    String?
+  symbol      String?
   createdAt   String
   updatedAt   String
   images      MemoImage[]
