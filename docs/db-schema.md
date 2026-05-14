@@ -17,8 +17,10 @@ Account ──< Trade ──< BuyEntry
 CoinTrade ──< CoinBuyEntry
           └──< CoinSellEntry
 
-StockMaster  (독립 테이블 — Trade와 symbol 문자열로 연결, FK 없음)
+StockMaster  (독립 테이블 — Trade·Memo와 symbol 문자열로 연결, FK 없음)
+
 Memo ──< MemoImage
+  └── symbol?  (StockMaster.symbol과 문자열 연결, FK 없음)
 ```
 
 ---
@@ -81,11 +83,32 @@ Memo ──< MemoImage
 
 ---
 
-## CoinTrade / CoinBuyEntry / CoinSellEntry
+## CoinTrade (코인 거래)
 
-주식과 구조 동일하나:
-- `CoinTrade`에 `accountId` 없음 (코인은 계좌 개념 없음)
-- `quantity`가 `Float` (코인은 소수점 수량 가능)
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| id | String (UUID) | PK |
+| symbol | String | 코인명 (예: BTC) |
+| comment | String? | 코멘트 |
+| createdAt | String | |
+| updatedAt | String | |
+
+> 주식 Trade와 달리 `accountId` 없음 (코인은 계좌 개념 없음)
+
+---
+
+## CoinBuyEntry / CoinSellEntry (코인 매수/매도 내역)
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| id | String (UUID) | PK |
+| tradeId | String | CoinTrade FK (삭제 시 cascade) |
+| date | String | 거래 일시 (ISO 8601) |
+| price | Float | 단가 |
+| quantity | Float | 수량 (소수점 가능) |
+| createdAt | String | |
+
+> 주식 BuyEntry/SellEntry와 동일한 구조이나 `quantity`가 `Float` (코인은 소수점 수량 가능)
 
 ---
 
@@ -94,14 +117,14 @@ Memo ──< MemoImage
 | 필드 | 타입 | 설명 |
 |------|------|------|
 | id | String (UUID) | PK |
-| symbol | String | 종목명 (unique) |
+| symbol | String (unique) | 종목명 |
 | symbolCode | String | 종목코드 |
 | tags | String? | 태그 목록 (쉼표 구분 문자열, 예: `"반도체,대형주,배당"`) |
 | createdAt | String | |
 | updatedAt | String | |
 
-> Trade와 DB FK 없이 symbol 문자열로 연결됨.  
-> 마스터 등록/수정 시 같은 symbol의 Trade들을 코드로 일괄 업데이트.  
+> Trade·Memo와 DB FK 없이 symbol 문자열로 연결됨.  
+> 마스터 등록/수정 시 같은 symbol의 Trade들을 symbolCode로 일괄 업데이트.  
 > 태그는 쉼표 구분 문자열로 저장, 파싱은 `split(',').filter(Boolean)` 사용.  
 > 주식 메인 페이지에서 태그 필터로 해당 태그를 가진 종목의 거래만 표시 (태그 없는 종목은 숨김).
 
@@ -113,13 +136,17 @@ Memo ──< MemoImage
 |------|------|------|
 | id | String (UUID) | PK |
 | content | String | 메모 내용 (길이 제한 없음) |
-| showOnMain | Boolean | 주식 페이지에 표시 여부 |
-| showOnCoin | Boolean | 코인 페이지에 표시 여부 |
+| showOnMain | Boolean | 주식 페이지 상단 핀 표시 여부 (기본 true) |
+| showOnCoin | Boolean | 코인 페이지 상단 핀 표시 여부 (기본 true) |
 | rating | Int? | 평점 1~10 (선택) |
 | category | String? | 분류: 원칙/전략/시장/종목/일지/기타 (선택) |
 | symbol | String? | 연결 종목명 (선택, StockMaster.symbol과 문자열 연결) |
 | createdAt | String | |
 | updatedAt | String | |
+
+> `symbol`이 설정된 메모는 종목관리 페이지에서 해당 종목 카드 내에 표시됨.  
+> 종목관리에서 작성 시 `category: '종목'`, `showOnMain/showOnCoin: false`가 기본값으로 세팅됨.  
+> 메모 페이지에서 종목별 필터로 조회 가능.
 
 ---
 
@@ -133,8 +160,7 @@ Memo ──< MemoImage
 | createdAt | String | |
 
 > TradeImage와 동일한 방식으로 `../data/images/`에 저장, `/api/images/[filename]`으로 서빙.  
-> 메모 삭제 시 DB 레코드는 cascade 삭제, 파일은 `DELETE /api/memo-images/[id]` 호출 시 삭제.  
-> `symbol` 필드: StockMaster와 FK 없이 symbol 문자열로 연결. 종목관리에서 작성 시 자동 세팅, 메모 페이지에서 종목별 필터로 조회 가능.
+> 메모 삭제 시 DB 레코드는 cascade 삭제, 파일은 `DELETE /api/memo-images/[id]` 호출 시 삭제.
 
 ---
 
