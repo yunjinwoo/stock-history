@@ -5,7 +5,7 @@ import Link from 'next/link'
 import type { Trade, Account } from '@/lib/types'
 import { apiFetch } from '@/lib/api'
 
-interface StockMasterItem { symbol: string; tags: string | null }
+interface StockMasterItem { symbol: string; symbolCode: string; tags: string | null }
 import TradeCard from '@/components/TradeCard'
 import TradeHistory from '@/components/TradeHistory'
 import TradeCalendar from '@/components/TradeCalendar'
@@ -13,7 +13,7 @@ import MemoStrip from '@/components/MemoStrip'
 import SummaryBar from '@/components/SummaryBar'
 import TradeModal from '@/components/TradeModal'
 
-interface Memo { id: string; content: string; showOnMain: boolean; showOnCoin: boolean }
+interface Memo { id: string; content: string; showOnMain: boolean; showOnCoin: boolean; symbol?: string | null }
 
 export default function HomePage() {
   const [trades, setTrades] = useState<Trade[]>([])
@@ -76,6 +76,12 @@ export default function HomePage() {
     return map
   }, [stockMasters])
 
+  const symbolCodeMap = useMemo(() => {
+    const map: Record<string, string> = {}
+    stockMasters.forEach(m => { if (m.symbolCode) map[m.symbol] = m.symbolCode })
+    return map
+  }, [stockMasters])
+
   const filteredTagOptions = tagSearch.trim()
     ? allTags.filter(t => t.includes(tagSearch.trim()))
     : allTags
@@ -116,7 +122,7 @@ export default function HomePage() {
 
       <div className="px-4 py-4 space-y-3">
         <div className="max-w-2xl mx-auto space-y-3">
-          <MemoStrip memos={memos} page="stock" />
+          <MemoStrip memos={memos} page="stock" symbolCodeMap={symbolCodeMap} />
           <SummaryBar trades={displayTrades} />
 
           <div className="flex gap-2 flex-wrap">
