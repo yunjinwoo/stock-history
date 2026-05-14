@@ -3,7 +3,7 @@
 ```
 stock-history/
 ├── app/                          # Next.js 페이지 + API 라우트
-│   ├── layout.tsx                # 전체 공통 레이아웃 (html, body 태그)
+│   ├── layout.tsx                # 전체 공통 레이아웃 — BottomTabBar 포함
 │   ├── page.tsx                  # 주식 매매일지 메인 페이지
 │   ├── coins/page.tsx            # 코인 매매일지 페이지
 │   ├── memos/page.tsx            # 메모 관리 페이지
@@ -27,11 +27,13 @@ stock-history/
 │       │   ├── route.ts          # GET, POST(upsert + 기존 trades 일괄 업데이트)
 │       │   └── [id]/route.ts     # PATCH, DELETE
 │       ├── uploads/
-│       │   └── route.ts          # POST(이미지 파일 업로드 → /data/images/ 저장)
+│       │   └── route.ts          # POST(이미지 업로드 — tradeId 또는 memoId)
 │       ├── images/
 │       │   └── [filename]/route.ts # GET(이미지 파일 서빙)
-│       └── trade-images/
-│           └── [id]/route.ts     # DELETE(이미지 삭제 — 파일 + DB)
+│       ├── trade-images/
+│       │   └── [id]/route.ts     # DELETE(거래 이미지 삭제 — 파일 + DB)
+│       └── memo-images/
+│           └── [id]/route.ts     # DELETE(메모 이미지 삭제 — 파일 + DB)
 │
 ├── components/                   # 재사용 UI 컴포넌트
 │   ├── TradeModal.tsx            # 주식 거래 입력/수정 모달
@@ -45,6 +47,8 @@ stock-history/
 │   ├── CoinHistory.tsx           # 코인 목록
 │   ├── MemoStrip.tsx             # 핀 메모 표시 띠
 │   ├── TradeImageZone.tsx        # 거래 이미지 업로드/표시 (드래그, 클립보드, 라이트박스)
+│   ├── MemoImageZone.tsx         # 메모 이미지 업로드/표시 (TradeImageZone과 동일 UX)
+│   ├── BottomTabBar.tsx          # 모바일 하단 탭바 (sm 미만에서만 표시)
 │   ├── AccountList.tsx           # 계좌 목록
 │   └── AccountMemoEditor.tsx     # 계좌 메모 인라인 편집
 │
@@ -80,3 +84,5 @@ stock-history/
 | `lib/coinParser.ts` | 코인 거래소 거래내역 붙여넣기를 파싱 |
 | `prisma/schema.prisma` | DB 테이블 구조 정의 (변경 후 `npx prisma db push` 필요) |
 | `components/TradeImageZone.tsx` | 이미지 드래그·클립보드 업로드, 썸네일, 라이트박스 |
+| `components/MemoImageZone.tsx` | TradeImageZone과 동일 UX, 메모에 연결 |
+| `components/BottomTabBar.tsx` | 모바일 전용 하단 탭 네비게이션 (주식/코인/메모/더보기) |

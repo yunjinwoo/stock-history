@@ -18,7 +18,7 @@ CoinTrade ──< CoinBuyEntry
           └──< CoinSellEntry
 
 StockMaster  (독립 테이블 — Trade와 symbol 문자열로 연결, FK 없음)
-Memo         (독립 테이블)
+Memo ──< MemoImage
 ```
 
 ---
@@ -109,11 +109,27 @@ Memo         (독립 테이블)
 | 필드 | 타입 | 설명 |
 |------|------|------|
 | id | String (UUID) | PK |
-| content | String | 메모 내용 (최대 200자) |
+| content | String | 메모 내용 (길이 제한 없음) |
 | showOnMain | Boolean | 주식 페이지에 표시 여부 |
 | showOnCoin | Boolean | 코인 페이지에 표시 여부 |
+| rating | Int? | 평점 1~10 (선택) |
+| category | String? | 분류: 원칙/전략/시장/종목/일지/기타 (선택) |
 | createdAt | String | |
 | updatedAt | String | |
+
+---
+
+## MemoImage (메모 첨부 이미지)
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| id | String (UUID) | PK |
+| memoId | String | Memo FK (삭제 시 cascade) |
+| filename | String | 저장된 파일명 (UUID + 확장자) |
+| createdAt | String | |
+
+> TradeImage와 동일한 방식으로 `../data/images/`에 저장, `/api/images/[filename]`으로 서빙.  
+> 메모 삭제 시 DB 레코드는 cascade 삭제, 파일은 `DELETE /api/memo-images/[id]` 호출 시 삭제.
 
 ---
 
