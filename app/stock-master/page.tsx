@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import type { MemoImage } from '@/lib/types'
 import { apiFetch } from '@/lib/api'
@@ -41,14 +41,38 @@ export default function StockMasterPage() {
   const [memoExpandId, setMemoExpandId] = useState<string | null>(null)
   const [memoInputId, setMemoInputId] = useState<string | null>(null)
   const [memoInput, setMemoInput] = useState('')
+  const [tagFilter, setTagFilter] = useState<string | null>(null)
+  const [memoFilter, setMemoFilter] = useState<'all' | 'has' | 'none'>('all')
+  const [sortMode, setSortMode] = useState<'name' | 'memoCount'>('name')
 
-  const filtered = search.trim()
-    ? list.filter(item =>
-        item.symbol.includes(search.trim()) ||
-        item.symbolCode.includes(search.trim()) ||
-        (item.tags && item.tags.includes(search.trim()))
-      )
-    : list
+  const allTagsInList = useMemo(() => {
+    const set = new Set<string>()
+    list.forEach(item => parseTags(item.tags).forEach(t => set.add(t)))
+    return Array.from(set).sort()
+  }, [list])
+
+  const filtered = useMemo(() => {
+    const symbolsWithMemo = new Set(allMemos.filter(m => m.symbol).map(m => m.symbol))
+    let result = list.filter(item => {
+      if (search.trim()) {
+        const q = search.trim()
+        if (!item.symbol.includes(q) && !item.symbolCode.includes(q) && !(item.tags && item.tags.includes(q))) return false
+      }
+      if (tagFilter && !parseTags(item.tags).includes(tagFilter)) return false
+      if (memoFilter === 'has' && !symbolsWithMemo.has(item.symbol)) return false
+      if (memoFilter === 'none' && symbolsWithMemo.has(item.symbol)) return false
+      return true
+    })
+    if (sortMode === 'memoCount') {
+      const memoCountMap: Record<string, number> = {}
+      allMemos.forEach(m => { if (m.symbol) memoCountMap[m.symbol] = (memoCountMap[m.symbol] ?? 0) + 1 })
+      result = [...result].sort((a, b) => {
+        const diff = (memoCountMap[b.symbol] ?? 0) - (memoCountMap[a.symbol] ?? 0)
+        return diff !== 0 ? diff : a.symbol.localeCompare(b.symbol, 'ko')
+      })
+    }
+    return result
+  }, [list, search, tagFilter, memoFilter, sortMode, allMemos])
 
   async function load() {
     const data = await apiFetch('/api/stock-master').then(r => r.json())
@@ -174,11 +198,64 @@ export default function StockMasterPage() {
         </div>
 
         <div className="flex items-center justify-between px-1">
-          <span className="text-xs text-gray-400">전체 {list.length}건</span>
-          {search.trim() && (
-            <span className="text-xs text-blue-500">"{search.trim()}" 검색 결과 {filtered.length}건</span>
-          )}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-400">전체 {list.length}건</span>
+            {search.trim() && (
+              <span className="text-xs text-blue-500">"{search.trim()}" 검색 결과 {filtered.length}건</span>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="flex border rounded overflow-hidden text-xs">
+              {(['all', 'has', 'none'] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setMemoFilter(v)}
+                  className={`px-2.5 py-1.5 ${memoFilter === v ? 'bg-gray-100 text-gray-800 font-medium' : 'text-gray-400 hover:text-gray-600'}`}
+                >
+                  {v === 'all' ? '전체' : v === 'has' ? '메모있는' : '메모없는'}
+                </button>
+              ))}
+            </div>
+            <div className="flex border rounded overflow-hidden text-xs">
+              {([['name', '종목명순'], ['memoCount', '메모건수순']] as const).map(([v, label]) => (
+                <button
+                  key={v}
+                  onClick={() => setSortMode(v)}
+                  className={`px-2.5 py-1.5 ${sortMode === v ? 'bg-gray-100 text-gray-800 font-medium' : 'text-gray-400 hover:text-gray-600'}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
+
+        {/* 태그 필터 */}
+        {allTagsInList.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              onClick={() => setTagFilter(null)}
+              className={`text-xs px-2.5 py-1.5 rounded-full border transition-colors ${
+                tagFilter === null ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              전체 태그
+            </button>
+            {allTagsInList.map(tag => (
+              <button
+                key={tag}
+                onClick={() => setTagFilter(tagFilter === tag ? null : tag)}
+                className={`text-xs px-2.5 py-1.5 rounded-full border transition-colors ${
+                  tagFilter === tag
+                    ? 'bg-blue-50 text-blue-700 border-blue-300'
+                    : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        )}
 
         {filtered.length === 0 ? (
           <p className="text-center text-gray-400 py-12 text-sm">
