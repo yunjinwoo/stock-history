@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import type { MemoImage } from '@/lib/types'
 import { apiFetch } from '@/lib/api'
@@ -24,6 +24,7 @@ interface Memo {
   showOnCoin: boolean
   rating: number | null
   category: string | null
+  symbol: string | null
   images: MemoImage[]
   createdAt: string
   updatedAt: string
@@ -86,6 +87,7 @@ export default function MemosPage() {
   const [editRating, setEditRating] = useState<number | null>(null)
   const [editCategory, setEditCategory] = useState<string | null>(null)
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
+  const [symbolFilter, setSymbolFilter] = useState<string | null>(null)
   const [imagesMap, setImagesMap] = useState<Record<string, MemoImage[]>>({})
   const [saving, setSaving] = useState(false)
 
@@ -145,7 +147,17 @@ export default function MemosPage() {
     setImagesMap(prev => ({ ...prev, [memoId]: images }))
   }
 
-  const filtered = categoryFilter ? memos.filter(m => m.category === categoryFilter) : memos
+  const symbolsWithMemos = useMemo(() => {
+    const set = new Set<string>()
+    memos.forEach(m => { if (m.symbol) set.add(m.symbol) })
+    return Array.from(set).sort()
+  }, [memos])
+
+  const filtered = memos.filter(m => {
+    if (categoryFilter && m.category !== categoryFilter) return false
+    if (symbolFilter && m.symbol !== symbolFilter) return false
+    return true
+  })
 
   return (
     <div className="min-h-screen">
@@ -204,6 +216,37 @@ export default function MemosPage() {
           })}
         </div>
 
+        {/* 종목 필터 */}
+        {symbolsWithMemos.length > 0 && (
+          <div className="flex items-center gap-1 flex-wrap">
+            <span className="text-xs text-gray-400 mr-0.5">종목</span>
+            <button
+              onClick={() => setSymbolFilter(null)}
+              className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                symbolFilter === null ? 'bg-green-700 text-white border-green-700' : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              전체
+            </button>
+            {symbolsWithMemos.map(s => {
+              const count = memos.filter(m => m.symbol === s).length
+              return (
+                <button
+                  key={s}
+                  onClick={() => setSymbolFilter(symbolFilter === s ? null : s)}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                    symbolFilter === s
+                      ? 'bg-green-50 text-green-700 border-green-300'
+                      : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  {s} <span className="ml-0.5 opacity-60">{count}</span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+
         {/* 메모 목록 */}
         {filtered.length === 0 ? (
           <p className="text-center text-gray-400 py-12 text-sm">메모가 없습니다</p>
@@ -230,6 +273,11 @@ export default function MemosPage() {
                     <div className="space-y-2">
                       <div>
                         <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+                          {memo.symbol && (
+                            <span className="text-xs bg-green-50 text-green-600 border border-green-200 px-2 py-0.5 rounded-full">
+                              {memo.symbol}
+                            </span>
+                          )}
                           {memo.category && (
                             <span className={`text-xs px-2 py-0.5 rounded-full border ${CATEGORY_COLORS[memo.category] ?? 'bg-gray-100 text-gray-500 border-gray-200'}`}>
                               {memo.category}

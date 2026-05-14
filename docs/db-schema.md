@@ -117,6 +117,7 @@ Memo ──< MemoImage
 | showOnCoin | Boolean | 코인 페이지에 표시 여부 |
 | rating | Int? | 평점 1~10 (선택) |
 | category | String? | 분류: 원칙/전략/시장/종목/일지/기타 (선택) |
+| symbol | String? | 연결 종목명 (선택, StockMaster.symbol과 문자열 연결) |
 | createdAt | String | |
 | updatedAt | String | |
 
@@ -132,7 +133,8 @@ Memo ──< MemoImage
 | createdAt | String | |
 
 > TradeImage와 동일한 방식으로 `../data/images/`에 저장, `/api/images/[filename]`으로 서빙.  
-> 메모 삭제 시 DB 레코드는 cascade 삭제, 파일은 `DELETE /api/memo-images/[id]` 호출 시 삭제.
+> 메모 삭제 시 DB 레코드는 cascade 삭제, 파일은 `DELETE /api/memo-images/[id]` 호출 시 삭제.  
+> `symbol` 필드: StockMaster와 FK 없이 symbol 문자열로 연결. 종목관리에서 작성 시 자동 세팅, 메모 페이지에서 종목별 필터로 조회 가능.
 
 ---
 

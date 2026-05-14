@@ -2,13 +2,23 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import type { MemoImage } from '@/lib/types'
 import { apiFetch } from '@/lib/api'
+import MemoImageZone from '@/components/MemoImageZone'
 
 interface StockMaster {
   id: string
   symbol: string
   symbolCode: string
   tags?: string | null
+}
+
+interface StockMemo {
+  id: string
+  content: string
+  symbol: string | null
+  createdAt: string
+  images: MemoImage[]
 }
 
 function parseTags(tags?: string | null): string[] {
@@ -26,6 +36,11 @@ export default function StockMasterPage() {
   const [search, setSearch] = useState('')
   const [tagInputId, setTagInputId] = useState<string | null>(null)
   const [tagInput, setTagInput] = useState('')
+  const [allMemos, setAllMemos] = useState<StockMemo[]>([])
+  const [memoImagesMap, setMemoImagesMap] = useState<Record<string, MemoImage[]>>({})
+  const [memoExpandId, setMemoExpandId] = useState<string | null>(null)
+  const [memoInputId, setMemoInputId] = useState<string | null>(null)
+  const [memoInput, setMemoInput] = useState('')
 
   const filtered = search.trim()
     ? list.filter(item =>
@@ -40,7 +55,12 @@ export default function StockMasterPage() {
     if (Array.isArray(data)) setList(data)
   }
 
-  useEffect(() => { load() }, [])
+  async function loadMemos() {
+    const data = await apiFetch('/api/memos').then(r => r.json())
+    if (Array.isArray(data)) setAllMemos(data)
+  }
+
+  useEffect(() => { load(); loadMemos() }, [])
 
   async function handleAdd() {
     if (!symbol.trim() || !symbolCode.trim()) return
@@ -88,6 +108,25 @@ export default function StockMasterPage() {
     setTagInput('')
     setTagInputId(null)
     load()
+  }
+
+  async function handleAddMemo(item: StockMaster) {
+    const trimmed = memoInput.trim()
+    if (!trimmed) return
+    await apiFetch('/api/memos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: trimmed, symbol: item.symbol, category: '종목', showOnMain: false, showOnCoin: false }),
+    })
+    setMemoInput('')
+    setMemoInputId(null)
+    loadMemos()
+  }
+
+  async function handleDeleteMemo(id: string) {
+    if (!confirm('메모를 삭제하시겠습니까?')) return
+    await apiFetch(`/api/memos/${id}`, { method: 'DELETE' })
+    loadMemos()
   }
 
   async function handleRemoveTag(item: StockMaster, tag: string) {
@@ -212,6 +251,79 @@ export default function StockMasterPage() {
                         </button>
                       )}
                     </div>
+
+                    {/* 메모 섹션 */}
+                    {(() => {
+                      const stockMemos = allMemos.filter(m => m.symbol === item.symbol)
+                      return (
+                        <>
+                          <button
+                            onClick={() => setMemoExpandId(memoExpandId === item.id ? null : item.id)}
+                            className={`text-xs px-2 py-0.5 rounded border transition-colors ${
+                              stockMemos.length > 0
+                                ? 'text-green-600 border-green-200 bg-green-50 hover:bg-green-100'
+                                : 'text-gray-300 border-dashed border-gray-300 hover:text-gray-500 hover:border-gray-400'
+                            }`}
+                          >
+                            메모{stockMemos.length > 0 && ` ${stockMemos.length}건`}
+                            <span className="ml-1 text-gray-400">{memoExpandId === item.id ? '▲' : '▼'}</span>
+                          </button>
+
+                          {memoExpandId === item.id && (
+                            <div className="border-t pt-2 space-y-1.5">
+                              {stockMemos.map(m => (
+                                <div key={m.id} className="bg-gray-50 rounded border border-gray-100">
+                                  <div className="flex items-start gap-2 px-2 py-1.5">
+                                    <p className="text-xs text-gray-700 flex-1 whitespace-pre-wrap break-words">{m.content}</p>
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                      <span className="text-xs text-gray-300">{m.createdAt.slice(0, 10)}</span>
+                                      <button
+                                        onClick={() => handleDeleteMemo(m.id)}
+                                        className="text-xs text-red-300 hover:text-red-500"
+                                      >×</button>
+                                    </div>
+                                  </div>
+                                  <div className="px-2 pb-2">
+                                    <MemoImageZone
+                                      memoId={m.id}
+                                      images={memoImagesMap[m.id] ?? m.images}
+                                      onUpdate={imgs => setMemoImagesMap(prev => ({ ...prev, [m.id]: imgs }))}
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                              {memoInputId === item.id ? (
+                                <div className="space-y-1">
+                                  <textarea
+                                    autoFocus
+                                    value={memoInput}
+                                    onChange={e => setMemoInput(e.target.value)}
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddMemo(item) }
+                                      if (e.key === 'Escape') { setMemoInputId(null); setMemoInput('') }
+                                    }}
+                                    placeholder="메모 내용 입력 (Enter로 추가, Shift+Enter 줄바꿈)"
+                                    rows={2}
+                                    className="w-full border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-green-400 resize-none"
+                                  />
+                                  <div className="flex justify-end gap-1">
+                                    <button onClick={() => { setMemoInputId(null); setMemoInput('') }} className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 border rounded">취소</button>
+                                    <button onClick={() => handleAddMemo(item)} className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700">추가</button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => { setMemoInputId(item.id); setMemoInput('') }}
+                                  className="text-xs text-gray-300 hover:text-gray-500 border border-dashed border-gray-300 hover:border-gray-400 px-2 py-0.5 rounded w-full text-left transition-colors"
+                                >
+                                  + 메모 추가
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      )
+                    })()}
                   </div>
                 )}
               </div>
