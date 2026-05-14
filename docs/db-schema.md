@@ -96,11 +96,14 @@ Memo ──< MemoImage
 | id | String (UUID) | PK |
 | symbol | String | 종목명 (unique) |
 | symbolCode | String | 종목코드 |
+| tags | String? | 태그 목록 (쉼표 구분 문자열, 예: `"반도체,대형주,배당"`) |
 | createdAt | String | |
 | updatedAt | String | |
 
 > Trade와 DB FK 없이 symbol 문자열로 연결됨.  
-> 마스터 등록/수정 시 같은 symbol의 Trade들을 코드로 일괄 업데이트.
+> 마스터 등록/수정 시 같은 symbol의 Trade들을 코드로 일괄 업데이트.  
+> 태그는 쉼표 구분 문자열로 저장, 파싱은 `split(',').filter(Boolean)` 사용.  
+> 주식 메인 페이지에서 태그 필터로 해당 태그를 가진 종목의 거래만 표시 (태그 없는 종목은 숨김).
 
 ---
 

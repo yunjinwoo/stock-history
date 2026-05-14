@@ -8,6 +8,11 @@ interface StockMaster {
   id: string
   symbol: string
   symbolCode: string
+  tags?: string | null
+}
+
+function parseTags(tags?: string | null): string[] {
+  return tags ? tags.split(',').filter(Boolean) : []
 }
 
 export default function StockMasterPage() {
@@ -19,11 +24,14 @@ export default function StockMasterPage() {
   const [editCode, setEditCode] = useState('')
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
+  const [tagInputId, setTagInputId] = useState<string | null>(null)
+  const [tagInput, setTagInput] = useState('')
 
   const filtered = search.trim()
     ? list.filter(item =>
         item.symbol.includes(search.trim()) ||
-        item.symbolCode.includes(search.trim())
+        item.symbolCode.includes(search.trim()) ||
+        (item.tags && item.tags.includes(search.trim()))
       )
     : list
 
@@ -44,6 +52,7 @@ export default function StockMasterPage() {
     })
     setSymbol('')
     setSymbolCode('')
+    setSearch('')
     setSaving(false)
     load()
   }
@@ -62,6 +71,32 @@ export default function StockMasterPage() {
   async function handleDelete(id: string) {
     if (!confirm('삭제하시겠습니까?')) return
     await apiFetch(`/api/stock-master/${id}`, { method: 'DELETE' })
+    load()
+  }
+
+  async function handleAddTag(item: StockMaster, tag: string) {
+    const trimmed = tag.trim()
+    if (!trimmed) return
+    const current = parseTags(item.tags)
+    if (current.includes(trimmed)) { setTagInput(''); setTagInputId(null); return }
+    const newTags = [...current, trimmed].join(',')
+    await apiFetch(`/api/stock-master/${item.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tags: newTags }),
+    })
+    setTagInput('')
+    setTagInputId(null)
+    load()
+  }
+
+  async function handleRemoveTag(item: StockMaster, tag: string) {
+    const newTags = parseTags(item.tags).filter(t => t !== tag).join(',')
+    await apiFetch(`/api/stock-master/${item.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tags: newTags || null }),
+    })
     load()
   }
 
@@ -130,19 +165,53 @@ export default function StockMasterPage() {
                     <button onClick={() => handleEdit(item)} className="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">저장</button>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-medium flex-1">{item.symbol}</span>
-                    <span className="text-sm text-gray-400 font-mono">{item.symbolCode}</span>
-                    <a
-                      href={`https://finance.naver.com/item/main.naver?code=${item.symbolCode}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-blue-400 hover:text-blue-600"
-                    >
-                      네이버
-                    </a>
-                    <button onClick={() => { setEditId(item.id); setEditSymbol(item.symbol); setEditCode(item.symbolCode) }} className="text-xs text-gray-400 hover:text-gray-700 px-2 py-0.5 border rounded">수정</button>
-                    <button onClick={() => handleDelete(item.id)} className="text-xs text-red-300 hover:text-red-500 px-2 py-0.5 border border-red-100 rounded">삭제</button>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-medium flex-1">{item.symbol}</span>
+                      <span className="text-sm text-gray-400 font-mono">{item.symbolCode}</span>
+                      <a
+                        href={`https://finance.naver.com/item/main.naver?code=${item.symbolCode}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-400 hover:text-blue-600"
+                      >
+                        네이버
+                      </a>
+                      <button onClick={() => { setEditId(item.id); setEditSymbol(item.symbol); setEditCode(item.symbolCode) }} className="text-xs text-gray-400 hover:text-gray-700 px-2 py-0.5 border rounded">수정</button>
+                      <button onClick={() => handleDelete(item.id)} className="text-xs text-red-300 hover:text-red-500 px-2 py-0.5 border border-red-100 rounded">삭제</button>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {parseTags(item.tags).map(tag => (
+                        <span key={tag} className="inline-flex items-center gap-0.5 text-xs bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded-full">
+                          {tag}
+                          <button
+                            onClick={() => handleRemoveTag(item, tag)}
+                            className="hover:text-blue-800 ml-0.5 leading-none"
+                          >×</button>
+                        </span>
+                      ))}
+                      {tagInputId === item.id ? (
+                        <input
+                          autoFocus
+                          value={tagInput}
+                          onChange={e => setTagInput(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') handleAddTag(item, tagInput)
+                            if (e.key === 'Escape') { setTagInputId(null); setTagInput('') }
+                          }}
+                          onBlur={() => { if (tagInput.trim()) handleAddTag(item, tagInput); else { setTagInputId(null); setTagInput('') } }}
+                          className="text-xs border rounded px-2 py-0.5 w-24 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                          placeholder="태그 입력"
+                        />
+                      ) : (
+                        <button
+                          onClick={() => { setTagInputId(item.id); setTagInput('') }}
+                          className="text-xs text-gray-300 hover:text-gray-500 border border-dashed border-gray-300 hover:border-gray-400 px-2 py-0.5 rounded-full transition-colors"
+                        >
+                          + 태그
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
