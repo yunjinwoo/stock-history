@@ -50,7 +50,7 @@ export default function CoinsPage() {
       <header className="bg-white border-b px-4 py-3 flex justify-between items-center sticky top-0 z-10">
         <h1 className="text-lg font-bold">코인 매매일지</h1>
         <div className="flex gap-2">
-          <Link href="/" className="text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">주식</Link>
+          <Link href="/" className="hidden sm:inline-flex text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">주식</Link>
           <Link href="/memos" className="hidden sm:inline-flex text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">메모</Link>
           <button
             onClick={() => { setEditTrade(null); setShowModal(true) }}
