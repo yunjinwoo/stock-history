@@ -227,8 +227,8 @@ export default function MemosPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="flex items-start gap-3">
-                      <div className="flex-1 min-w-0">
+                    <div className="space-y-2">
+                      <div>
                         <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
                           {memo.category && (
                             <span className={`text-xs px-2 py-0.5 rounded-full border ${CATEGORY_COLORS[memo.category] ?? 'bg-gray-100 text-gray-500 border-gray-200'}`}>
@@ -239,7 +239,7 @@ export default function MemosPage() {
                             <span className="text-xs bg-yellow-50 text-yellow-700 border border-yellow-200 px-2 py-0.5 rounded-full">★ {memo.rating}</span>
                           )}
                         </div>
-                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{memo.content}</p>
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">{memo.content}</p>
                         <div className="flex gap-3 mt-1.5">
                           <span className="text-xs text-gray-300">등록 {memo.createdAt.slice(0, 10)}</span>
                           {memo.updatedAt !== memo.createdAt && (
@@ -247,7 +247,7 @@ export default function MemosPage() {
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <button
                           onClick={() => handleToggle(memo, 'showOnMain')}
                           className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
