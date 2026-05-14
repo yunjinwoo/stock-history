@@ -18,6 +18,14 @@ export default function StockMasterPage() {
   const [editSymbol, setEditSymbol] = useState('')
   const [editCode, setEditCode] = useState('')
   const [saving, setSaving] = useState(false)
+  const [search, setSearch] = useState('')
+
+  const filtered = search.trim()
+    ? list.filter(item =>
+        item.symbol.includes(search.trim()) ||
+        item.symbolCode.includes(search.trim())
+      )
+    : list
 
   async function load() {
     const data = await apiFetch('/api/stock-master').then(r => r.json())
@@ -71,13 +79,13 @@ export default function StockMasterPage() {
           <div className="flex gap-2">
             <input
               value={symbol}
-              onChange={e => setSymbol(e.target.value)}
+              onChange={e => { setSymbol(e.target.value); setSearch(e.target.value) }}
               placeholder="종목명 (예: 삼성전자)"
               className="border rounded px-3 py-1.5 text-sm flex-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
             />
             <input
               value={symbolCode}
-              onChange={e => setSymbolCode(e.target.value)}
+              onChange={e => { setSymbolCode(e.target.value); setSearch(e.target.value) }}
               placeholder="종목코드 (예: 005930)"
               className="border rounded px-3 py-1.5 text-sm w-36 focus:outline-none focus:ring-1 focus:ring-blue-400"
             />
@@ -91,11 +99,20 @@ export default function StockMasterPage() {
           </div>
         </div>
 
-        {list.length === 0 ? (
-          <p className="text-center text-gray-400 py-12 text-sm">등록된 종목이 없습니다</p>
+        <div className="flex items-center justify-between px-1">
+          <span className="text-xs text-gray-400">전체 {list.length}건</span>
+          {search.trim() && (
+            <span className="text-xs text-blue-500">"{search.trim()}" 검색 결과 {filtered.length}건</span>
+          )}
+        </div>
+
+        {filtered.length === 0 ? (
+          <p className="text-center text-gray-400 py-12 text-sm">
+            {search.trim() ? '검색 결과가 없습니다' : '등록된 종목이 없습니다'}
+          </p>
         ) : (
           <div className="space-y-2">
-            {list.map(item => (
+            {filtered.map(item => (
               <div key={item.id} className="bg-white rounded-lg border px-4 py-3">
                 {editId === item.id ? (
                   <div className="flex gap-2">
