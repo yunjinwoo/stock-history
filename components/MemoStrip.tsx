@@ -6,6 +6,7 @@ interface Memo {
   showOnMain: boolean
   showOnCoin: boolean
   symbol?: string | null
+  alertDate?: string | null
 }
 
 interface Props {
@@ -15,7 +16,12 @@ interface Props {
 }
 
 export default function MemoStrip({ memos, page, symbolCodeMap = {} }: Props) {
-  const visible = memos.filter(m => page === 'stock' ? m.showOnMain : m.showOnCoin)
+  const today = new Date().toISOString().slice(0, 10)
+  const visible = memos.filter(m => {
+    const pinned = page === 'stock' ? m.showOnMain : m.showOnCoin
+    const alerted = page === 'stock' && !!m.alertDate && m.alertDate <= today
+    return pinned || alerted
+  })
   if (visible.length === 0) return null
 
   return (
@@ -27,12 +33,22 @@ export default function MemoStrip({ memos, page, symbolCodeMap = {} }: Props) {
           : m.symbol
             ? `https://search.naver.com/search.naver?query=${encodeURIComponent(m.symbol)}`
             : null
+        const isAlert = page === 'stock' && !!m.alertDate && m.alertDate <= today
 
         return (
           <div
             key={m.id}
-            className="bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-xs text-yellow-800 whitespace-pre-wrap break-words"
+            className={`rounded-lg px-3 py-2 text-xs whitespace-pre-wrap break-words ${
+              isAlert
+                ? 'bg-orange-50 border border-orange-300 text-orange-900'
+                : 'bg-yellow-50 border border-yellow-200 text-yellow-800'
+            }`}
           >
+            {isAlert && (
+              <span className="inline-flex items-center gap-0.5 text-orange-500 font-semibold mr-1 mb-0.5">
+                🔔 {m.alertDate}
+              </span>
+            )}
             {m.symbol && naverUrl && (
               <a
                 href={naverUrl}

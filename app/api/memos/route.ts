@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { content, rating, category, symbol, showOnMain, showOnCoin } = await req.json()
+  const { content, rating, category, symbol, alertDate, showOnMain, showOnCoin } = await req.json()
   if (!content?.trim()) {
     return NextResponse.json({ error: '내용을 입력해주세요.' }, { status: 400 })
   }
@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
       rating: rating != null ? Number(rating) : null,
       category: category ?? null,
       symbol: symbol ?? null,
+      alertDate: alertDate ?? null,
       createdAt: now,
       updatedAt: now,
     },

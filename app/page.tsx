@@ -13,7 +13,7 @@ import MemoStrip from '@/components/MemoStrip'
 import SummaryBar from '@/components/SummaryBar'
 import TradeModal from '@/components/TradeModal'
 
-interface Memo { id: string; content: string; showOnMain: boolean; showOnCoin: boolean; symbol?: string | null }
+interface Memo { id: string; content: string; showOnMain: boolean; showOnCoin: boolean; symbol?: string | null; alertDate?: string | null }
 
 export default function HomePage() {
   const [trades, setTrades] = useState<Trade[]>([])
