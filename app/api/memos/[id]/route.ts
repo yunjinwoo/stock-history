@@ -17,6 +17,7 @@ export async function PATCH(
       ...(body.rating !== undefined && { rating: body.rating != null ? Number(body.rating) : null }),
       ...(body.category !== undefined && { category: body.category ?? null }),
       ...(body.symbol !== undefined && { symbol: body.symbol ?? null }),
+      ...(body.alertDate !== undefined && { alertDate: body.alertDate ?? null }),
       updatedAt: now,
     },
     include: { images: { orderBy: { createdAt: 'asc' } } },
