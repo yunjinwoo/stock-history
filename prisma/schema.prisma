@@ -75,6 +75,7 @@ model StockMaster {
   symbol      String @unique
   symbolCode  String
   tags        String?
+  marketType  String?
   createdAt   String
   updatedAt   String
 }

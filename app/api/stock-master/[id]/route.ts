@@ -6,7 +6,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const { symbol, symbolCode, tags } = await req.json()
+  const { symbol, symbolCode, tags, marketType } = await req.json()
   const now = new Date().toISOString()
 
   const master = await prisma.stockMaster.update({
@@ -15,6 +15,7 @@ export async function PATCH(
       ...(symbol && { symbol: symbol.trim() }),
       ...(symbolCode && { symbolCode: symbolCode.trim() }),
       ...(tags !== undefined && { tags: tags || null }),
+      ...(marketType !== undefined && { marketType: marketType || null }),
       updatedAt: now,
     },
   })

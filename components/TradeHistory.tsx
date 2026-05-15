@@ -6,16 +6,23 @@ import type { Trade, Account, TradeImage } from '@/lib/types'
 import { formatKRW, formatRate, lastEntryDate } from '@/lib/utils'
 import TradeImageZone from './TradeImageZone'
 
+const TYPE_STYLE: Record<string, string> = {
+  '코스피': 'bg-blue-50 text-blue-600 border-blue-200',
+  '코스닥': 'bg-green-50 text-green-600 border-green-200',
+  'ETF':   'bg-purple-50 text-purple-600 border-purple-200',
+}
+
 interface Props {
   trades: Trade[]
   accounts: Account[]
+  symbolTypeMap?: Record<string, string>
   onEdit: (trade: Trade) => void
   onDelete: (trade: Trade) => void
 }
 
 type EntryRow = { date: string; type: '매수' | '매도'; price: number; quantity: number }
 
-export default function TradeHistory({ trades, accounts, onEdit, onDelete }: Props) {
+export default function TradeHistory({ trades, accounts, symbolTypeMap = {}, onEdit, onDelete }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [simPrices, setSimPrices] = useState<Record<string, string>>({})
   const [imagesMap, setImagesMap] = useState<Record<string, TradeImage[]>>({})
@@ -86,6 +93,11 @@ export default function TradeHistory({ trades, accounts, onEdit, onDelete }: Pro
                       onClick={() => toggle(trade.id)}
                     >
                       <div className="flex items-center gap-2">
+                        {symbolTypeMap[trade.symbol] && (
+                          <span className={`text-xs px-1.5 py-0.5 rounded border font-medium ${TYPE_STYLE[symbolTypeMap[trade.symbol]] ?? 'bg-gray-50 text-gray-500 border-gray-200'}`}>
+                            {symbolTypeMap[trade.symbol]}
+                          </span>
+                        )}
                         <a
                           href={trade.symbolCode
                             ? `https://finance.naver.com/item/main.naver?code=${trade.symbolCode}`

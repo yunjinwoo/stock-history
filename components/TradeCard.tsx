@@ -5,14 +5,21 @@ import type { Trade, Account, TradeImage } from '@/lib/types'
 import { formatKRW, formatRate } from '@/lib/utils'
 import TradeImageZone from '@/components/TradeImageZone'
 
+const TYPE_STYLE: Record<string, string> = {
+  '코스피': 'bg-blue-50 text-blue-600 border-blue-200',
+  '코스닥': 'bg-green-50 text-green-600 border-green-200',
+  'ETF':   'bg-purple-50 text-purple-600 border-purple-200',
+}
+
 interface Props {
   trade: Trade
   account?: Account
+  marketType?: string
   onEdit: () => void
   onDelete: () => void
 }
 
-export default function TradeCard({ trade, account, onEdit, onDelete }: Props) {
+export default function TradeCard({ trade, account, marketType, onEdit, onDelete }: Props) {
   const [showEntries, setShowEntries] = useState(false)
   const [showFullComment, setShowFullComment] = useState(false)
   const [images, setImages] = useState<TradeImage[]>(trade.images)
@@ -30,6 +37,11 @@ export default function TradeCard({ trade, account, onEdit, onDelete }: Props) {
     <div className="bg-white rounded-lg border p-4 space-y-2">
       <div className="flex justify-between items-start">
         <div>
+          {marketType && (
+            <span className={`text-xs px-1.5 py-0.5 rounded border font-medium mr-1.5 ${TYPE_STYLE[marketType] ?? 'bg-gray-50 text-gray-500 border-gray-200'}`}>
+              {marketType}
+            </span>
+          )}
           <span className="font-semibold">{trade.symbol}</span>
           {trade.symbolCode && <span className="text-gray-400 text-xs ml-1">({trade.symbolCode})</span>}
           {account && (
