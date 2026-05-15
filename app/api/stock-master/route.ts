@@ -7,7 +7,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const { symbol, symbolCode } = await req.json()
+  const { symbol, symbolCode, marketType } = await req.json()
   if (!symbol || !symbolCode) {
     return NextResponse.json({ error: '종목명과 종목코드는 필수입니다.' }, { status: 400 })
   }
@@ -15,8 +15,8 @@ export async function POST(req: NextRequest) {
   const now = new Date().toISOString()
   const master = await prisma.stockMaster.upsert({
     where: { symbol },
-    create: { id: crypto.randomUUID(), symbol: symbol.trim(), symbolCode: symbolCode.trim(), createdAt: now, updatedAt: now },
-    update: { symbolCode: symbolCode.trim(), updatedAt: now },
+    create: { id: crypto.randomUUID(), symbol: symbol.trim(), symbolCode: symbolCode.trim(), marketType: marketType || null, createdAt: now, updatedAt: now },
+    update: { symbolCode: symbolCode.trim(), ...(marketType !== undefined && { marketType: marketType || null }), updatedAt: now },
   })
 
   // 기존 trades 중 같은 symbol 이면서 symbolCode 없는 것 일괄 업데이트

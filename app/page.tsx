@@ -5,7 +5,7 @@ import Link from 'next/link'
 import type { Trade, Account } from '@/lib/types'
 import { apiFetch } from '@/lib/api'
 
-interface StockMasterItem { symbol: string; symbolCode: string; tags: string | null }
+interface StockMasterItem { symbol: string; symbolCode: string; tags: string | null; marketType: string | null }
 import TradeCard from '@/components/TradeCard'
 import TradeHistory from '@/components/TradeHistory'
 import TradeCalendar from '@/components/TradeCalendar'
@@ -79,6 +79,12 @@ export default function HomePage() {
   const symbolCodeMap = useMemo(() => {
     const map: Record<string, string> = {}
     stockMasters.forEach(m => { if (m.symbolCode) map[m.symbol] = m.symbolCode })
+    return map
+  }, [stockMasters])
+
+  const symbolTypeMap = useMemo(() => {
+    const map: Record<string, string> = {}
+    stockMasters.forEach(m => { if (m.marketType) map[m.symbol] = m.marketType })
     return map
   }, [stockMasters])
 
@@ -222,6 +228,7 @@ export default function HomePage() {
           <TradeHistory
             trades={displayTrades}
             accounts={accounts}
+            symbolTypeMap={symbolTypeMap}
             onEdit={trade => { setEditTrade(trade); setShowModal(true) }}
             onDelete={async trade => { await apiFetch(`/api/trades/${trade.id}`, { method: 'DELETE' }); load() }}
           />
@@ -232,6 +239,7 @@ export default function HomePage() {
                 key={trade.id}
                 trade={trade}
                 account={accounts.find(a => a.id === trade.accountId)}
+                marketType={symbolTypeMap[trade.symbol]}
                 onEdit={() => { setEditTrade(trade); setShowModal(true) }}
                 onDelete={async () => { await apiFetch(`/api/trades/${trade.id}`, { method: 'DELETE' }); load() }}
               />
@@ -241,6 +249,7 @@ export default function HomePage() {
                 key={trade.id}
                 trade={trade}
                 account={accounts.find(a => a.id === trade.accountId)}
+                marketType={symbolTypeMap[trade.symbol]}
                 onEdit={() => { setEditTrade(trade); setShowModal(true) }}
                 onDelete={async () => { await apiFetch(`/api/trades/${trade.id}`, { method: 'DELETE' }); load() }}
               />
