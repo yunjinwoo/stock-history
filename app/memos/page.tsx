@@ -5,6 +5,7 @@ import Link from 'next/link'
 import type { MemoImage } from '@/lib/types'
 import { apiFetch } from '@/lib/api'
 import MemoImageZone from '@/components/MemoImageZone'
+import MemoCalendar, { type DateMode } from '@/components/MemoCalendar'
 
 const CATEGORIES = ['원칙', '전략', '시장', '종목', '일지', '기타'] as const
 
@@ -108,9 +109,13 @@ export default function MemosPage() {
   const [editRating, setEditRating] = useState<number | null>(null)
   const [editCategory, setEditCategory] = useState<string | null>(null)
   const [editAlertDate, setEditAlertDate] = useState<string | null>(null)
+  const [editCreatedAt, setEditCreatedAt] = useState<string>('')
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [symbolFilter, setSymbolFilter] = useState<string | null>(null)
   const [alertFilter, setAlertFilter] = useState(false)
+  const [dateFilter, setDateFilter] = useState<string | null>(null)
+  const [dateFilterMode, setDateFilterMode] = useState<DateMode>('createdAt')
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list')
   const [imagesMap, setImagesMap] = useState<Record<string, MemoImage[]>>({})
   const [saving, setSaving] = useState(false)
 
@@ -153,7 +158,7 @@ export default function MemosPage() {
     await apiFetch(`/api/memos/${memo.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: editContent, rating: editRating, category: editCategory, alertDate: editAlertDate }),
+      body: JSON.stringify({ content: editContent, rating: editRating, category: editCategory, alertDate: editAlertDate, createdAt: editCreatedAt || undefined }),
     })
     setEditId(null)
     load()
@@ -185,6 +190,10 @@ export default function MemosPage() {
     if (categoryFilter && m.category !== categoryFilter) return false
     if (symbolFilter && m.symbol !== symbolFilter) return false
     if (alertFilter && !m.alertDate) return false
+    if (dateFilter) {
+      const field = dateFilterMode === 'alertDate' ? m.alertDate : m.createdAt
+      if (!field || field.slice(0, 10) !== dateFilter) return false
+    }
     return true
   })
 
@@ -192,7 +201,19 @@ export default function MemosPage() {
     <div className="min-h-screen">
       <header className="bg-white border-b px-4 py-3 flex justify-between items-center sticky top-0 z-10">
         <h1 className="text-lg font-bold">메모 관리</h1>
-        <Link href="/" className="text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">← 돌아가기</Link>
+        <div className="flex items-center gap-2">
+          <div className="flex border rounded overflow-hidden">
+            <button
+              onClick={() => { setViewMode('list'); setDateFilter(null) }}
+              className={`text-xs px-2.5 py-1.5 ${viewMode === 'list' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}
+            >≡</button>
+            <button
+              onClick={() => setViewMode('calendar')}
+              className={`text-xs px-2.5 py-1.5 ${viewMode === 'calendar' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}
+            >📅</button>
+          </div>
+          <Link href="/" className="text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">← 돌아가기</Link>
+        </div>
       </header>
 
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
@@ -218,6 +239,26 @@ export default function MemosPage() {
             </button>
           </div>
         </div>
+
+        {/* 달력 */}
+        {viewMode === 'calendar' && (
+          <MemoCalendar
+            memos={memos}
+            selectedDate={dateFilter}
+            onSelectDate={(date, mode) => { setDateFilter(date); setDateFilterMode(mode) }}
+          />
+        )}
+
+        {/* 선택 날짜 표시 */}
+        {dateFilter && (
+          <div className="flex items-center gap-2 px-1">
+            <span className={`text-xs font-medium ${dateFilterMode === 'alertDate' ? 'text-orange-600' : 'text-blue-600'}`}>
+              {dateFilterMode === 'alertDate' ? '🔔' : '📅'} {dateFilter}
+            </span>
+            <span className="text-xs text-gray-300">{dateFilterMode === 'alertDate' ? '알림일' : '작성일'}</span>
+            <button onClick={() => setDateFilter(null)} className="text-xs text-gray-400 hover:text-gray-600">✕ 해제</button>
+          </div>
+        )}
 
         {/* 분류 필터 */}
         <div className="flex items-center gap-1 flex-wrap">
@@ -310,6 +351,15 @@ export default function MemosPage() {
                         <CategoryPicker value={editCategory} onChange={setEditCategory} />
                         <RatingPicker value={editRating} onChange={setEditRating} />
                         <AlertDatePicker value={editAlertDate} onChange={setEditAlertDate} />
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-400">작성일</span>
+                          <input
+                            type="date"
+                            value={editCreatedAt}
+                            onChange={e => setEditCreatedAt(e.target.value)}
+                            className="border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+                          />
+                        </div>
                         <div className="flex gap-2 justify-end">
                           <button onClick={() => setEditId(null)} className="text-sm text-gray-400 hover:text-gray-600 px-3 py-1 border rounded">취소</button>
                           <button onClick={() => handleEdit(memo)} className="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">저장</button>
@@ -375,6 +425,7 @@ export default function MemosPage() {
                               setEditRating(memo.rating)
                               setEditCategory(memo.category)
                               setEditAlertDate(memo.alertDate)
+                              setEditCreatedAt(memo.createdAt.slice(0, 10))
                             }}
                             className="text-xs text-gray-400 hover:text-gray-700 px-2 py-0.5 border rounded"
                           >수정</button>
