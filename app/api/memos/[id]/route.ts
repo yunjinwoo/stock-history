@@ -18,6 +18,7 @@ export async function PATCH(
       ...(body.category !== undefined && { category: body.category ?? null }),
       ...(body.symbol !== undefined && { symbol: body.symbol ?? null }),
       ...(body.alertDate !== undefined && { alertDate: body.alertDate ?? null }),
+      ...(body.createdAt !== undefined && { createdAt: body.createdAt }),
       updatedAt: now,
     },
     include: { images: { orderBy: { createdAt: 'asc' } } },
