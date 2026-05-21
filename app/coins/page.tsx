@@ -5,6 +5,7 @@ import Link from 'next/link'
 import type { CoinTrade } from '@/lib/types'
 import { apiFetch } from '@/lib/api'
 import CoinHistory from '@/components/CoinHistory'
+import CoinCalendar from '@/components/CoinCalendar'
 import CoinModal from '@/components/CoinModal'
 import MemoStrip from '@/components/MemoStrip'
 
@@ -18,6 +19,7 @@ export default function CoinsPage() {
   const [editTrade, setEditTrade] = useState<CoinTrade | null>(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list')
 
   const loadMemos = useCallback(async () => {
     const data = await apiFetch('/api/memos').then(r => r.json())
@@ -50,6 +52,10 @@ export default function CoinsPage() {
       <header className="bg-white border-b px-4 py-3 flex justify-between items-center sticky top-0 z-10">
         <h1 className="text-lg font-bold">코인 매매일지</h1>
         <div className="flex gap-2">
+          <div className="flex border rounded overflow-hidden">
+            <button onClick={() => setViewMode('list')} className={`text-xs px-2.5 py-1.5 ${viewMode === 'list' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>≡</button>
+            <button onClick={() => setViewMode('calendar')} className={`text-xs px-2.5 py-1.5 ${viewMode === 'calendar' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>📅</button>
+          </div>
           <Link href="/" className="hidden sm:inline-flex text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">주식</Link>
           <Link href="/memos" className="hidden sm:inline-flex text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">메모</Link>
           <button
@@ -103,12 +109,20 @@ export default function CoinsPage() {
           </div>
         </div>
 
-        {/* 목록 */}
-        <CoinHistory
-          trades={trades}
-          onEdit={trade => { setEditTrade(trade); setShowModal(true) }}
-          onDelete={async trade => { await apiFetch(`/api/coins/${trade.id}`, { method: 'DELETE' }); load() }}
-        />
+        {/* 목록 / 달력 */}
+        {viewMode === 'calendar' ? (
+          <CoinCalendar
+            trades={trades}
+            onEdit={trade => { setEditTrade(trade); setShowModal(true) }}
+            onDelete={async trade => { await apiFetch(`/api/coins/${trade.id}`, { method: 'DELETE' }); load() }}
+          />
+        ) : (
+          <CoinHistory
+            trades={trades}
+            onEdit={trade => { setEditTrade(trade); setShowModal(true) }}
+            onDelete={async trade => { await apiFetch(`/api/coins/${trade.id}`, { method: 'DELETE' }); load() }}
+          />
+        )}
       </div>
 
       {showModal && (
