@@ -113,6 +113,7 @@ export default function MemosPage() {
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [symbolFilter, setSymbolFilter] = useState<string | null>(null)
   const [alertFilter, setAlertFilter] = useState(false)
+  const [pinFilter, setPinFilter] = useState<'stock' | 'coin' | null>(null)
   const [dateFilter, setDateFilter] = useState<string | null>(null)
   const [dateFilterMode, setDateFilterMode] = useState<DateMode>('createdAt')
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list')
@@ -185,11 +186,15 @@ export default function MemosPage() {
   }, [memos])
 
   const alertCount = useMemo(() => memos.filter(m => m.alertDate).length, [memos])
+  const stockPinCount = useMemo(() => memos.filter(m => m.showOnMain).length, [memos])
+  const coinPinCount = useMemo(() => memos.filter(m => m.showOnCoin).length, [memos])
 
   const filtered = memos.filter(m => {
     if (categoryFilter && m.category !== categoryFilter) return false
     if (symbolFilter && m.symbol !== symbolFilter) return false
     if (alertFilter && !m.alertDate) return false
+    if (pinFilter === 'stock' && !m.showOnMain) return false
+    if (pinFilter === 'coin' && !m.showOnCoin) return false
     if (dateFilter) {
       const field = dateFilterMode === 'alertDate' ? m.alertDate : m.createdAt
       if (!field || field.slice(0, 10) !== dateFilter) return false
@@ -295,6 +300,30 @@ export default function MemosPage() {
               }`}
             >
               🔔 알림 <span className="ml-0.5 opacity-60">{alertCount}</span>
+            </button>
+          )}
+          {stockPinCount > 0 && (
+            <button
+              onClick={() => setPinFilter(pinFilter === 'stock' ? null : 'stock')}
+              className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                pinFilter === 'stock'
+                  ? 'bg-yellow-50 text-yellow-700 border-yellow-300'
+                  : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              주식 📌 <span className="ml-0.5 opacity-60">{stockPinCount}</span>
+            </button>
+          )}
+          {coinPinCount > 0 && (
+            <button
+              onClick={() => setPinFilter(pinFilter === 'coin' ? null : 'coin')}
+              className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                pinFilter === 'coin'
+                  ? 'bg-blue-50 text-blue-700 border-blue-300'
+                  : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              코인 📌 <span className="ml-0.5 opacity-60">{coinPinCount}</span>
             </button>
           )}
         </div>
