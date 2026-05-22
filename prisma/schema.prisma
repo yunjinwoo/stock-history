@@ -102,6 +102,14 @@ model MemoImage {
   memo      Memo   @relation(fields: [memoId], references: [id], onDelete: Cascade)
 }
 
+model SimEntry {
+  id        String @id
+  tradeId   String
+  price     Float
+  quantity  Int
+  createdAt String
+}
+
 model BuyEntry {
   id        String @id
   tradeId   String
