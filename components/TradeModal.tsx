@@ -11,6 +11,8 @@ interface Props {
   trade: Trade | null
   accounts: Account[]
   defaultAccountId?: string
+  defaultSymbol?: string
+  defaultSymbolCode?: string
   onClose: () => void
   onSave: () => void
 }
@@ -92,15 +94,15 @@ function EntrySection({ type, label, required, entries, onUpdate, onAdd, onRemov
   )
 }
 
-export default function TradeModal({ trade, accounts, defaultAccountId, onClose, onSave }: Props) {
+export default function TradeModal({ trade, accounts, defaultAccountId, defaultSymbol, defaultSymbolCode, onClose, onSave }: Props) {
   const [tab, setTab] = useState<'direct' | 'kakao'>('direct')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   const [form, setForm] = useState<FormState>({
     accountId: trade?.accountId ?? defaultAccountId ?? accounts[0]?.id ?? '',
-    symbol: trade?.symbol ?? '',
-    symbolCode: trade?.symbolCode ?? '',
+    symbol: trade?.symbol ?? defaultSymbol ?? '',
+    symbolCode: trade?.symbolCode ?? defaultSymbolCode ?? '',
     comment: trade?.comment ?? '',
     buyEntries: trade ? trade.buyEntries.map(toEntry) : [],
     sellEntries: trade ? trade.sellEntries.map(toEntry) : [],

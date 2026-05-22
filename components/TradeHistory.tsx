@@ -141,6 +141,9 @@ export default function TradeHistory({ trades, accounts, symbolTypeMap = {}, onE
                             <span className="text-xs text-gray-400">{trade.holdingDays}일</span>
                           </>
                         )}
+                        {!trade.isCompleted && (
+                          <span className="text-xs text-gray-400">{formatKRW(Math.round(trade.avgBuyPrice))}</span>
+                        )}
                         <button onClick={e => { e.stopPropagation(); onEdit(trade) }} className="text-xs text-gray-400 hover:text-gray-700 px-2 py-0.5 border rounded">수정</button>
                         <button
                           onClick={e => { e.stopPropagation(); if (confirm(`"${trade.symbol}" 거래를 삭제하시겠습니까?`)) onDelete(trade) }}
