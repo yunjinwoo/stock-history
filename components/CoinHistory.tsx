@@ -92,6 +92,7 @@ export default function CoinHistory({ trades, onEdit, onDelete }: Props) {
                     <span className={`text-xs font-medium ${isPos ? 'text-red-500' : 'text-blue-500'}`}>
                       {(isPos ? '+' : '') + formatKRW(Math.round(trade.profitAmount))}
                     </span>
+                    <span className="text-xs text-gray-400">{trade.holdingDays}일</span>
                   </>
                 )}
                 <button onClick={e => { e.stopPropagation(); onEdit(trade) }} className="text-xs text-gray-400 hover:text-gray-700 px-2 py-0.5 border rounded">수정</button>
