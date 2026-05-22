@@ -27,7 +27,7 @@ export default function TradeCard({ trade, account, marketType, onEdit, onDelete
   const statusBadge = !trade.isCompleted
     ? <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full">보유중 {trade.holdingDays}일</span>
     : <span className={`text-xs px-2 py-0.5 rounded-full ${trade.profitAmount >= 0 ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
-        완료 {formatRate(trade.profitRate)}
+        완료 {formatRate(trade.profitRate)} · {trade.holdingDays}일
       </span>
 
   const comment = trade.comment
