@@ -23,7 +23,7 @@ export default function HomePage() {
   const [stockMasters, setStockMasters] = useState<StockMasterItem[]>([])
   const [showModal, setShowModal] = useState(false)
   const [editTrade, setEditTrade] = useState<Trade | null>(null)
-  const [holdingOpen, setHoldingOpen] = useState(true)
+  const [holdingOpen, setHoldingOpen] = useState(false)
   const [simRows, setSimRows] = useState<Record<string, { price: string; qty: string }[]>>({})
   const [savedSims, setSavedSims] = useState<Record<string, { id: string; price: number; quantity: number }[]>>({})
 

@@ -21,7 +21,7 @@ export default function CoinsPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list')
-  const [holdingOpen, setHoldingOpen] = useState(true)
+  const [holdingOpen, setHoldingOpen] = useState(false)
   const [simRows, setSimRows] = useState<Record<string, { price: string; qty: string }[]>>({})
   const [savedSims, setSavedSims] = useState<Record<string, { id: string; price: number; quantity: number }[]>>({})
 

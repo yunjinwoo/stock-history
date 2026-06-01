@@ -2,10 +2,14 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import type { MemoImage } from '@/lib/types'
 import { apiFetch } from '@/lib/api'
 import MemoImageZone from '@/components/MemoImageZone'
 import MemoCalendar, { type DateMode } from '@/components/MemoCalendar'
+
+const MDEditor = dynamic(() => import('@uiw/react-md-editor'), { ssr: false })
+const MDPreview = dynamic(() => import('@uiw/react-md-editor').then(m => m.default.Markdown), { ssr: false })
 
 const CATEGORIES = ['원칙', '전략', '시장', '종목', '일지', '기타'] as const
 
@@ -225,12 +229,15 @@ export default function MemosPage() {
         {/* 새 메모 추가 */}
         <div className="bg-white rounded-lg border p-4 space-y-3">
           <p className="text-sm font-medium text-gray-700">새 메모</p>
-          <textarea
-            value={newContent}
-            onChange={e => setNewContent(e.target.value)}
-            placeholder="잊지 말아야 할 것을 입력하세요..."
-            className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 h-36 resize-none"
-          />
+          <div data-color-mode="light">
+            <MDEditor
+              value={newContent}
+              onChange={v => setNewContent(v ?? '')}
+              preview="edit"
+              height={180}
+              visibleDragbar={false}
+            />
+          </div>
           <CategoryPicker value={newCategory} onChange={setNewCategory} />
           <RatingPicker value={newRating} onChange={setNewRating} />
           <AlertDatePicker value={newAlertDate} onChange={setNewAlertDate} />
@@ -372,11 +379,15 @@ export default function MemosPage() {
                   <div className="px-4 py-3">
                     {editId === memo.id ? (
                       <div className="space-y-3">
-                        <textarea
-                          value={editContent}
-                          onChange={e => setEditContent(e.target.value)}
-                          className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 h-20 resize-none"
-                        />
+                        <div data-color-mode="light">
+                          <MDEditor
+                            value={editContent}
+                            onChange={v => setEditContent(v ?? '')}
+                            preview="edit"
+                            height={160}
+                            visibleDragbar={false}
+                          />
+                        </div>
                         <CategoryPicker value={editCategory} onChange={setEditCategory} />
                         <RatingPicker value={editRating} onChange={setEditRating} />
                         <AlertDatePicker value={editAlertDate} onChange={setEditAlertDate} />
@@ -422,7 +433,9 @@ export default function MemosPage() {
                               </span>
                             )}
                           </div>
-                          <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">{memo.content}</p>
+                          <div data-color-mode="light" className="text-sm text-gray-700">
+                            <MDPreview source={memo.content} style={{ background: 'transparent', fontSize: '0.875rem' }} />
+                          </div>
                           <div className="flex gap-3 mt-1.5">
                             <span className="text-xs text-gray-300">등록 {memo.createdAt.slice(0, 10)}</span>
                             {memo.updatedAt !== memo.createdAt && (
