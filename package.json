@@ -11,18 +11,19 @@
   },
   "dependencies": {
     "@prisma/client": "^6",
+    "@uiw/react-md-editor": "^4.1.1",
     "dayjs": "^1",
     "next": "^15",
     "react": "^19",
     "react-dom": "^19"
   },
   "devDependencies": {
-    "prisma": "^6",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "autoprefixer": "^10",
     "postcss": "^8",
+    "prisma": "^6",
     "tailwindcss": "^3",
     "typescript": "^5",
     "vitest": "^3"
