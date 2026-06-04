@@ -102,6 +102,14 @@ export default function MemosPage() {
   const [formCategory, setFormCategory] = useState<string | null>(null)
   const [formAlertDate, setFormAlertDate] = useState<string | null>(null)
   const [formCreatedAt, setFormCreatedAt] = useState<string>('')
+  const [formSymbol, setFormSymbol] = useState<string | null>(null)
+
+  // 종목 자동 감지
+  const [stockMasters, setStockMasters] = useState<{ symbol: string }[]>([])
+  const [detectedSymbols, setDetectedSymbols] = useState<string[]>([])
+
+  // 리뷰 필요 섹션
+  const [reviewOpen, setReviewOpen] = useState(true)
 
   // 열람 고정
   const [pinnedIds, setPinnedIds] = useState<string[]>([])
@@ -164,9 +172,28 @@ export default function MemosPage() {
 
   useEffect(() => { load() }, [])
 
+  useEffect(() => {
+    apiFetch('/api/stock-master').then(r => r.json()).then(data => {
+      if (Array.isArray(data)) setStockMasters(data)
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!formContent.trim() || stockMasters.length === 0) { setDetectedSymbols([]); return }
+    const timer = setTimeout(() => {
+      const plain = stripMarkdown(formContent)
+      const found = stockMasters
+        .filter(m => plain.includes(m.symbol))
+        .map(m => m.symbol)
+      setDetectedSymbols([...new Set(found)])
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [formContent, stockMasters])
+
   function openAdd() {
     setFormContent(''); setFormRating(null); setFormCategory(null)
-    setFormAlertDate(null); setFormCreatedAt(''); setSelectedId(null)
+    setFormAlertDate(null); setFormCreatedAt(''); setFormSymbol(null)
+    setDetectedSymbols([]); setSelectedId(null)
     setModalMode('add')
   }
 
@@ -179,7 +206,8 @@ export default function MemosPage() {
     setSelectedId(memo.id)
     setFormContent(memo.content); setFormRating(memo.rating)
     setFormCategory(memo.category); setFormAlertDate(memo.alertDate)
-    setFormCreatedAt(memo.createdAt.slice(0, 10))
+    setFormCreatedAt(memo.createdAt.slice(0, 10)); setFormSymbol(memo.symbol)
+    setDetectedSymbols([])
     setModalMode('edit')
   }
 
@@ -191,7 +219,7 @@ export default function MemosPage() {
     await apiFetch('/api/memos', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: formContent, rating: formRating, category: formCategory, alertDate: formAlertDate }),
+      body: JSON.stringify({ content: formContent, rating: formRating, category: formCategory, alertDate: formAlertDate, symbol: formSymbol }),
     })
     setSaving(false)
     await load()
@@ -212,7 +240,7 @@ export default function MemosPage() {
     await apiFetch(`/api/memos/${selectedMemo.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: formContent, rating: formRating, category: formCategory, alertDate: formAlertDate, createdAt: formCreatedAt || undefined }),
+      body: JSON.stringify({ content: formContent, rating: formRating, category: formCategory, alertDate: formAlertDate, createdAt: formCreatedAt || undefined, symbol: formSymbol }),
     })
     setModalMode('view')
     load()
@@ -235,6 +263,20 @@ export default function MemosPage() {
     memos.forEach(m => { if (m.symbol) set.add(m.symbol) })
     return Array.from(set).sort()
   }, [memos])
+
+  const reviewMemos = useMemo(() => {
+    const cutoff = new Date()
+    cutoff.setDate(cutoff.getDate() - 30)
+    const cutoffStr = cutoff.toISOString().slice(0, 10)
+    const seen = new Set<string>()
+    const result: Memo[] = []
+    // 1. 알림 만료
+    memos.filter(m => m.alertDate && m.alertDate <= today).forEach(m => { seen.add(m.id); result.push(m) })
+    // 2. 평점 7 이상 + 30일 이상 미수정
+    memos.filter(m => !seen.has(m.id) && (m.rating ?? 0) >= 7 && m.updatedAt.slice(0, 10) <= cutoffStr)
+      .forEach(m => result.push(m))
+    return result
+  }, [memos, today])
 
   const alertCount = useMemo(() => memos.filter(m => m.alertDate).length, [memos])
   const stockPinCount = useMemo(() => memos.filter(m => m.showOnMain).length, [memos])
@@ -291,6 +333,50 @@ export default function MemosPage() {
             selectedDate={dateFilter}
             onSelectDate={(date, mode) => { setDateFilter(date); setDateFilterMode(mode) }}
           />
+        )}
+
+        {/* 리뷰 필요 섹션 */}
+        {reviewMemos.length > 0 && (
+          <div className="border border-orange-200 rounded-lg bg-orange-50 overflow-hidden">
+            <button
+              onClick={() => setReviewOpen(v => !v)}
+              className="w-full flex items-center justify-between px-3 py-2 hover:bg-orange-100 transition-colors"
+            >
+              <span className="text-xs font-medium text-orange-700">
+                🔍 리뷰 필요 <span className="ml-1 bg-orange-200 text-orange-800 px-1.5 py-0.5 rounded-full">{reviewMemos.length}</span>
+              </span>
+              <span className="text-xs text-orange-400">{reviewOpen ? '▲' : '▼'}</span>
+            </button>
+            {reviewOpen && (
+              <div className="border-t border-orange-200 divide-y divide-orange-100">
+                {reviewMemos.map(memo => {
+                  const isOverdue = memo.alertDate != null && memo.alertDate <= today
+                  const preview = stripMarkdown(memo.content)
+                  return (
+                    <div
+                      key={memo.id}
+                      onClick={() => openView(memo)}
+                      className="flex items-center gap-3 px-3 py-2 hover:bg-orange-100 cursor-pointer transition-colors"
+                    >
+                      <div className="flex items-center gap-1.5 flex-none">
+                        {isOverdue
+                          ? <span className="text-xs bg-orange-100 text-orange-600 border border-orange-200 px-1.5 py-0.5 rounded">🔔 {memo.alertDate}</span>
+                          : <span className="text-xs bg-yellow-50 text-yellow-700 border border-yellow-200 px-1.5 py-0.5 rounded">★ {memo.rating}</span>
+                        }
+                        {memo.category && (
+                          <span className={`text-xs px-1.5 py-0.5 rounded border ${CATEGORY_COLORS[memo.category] ?? 'bg-gray-100 text-gray-500 border-gray-200'}`}>
+                            {memo.category}
+                          </span>
+                        )}
+                      </div>
+                      <span className="flex-1 text-sm text-gray-700 truncate min-w-0">{preview}</span>
+                      <span className="text-xs text-gray-400 flex-none">{memo.updatedAt.slice(0, 10)}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         )}
 
         {/* 열람 영역 */}
@@ -519,6 +605,38 @@ export default function MemosPage() {
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 <div data-color-mode="light">
                   <MDEditor value={formContent} onChange={v => setFormContent(v ?? '')} preview="edit" height={260} visibleDragbar={false} />
+                </div>
+                {/* 종목 자동 감지 */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs text-gray-400">종목</span>
+                    {formSymbol ? (
+                      <span className="text-xs bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        {formSymbol}
+                        <button onClick={() => setFormSymbol(null)} className="text-green-400 hover:text-green-600">✕</button>
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-300">미지정</span>
+                    )}
+                  </div>
+                  {detectedSymbols.length > 0 && (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-xs text-gray-400">감지됨</span>
+                      {detectedSymbols.map(s => (
+                        <button
+                          key={s}
+                          onClick={() => setFormSymbol(s)}
+                          className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                            formSymbol === s
+                              ? 'bg-green-100 text-green-700 border-green-300'
+                              : 'bg-white text-gray-500 border-gray-300 hover:border-green-400 hover:text-green-600'
+                          }`}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <CategoryPicker value={formCategory} onChange={setFormCategory} />
                 <RatingPicker value={formRating} onChange={setFormRating} />
