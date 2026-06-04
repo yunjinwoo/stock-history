@@ -1,10 +1,21 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import type { Trade, Account, TradeImage } from '@/lib/types'
 // TradeImage used in imagesMap state below
 import { formatKRW, formatRate, lastEntryDate } from '@/lib/utils'
 import TradeImageZone from './TradeImageZone'
+
+const COLOR_PALETTE = [
+  { border: 'border-l-blue-400',    badge: 'bg-blue-100 text-blue-700' },
+  { border: 'border-l-emerald-400', badge: 'bg-emerald-100 text-emerald-700' },
+  { border: 'border-l-violet-400',  badge: 'bg-violet-100 text-violet-700' },
+  { border: 'border-l-orange-400',  badge: 'bg-orange-100 text-orange-700' },
+  { border: 'border-l-pink-400',    badge: 'bg-pink-100 text-pink-700' },
+  { border: 'border-l-teal-400',    badge: 'bg-teal-100 text-teal-700' },
+  { border: 'border-l-amber-400',   badge: 'bg-amber-100 text-amber-700' },
+  { border: 'border-l-rose-400',    badge: 'bg-rose-100 text-rose-700' },
+] as const
 
 const TYPE_STYLE: Record<string, string> = {
   '코스피': 'bg-blue-50 text-blue-600 border-blue-200',
@@ -26,6 +37,30 @@ export default function TradeHistory({ trades, accounts, symbolTypeMap = {}, onE
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [simPrices, setSimPrices] = useState<Record<string, string>>({})
   const [imagesMap, setImagesMap] = useState<Record<string, TradeImage[]>>({})
+
+  const symbolInfoMap = useMemo(() => {
+    const bySymbol: Record<string, Trade[]> = {}
+    trades.forEach(t => { (bySymbol[t.symbol] ??= []).push(t) })
+
+    const colorMap: Record<string, typeof COLOR_PALETTE[number]> = {}
+    let colorIdx = 0
+    Object.entries(bySymbol).forEach(([symbol, list]) => {
+      if (list.length >= 2) {
+        colorMap[symbol] = COLOR_PALETTE[colorIdx++ % COLOR_PALETTE.length]
+      }
+    })
+
+    const seqMap: Record<string, { seq: number; total: number }> = {}
+    Object.entries(bySymbol).forEach(([, list]) => {
+      if (list.length < 2) return
+      const sorted = [...list].sort((a, b) =>
+        (a.buyEntries[0]?.date ?? '').localeCompare(b.buyEntries[0]?.date ?? '')
+      )
+      sorted.forEach((t, i) => { seqMap[t.id] = { seq: i + 1, total: sorted.length } })
+    })
+
+    return { colorMap, seqMap }
+  }, [trades])
 
   function toggle(id: string) {
     setExpanded(prev => {
@@ -90,9 +125,11 @@ export default function TradeHistory({ trades, accounts, symbolTypeMap = {}, onE
                                             'bg-red-100 text-red-700'
 
                 const isExpanded = expanded.has(trade.id)
+                const symbolColor = symbolInfoMap.colorMap[trade.symbol]
+                const symbolSeq = symbolInfoMap.seqMap[trade.id]
 
                 return (
-                  <div key={trade.id} className="rounded-lg border bg-white overflow-hidden">
+                  <div key={trade.id} className={`rounded-lg bg-white overflow-hidden border ${symbolColor ? `border-l-4 ${symbolColor.border}` : ''}`}>
                     {/* 종목 헤더 */}
                     <div
                       className="flex items-center justify-between px-4 py-2 bg-gray-50 cursor-pointer select-none"
@@ -114,6 +151,11 @@ export default function TradeHistory({ trades, accounts, symbolTypeMap = {}, onE
                           className="font-medium hover:underline"
                         >{trade.symbol}</a>
                         {trade.symbolCode && <span className="text-gray-400 text-xs">({trade.symbolCode})</span>}
+                        {symbolSeq && (
+                          <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${symbolColor?.badge}`}>
+                            {symbolSeq.seq}/{symbolSeq.total}
+                          </span>
+                        )}
                         <span className="text-xs text-gray-400">
                           매수 {trade.buyEntries.length}건{trade.sellEntries.length > 0 ? ` · 매도 ${trade.sellEntries.length}건` : ''}
                         </span>
