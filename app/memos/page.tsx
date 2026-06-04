@@ -120,7 +120,7 @@ export default function MemosPage() {
   const [pinFilter, setPinFilter] = useState<'stock' | 'coin' | null>(null)
   const [dateFilter, setDateFilter] = useState<string | null>(null)
   const [dateFilterMode, setDateFilterMode] = useState<DateMode>('createdAt')
-  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list')
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('calendar')
   const [imagesMap, setImagesMap] = useState<Record<string, MemoImage[]>>({})
   const [saving, setSaving] = useState(false)
 
