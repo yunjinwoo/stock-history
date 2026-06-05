@@ -29,7 +29,7 @@ interface Memo {
   showOnCoin: boolean
   rating: number | null
   category: string | null
-  symbol: string | null
+  symbols: { id: string; symbol: string }[]
   alertDate: string | null
   images: MemoImage[]
   createdAt: string
@@ -102,7 +102,8 @@ export default function MemosPage() {
   const [formCategory, setFormCategory] = useState<string | null>(null)
   const [formAlertDate, setFormAlertDate] = useState<string | null>(null)
   const [formCreatedAt, setFormCreatedAt] = useState<string>('')
-  const [formSymbol, setFormSymbol] = useState<string | null>(null)
+  const [formSymbols, setFormSymbols] = useState<string[]>([])
+  const [manualSymbolInput, setManualSymbolInput] = useState('')
 
   // 종목 자동 감지
   const [stockMasters, setStockMasters] = useState<{ symbol: string }[]>([])
@@ -155,7 +156,7 @@ export default function MemosPage() {
   // 필터·정렬 상태
   const [sortOption, setSortOption] = useState<'createdAt_desc' | 'createdAt_asc' | 'updatedAt_desc' | 'rating_desc' | 'alertDate_asc'>('createdAt_desc')
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
-  const [symbolFilter, setSymbolFilter] = useState<string | null>(null)
+  const [symbolFilters, setSymbolFilters] = useState<string[]>([])
   const [alertFilter, setAlertFilter] = useState(false)
   const [pinFilter, setPinFilter] = useState<'stock' | 'coin' | null>(null)
   const [dateFilter, setDateFilter] = useState<string | null>(null)
@@ -192,8 +193,8 @@ export default function MemosPage() {
 
   function openAdd() {
     setFormContent(''); setFormRating(null); setFormCategory(null)
-    setFormAlertDate(null); setFormCreatedAt(''); setFormSymbol(null)
-    setDetectedSymbols([]); setSelectedId(null)
+    setFormAlertDate(null); setFormCreatedAt(''); setFormSymbols([])
+    setManualSymbolInput(''); setDetectedSymbols([]); setSelectedId(null)
     setModalMode('add')
   }
 
@@ -206,8 +207,9 @@ export default function MemosPage() {
     setSelectedId(memo.id)
     setFormContent(memo.content); setFormRating(memo.rating)
     setFormCategory(memo.category); setFormAlertDate(memo.alertDate)
-    setFormCreatedAt(memo.createdAt.slice(0, 10)); setFormSymbol(memo.symbol)
-    setDetectedSymbols([])
+    setFormCreatedAt(memo.createdAt.slice(0, 10))
+    setFormSymbols(memo.symbols.map(s => s.symbol))
+    setManualSymbolInput(''); setDetectedSymbols([])
     setModalMode('edit')
   }
 
@@ -219,7 +221,7 @@ export default function MemosPage() {
     await apiFetch('/api/memos', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: formContent, rating: formRating, category: formCategory, alertDate: formAlertDate, symbol: formSymbol }),
+      body: JSON.stringify({ content: formContent, rating: formRating, category: formCategory, alertDate: formAlertDate, symbols: formSymbols }),
     })
     setSaving(false)
     await load()
@@ -240,7 +242,7 @@ export default function MemosPage() {
     await apiFetch(`/api/memos/${selectedMemo.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: formContent, rating: formRating, category: formCategory, alertDate: formAlertDate, createdAt: formCreatedAt || undefined, symbol: formSymbol }),
+      body: JSON.stringify({ content: formContent, rating: formRating, category: formCategory, alertDate: formAlertDate, createdAt: formCreatedAt || undefined, symbols: formSymbols }),
     })
     setModalMode('view')
     load()
@@ -259,9 +261,13 @@ export default function MemosPage() {
   }
 
   const symbolsWithMemos = useMemo(() => {
-    const set = new Set<string>()
-    memos.forEach(m => { if (m.symbol) set.add(m.symbol) })
-    return Array.from(set).sort()
+    const countMap: Record<string, number> = {}
+    memos.forEach(m => m.symbols.forEach(s => {
+      countMap[s.symbol] = (countMap[s.symbol] ?? 0) + 1
+    }))
+    return Object.entries(countMap)
+      .sort((a, b) => b[1] - a[1])
+      .map(([symbol, count]) => ({ symbol, count }))
   }, [memos])
 
   const reviewMemos = useMemo(() => {
@@ -285,7 +291,7 @@ export default function MemosPage() {
   const filtered = useMemo(() => {
     const list = memos.filter(m => {
       if (categoryFilter && m.category !== categoryFilter) return false
-      if (symbolFilter && m.symbol !== symbolFilter) return false
+      if (symbolFilters.length > 0 && !symbolFilters.some(f => m.symbols.some(s => s.symbol === f))) return false
       if (alertFilter && !m.alertDate) return false
       if (pinFilter === 'stock' && !m.showOnMain) return false
       if (pinFilter === 'coin' && !m.showOnCoin) return false
@@ -304,7 +310,7 @@ export default function MemosPage() {
         default:               return b.createdAt.localeCompare(a.createdAt)
       }
     })
-  }, [memos, categoryFilter, symbolFilter, alertFilter, pinFilter, dateFilter, dateFilterMode, sortOption])
+  }, [memos, categoryFilter, symbolFilters, alertFilter, pinFilter, dateFilter, dateFilterMode, sortOption])
 
   return (
     <div className="min-h-screen">
@@ -483,10 +489,11 @@ export default function MemosPage() {
                 코인 📌 <span className="opacity-60">{coinPinCount}</span>
               </button>
             )}
-            {symbolsWithMemos.map(s => (
-              <button key={s} onClick={() => setSymbolFilter(symbolFilter === s ? null : s)}
-                className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${symbolFilter === s ? 'bg-green-50 text-green-700 border-green-300' : 'bg-white text-gray-400 border-gray-200'}`}>
-                {s}
+            {symbolsWithMemos.map(({ symbol, count }) => (
+              <button key={symbol}
+                onClick={() => setSymbolFilters(prev => prev.includes(symbol) ? prev.filter(s => s !== symbol) : [...prev, symbol])}
+                className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${symbolFilters.includes(symbol) ? 'bg-green-50 text-green-700 border-green-300' : 'bg-white text-gray-400 border-gray-200'}`}>
+                {symbol} <span className="opacity-60">{count}</span>
               </button>
             ))}
           </div>
@@ -513,9 +520,9 @@ export default function MemosPage() {
                         {memo.category}
                       </span>
                     )}
-                    {memo.symbol && (
-                      <span className="text-xs bg-green-50 text-green-600 border border-green-200 px-1.5 py-0.5 rounded">{memo.symbol}</span>
-                    )}
+                    {memo.symbols.map(s => (
+                      <span key={s.id} className="text-xs bg-green-50 text-green-600 border border-green-200 px-1.5 py-0.5 rounded">{s.symbol}</span>
+                    ))}
                     <div className="ml-auto flex items-center gap-1.5">
                       {memo.rating != null && <span className="text-xs text-yellow-500">★ {memo.rating}</span>}
                       <button
@@ -568,7 +575,9 @@ export default function MemosPage() {
             {modalMode === 'view' && selectedMemo && (
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  {selectedMemo.symbol && <span className="text-xs bg-green-50 text-green-600 border border-green-200 px-2 py-0.5 rounded-full">{selectedMemo.symbol}</span>}
+                  {selectedMemo.symbols.map(s => (
+                    <span key={s.id} className="text-xs bg-green-50 text-green-600 border border-green-200 px-2 py-0.5 rounded-full">{s.symbol}</span>
+                  ))}
                   {selectedMemo.category && <span className={`text-xs px-2 py-0.5 rounded-full border ${CATEGORY_COLORS[selectedMemo.category] ?? 'bg-gray-100 text-gray-500 border-gray-200'}`}>{selectedMemo.category}</span>}
                   {selectedMemo.rating != null && <span className="text-xs bg-yellow-50 text-yellow-700 border border-yellow-200 px-2 py-0.5 rounded-full">★ {selectedMemo.rating}</span>}
                   {selectedMemo.alertDate && (
@@ -606,37 +615,85 @@ export default function MemosPage() {
                 <div data-color-mode="light">
                   <MDEditor value={formContent} onChange={v => setFormContent(v ?? '')} preview="edit" height={260} visibleDragbar={false} />
                 </div>
-                {/* 종목 자동 감지 */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs text-gray-400">종목</span>
-                    {formSymbol ? (
-                      <span className="text-xs bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full flex items-center gap-1">
-                        {formSymbol}
-                        <button onClick={() => setFormSymbol(null)} className="text-green-400 hover:text-green-600">✕</button>
-                      </span>
-                    ) : (
-                      <span className="text-xs text-gray-300">미지정</span>
-                    )}
-                  </div>
-                  {detectedSymbols.length > 0 && (
+                {/* 종목 */}
+                <div className="space-y-1.5 rounded-lg border p-3 bg-gray-50">
+                  {/* 선택된 종목 */}
+                  {formSymbols.length > 0 && (
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-xs text-gray-400">감지됨</span>
-                      {detectedSymbols.map(s => (
-                        <button
-                          key={s}
-                          onClick={() => setFormSymbol(s)}
-                          className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
-                            formSymbol === s
-                              ? 'bg-green-100 text-green-700 border-green-300'
-                              : 'bg-white text-gray-500 border-gray-300 hover:border-green-400 hover:text-green-600'
-                          }`}
-                        >
+                      <span className="text-xs text-gray-500 w-14 shrink-0">선택됨</span>
+                      {formSymbols.map(s => (
+                        <span key={s} className="flex items-center gap-1 text-xs bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full">
                           {s}
-                        </button>
+                          <button onClick={() => setFormSymbols(prev => prev.filter(x => x !== s))} className="text-green-400 hover:text-green-600">✕</button>
+                        </span>
                       ))}
                     </div>
                   )}
+
+                  {/* 직접 입력 */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500 w-14 shrink-0">직접 입력</span>
+                    <input
+                      list="symbol-list"
+                      value={manualSymbolInput}
+                      onChange={e => {
+                        const v = e.target.value
+                        setManualSymbolInput(v)
+                        // 드롭다운에서 선택 시 즉시 추가
+                        if (stockMasters.some(m => m.symbol === v)) {
+                          if (!formSymbols.includes(v)) setFormSymbols(prev => [...prev, v])
+                          setManualSymbolInput('')
+                        }
+                      }}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          const v = manualSymbolInput.trim()
+                          if (v && !formSymbols.includes(v)) setFormSymbols(prev => [...prev, v])
+                          setManualSymbolInput('')
+                        }
+                      }}
+                      placeholder="종목명 검색 또는 직접 입력"
+                      className="flex-1 border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-green-400 bg-white"
+                    />
+                    <datalist id="symbol-list">
+                      {stockMasters.map(m => <option key={m.symbol} value={m.symbol} />)}
+                    </datalist>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const v = manualSymbolInput.trim()
+                        if (v && !formSymbols.includes(v)) setFormSymbols(prev => [...prev, v])
+                        setManualSymbolInput('')
+                      }}
+                      disabled={!manualSymbolInput.trim()}
+                      className="text-xs px-2 py-1 rounded border border-green-300 text-green-600 hover:bg-green-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                    >추가</button>
+                  </div>
+
+                  {/* 자동 감지 */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs text-gray-400 w-14 shrink-0">자동 감지</span>
+                    {detectedSymbols.length === 0
+                      ? <span className="text-xs text-gray-300">내용 입력 시 자동 탐지</span>
+                      : detectedSymbols.map(s => (
+                          <button
+                            key={s}
+                            onClick={() => {
+                              if (formSymbols.includes(s)) setFormSymbols(prev => prev.filter(x => x !== s))
+                              else setFormSymbols(prev => [...prev, s])
+                            }}
+                            className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                              formSymbols.includes(s)
+                                ? 'bg-blue-100 text-blue-700 border-blue-300'
+                                : 'bg-white text-gray-500 border-gray-300 hover:border-blue-400 hover:text-blue-600'
+                            }`}
+                          >
+                            {formSymbols.includes(s) ? '✓ ' : ''}{s}
+                          </button>
+                        ))
+                    }
+                  </div>
                 </div>
                 <CategoryPicker value={formCategory} onChange={setFormCategory} />
                 <RatingPicker value={formRating} onChange={setFormRating} />

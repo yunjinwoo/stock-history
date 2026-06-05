@@ -8,6 +8,21 @@ export async function PATCH(
   const { id } = await params
   const body = await req.json()
   const now = new Date().toISOString()
+
+  // symbols 업데이트: 기존 삭제 후 새로 삽입
+  if (body.symbols !== undefined) {
+    await prisma.memoSymbol.deleteMany({ where: { memoId: id } })
+    if (Array.isArray(body.symbols) && body.symbols.length > 0) {
+      await prisma.memoSymbol.createMany({
+        data: (body.symbols as string[]).map(s => ({
+          id: crypto.randomUUID(),
+          memoId: id,
+          symbol: s,
+        })),
+      })
+    }
+  }
+
   const memo = await prisma.memo.update({
     where: { id },
     data: {
@@ -16,12 +31,14 @@ export async function PATCH(
       ...(body.showOnCoin !== undefined && { showOnCoin: body.showOnCoin }),
       ...(body.rating !== undefined && { rating: body.rating != null ? Number(body.rating) : null }),
       ...(body.category !== undefined && { category: body.category ?? null }),
-      ...(body.symbol !== undefined && { symbol: body.symbol ?? null }),
       ...(body.alertDate !== undefined && { alertDate: body.alertDate ?? null }),
       ...(body.createdAt !== undefined && { createdAt: body.createdAt }),
       updatedAt: now,
     },
-    include: { images: { orderBy: { createdAt: 'asc' } } },
+    include: {
+      images: { orderBy: { createdAt: 'asc' } },
+      symbols: { orderBy: { symbol: 'asc' } },
+    },
   })
   return NextResponse.json(memo)
 }

@@ -81,17 +81,24 @@ model StockMaster {
 }
 
 model Memo {
-  id          String      @id
+  id          String       @id
   content     String
-  showOnMain  Boolean     @default(true)
-  showOnCoin  Boolean     @default(true)
+  showOnMain  Boolean      @default(true)
+  showOnCoin  Boolean      @default(true)
   rating      Int?
   category    String?
-  symbol      String?
   alertDate   String?
   createdAt   String
   updatedAt   String
   images      MemoImage[]
+  symbols     MemoSymbol[]
+}
+
+model MemoSymbol {
+  id        String @id
+  memoId    String
+  symbol    String
+  memo      Memo   @relation(fields: [memoId], references: [id], onDelete: Cascade)
 }
 
 model MemoImage {
