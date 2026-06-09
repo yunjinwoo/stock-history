@@ -1,178 +1,251 @@
-'use client'
+"use client";
 
-import { useState, useMemo } from 'react'
-import type { Trade, Account, TradeImage } from '@/lib/types'
+import { useState, useMemo } from "react";
+import type { Trade, Account, TradeImage } from "@/lib/types";
 // TradeImage used in imagesMap state below
-import { formatKRW, formatRate, lastEntryDate } from '@/lib/utils'
-import TradeImageZone from './TradeImageZone'
+import { formatKRW, formatRate, lastEntryDate } from "@/lib/utils";
+import TradeImageZone from "./TradeImageZone";
 
 const COLOR_PALETTE = [
-  { border: 'border-l-blue-400',    badge: 'bg-blue-100 text-blue-700' },
-  { border: 'border-l-emerald-400', badge: 'bg-emerald-100 text-emerald-700' },
-  { border: 'border-l-violet-400',  badge: 'bg-violet-100 text-violet-700' },
-  { border: 'border-l-orange-400',  badge: 'bg-orange-100 text-orange-700' },
-  { border: 'border-l-pink-400',    badge: 'bg-pink-100 text-pink-700' },
-  { border: 'border-l-teal-400',    badge: 'bg-teal-100 text-teal-700' },
-  { border: 'border-l-amber-400',   badge: 'bg-amber-100 text-amber-700' },
-  { border: 'border-l-rose-400',    badge: 'bg-rose-100 text-rose-700' },
-] as const
+  { border: "border-l-blue-400", badge: "bg-blue-100 text-blue-700" },
+  { border: "border-l-emerald-400", badge: "bg-emerald-100 text-emerald-700" },
+  { border: "border-l-violet-400", badge: "bg-violet-100 text-violet-700" },
+  { border: "border-l-orange-400", badge: "bg-orange-100 text-orange-700" },
+  { border: "border-l-pink-400", badge: "bg-pink-100 text-pink-700" },
+  { border: "border-l-teal-400", badge: "bg-teal-100 text-teal-700" },
+  { border: "border-l-amber-400", badge: "bg-amber-100 text-amber-700" },
+  { border: "border-l-rose-400", badge: "bg-rose-100 text-rose-700" },
+] as const;
 
 const TYPE_STYLE: Record<string, string> = {
-  '코스피': 'bg-blue-50 text-blue-600 border-blue-200',
-  '코스닥': 'bg-green-50 text-green-600 border-green-200',
-  'ETF':   'bg-purple-50 text-purple-600 border-purple-200',
-}
+  코스피: "bg-blue-50 text-blue-600 border-blue-200",
+  코스닥: "bg-green-50 text-green-600 border-green-200",
+  ETF: "bg-purple-50 text-purple-600 border-purple-200",
+};
 
 interface Props {
-  trades: Trade[]
-  accounts: Account[]
-  symbolTypeMap?: Record<string, string>
-  onEdit: (trade: Trade) => void
-  onDelete: (trade: Trade) => void
+  trades: Trade[];
+  accounts: Account[];
+  symbolTypeMap?: Record<string, string>;
+  onEdit: (trade: Trade) => void;
+  onDelete: (trade: Trade) => void;
 }
 
-type EntryRow = { date: string; type: '매수' | '매도'; price: number; quantity: number }
+type EntryRow = {
+  date: string;
+  type: "매수" | "매도";
+  price: number;
+  quantity: number;
+};
 
-export default function TradeHistory({ trades, accounts, symbolTypeMap = {}, onEdit, onDelete }: Props) {
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
-  const [simPrices, setSimPrices] = useState<Record<string, string>>({})
-  const [imagesMap, setImagesMap] = useState<Record<string, TradeImage[]>>({})
+export default function TradeHistory({
+  trades,
+  accounts,
+  symbolTypeMap = {},
+  onEdit,
+  onDelete,
+}: Props) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [simPrices, setSimPrices] = useState<Record<string, string>>({});
+  const [imagesMap, setImagesMap] = useState<Record<string, TradeImage[]>>({});
 
   const symbolInfoMap = useMemo(() => {
-    const bySymbol: Record<string, Trade[]> = {}
-    trades.forEach(t => { (bySymbol[t.symbol] ??= []).push(t) })
+    const bySymbol: Record<string, Trade[]> = {};
+    trades.forEach((t) => {
+      (bySymbol[t.symbol] ??= []).push(t);
+    });
 
-    const colorMap: Record<string, typeof COLOR_PALETTE[number]> = {}
-    let colorIdx = 0
+    const colorMap: Record<string, (typeof COLOR_PALETTE)[number]> = {};
+    let colorIdx = 0;
     Object.entries(bySymbol).forEach(([symbol, list]) => {
       if (list.length >= 2) {
-        colorMap[symbol] = COLOR_PALETTE[colorIdx++ % COLOR_PALETTE.length]
+        colorMap[symbol] = COLOR_PALETTE[colorIdx++ % COLOR_PALETTE.length];
       }
-    })
+    });
 
-    const seqMap: Record<string, { seq: number; total: number }> = {}
+    const seqMap: Record<string, { seq: number; total: number }> = {};
     Object.entries(bySymbol).forEach(([, list]) => {
-      if (list.length < 2) return
+      if (list.length < 2) return;
       const sorted = [...list].sort((a, b) =>
-        (a.buyEntries[0]?.date ?? '').localeCompare(b.buyEntries[0]?.date ?? '')
-      )
-      sorted.forEach((t, i) => { seqMap[t.id] = { seq: i + 1, total: sorted.length } })
-    })
+        (a.buyEntries[0]?.date ?? "").localeCompare(
+          b.buyEntries[0]?.date ?? "",
+        ),
+      );
+      sorted.forEach((t, i) => {
+        seqMap[t.id] = { seq: i + 1, total: sorted.length };
+      });
+    });
 
-    return { colorMap, seqMap }
-  }, [trades])
+    return { colorMap, seqMap };
+  }, [trades]);
 
   function toggle(id: string) {
-    setExpanded(prev => {
-      const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
-      return next
-    })
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
   }
 
   function calcSim(trade: Trade, priceStr: string) {
-    const price = Number(priceStr.replace(/,/g, ''))
-    if (!price || price <= 0) return null
-    const profit = (price - trade.avgBuyPrice) * trade.remainingQuantity
-    const rate = (profit / (trade.avgBuyPrice * trade.remainingQuantity)) * 100
-    return { profit, rate }
+    const price = Number(priceStr.replace(/,/g, ""));
+    if (!price || price <= 0) return null;
+    const profit = (price - trade.avgBuyPrice) * trade.remainingQuantity;
+    const rate = (profit / (trade.avgBuyPrice * trade.remainingQuantity)) * 100;
+    return { profit, rate };
   }
 
-  if (trades.length === 0) return (
-    <p className="text-center text-gray-400 py-16 text-sm">거래 기록이 없습니다<br/>새 거래를 입력해보세요</p>
-  )
+  if (trades.length === 0)
+    return (
+      <p className="text-center text-gray-400 py-16 text-sm">
+        거래 기록이 없습니다
+        <br />새 거래를 입력해보세요
+      </p>
+    );
 
-  const accountOrder = accounts.map(a => a.id)
+  const accountOrder = accounts.map((a) => a.id);
   const byAccount = trades.reduce<Record<string, Trade[]>>((acc, t) => {
-    ;(acc[t.accountId] ??= []).push(t)
-    return acc
-  }, {})
+    (acc[t.accountId] ??= []).push(t);
+    return acc;
+  }, {});
   const accountIds = [
-    ...accountOrder.filter(id => byAccount[id]),
-    ...Object.keys(byAccount).filter(id => !accountOrder.includes(id)),
-  ]
+    ...accountOrder.filter((id) => byAccount[id]),
+    ...Object.keys(byAccount).filter((id) => !accountOrder.includes(id)),
+  ];
 
   return (
     <div className="space-y-6">
-      {accountIds.map(accountId => {
-        const account = accounts.find(a => a.id === accountId)
-        const accountTrades = [...byAccount[accountId]]
-          .sort((a, b) => lastEntryDate(b).localeCompare(lastEntryDate(a)))
+      {accountIds.map((accountId) => {
+        const account = accounts.find((a) => a.id === accountId);
+        const accountTrades = [...byAccount[accountId]].sort((a, b) =>
+          lastEntryDate(b).localeCompare(lastEntryDate(a)),
+        );
 
         return (
           <div key={accountId}>
             {/* 계좌 헤더 */}
             <div className="flex items-center gap-2 mb-3 pb-1 border-b-2 border-gray-200">
               <span className="font-semibold text-gray-700">
-                {account ? (account.nickname || `${account.broker} ${account.accountNumber}`) : '알 수 없는 계좌'}
+                {account
+                  ? account.nickname ||
+                    `${account.broker} ${account.accountNumber}`
+                  : "알 수 없는 계좌"}
               </span>
-              <span className="text-xs text-gray-400">{accountTrades.length}건</span>
+              <span className="text-xs text-gray-400">
+                {accountTrades.length}건
+              </span>
             </div>
 
             <div className="space-y-3">
-              {accountTrades.map(trade => {
+              {accountTrades.map((trade) => {
                 const entries: EntryRow[] = [
-                  ...trade.buyEntries.map(e => ({ date: e.date, type: '매수' as const, price: e.price, quantity: e.quantity })),
-                  ...trade.sellEntries.map(e => ({ date: e.date, type: '매도' as const, price: e.price, quantity: e.quantity })),
-                ].sort((a, b) => a.date.localeCompare(b.date))
+                  ...trade.buyEntries.map((e) => ({
+                    date: e.date,
+                    type: "매수" as const,
+                    price: e.price,
+                    quantity: e.quantity,
+                  })),
+                  ...trade.sellEntries.map((e) => ({
+                    date: e.date,
+                    type: "매도" as const,
+                    price: e.price,
+                    quantity: e.quantity,
+                  })),
+                ].sort((a, b) => a.date.localeCompare(b.date));
 
-                const isPos = trade.profitAmount >= 0
+                const isPos = trade.profitAmount >= 0;
 
                 const holdingColor =
-                  trade.holdingDays <= 7  ? 'bg-green-100 text-green-700' :
-                  trade.holdingDays <= 30 ? 'bg-blue-100 text-blue-700' :
-                  trade.holdingDays <= 90 ? 'bg-orange-100 text-orange-700' :
-                                            'bg-red-100 text-red-700'
+                  trade.holdingDays <= 7
+                    ? "bg-green-100 text-green-700"
+                    : trade.holdingDays <= 30
+                      ? "bg-blue-100 text-blue-700"
+                      : trade.holdingDays <= 90
+                        ? "bg-orange-100 text-orange-700"
+                        : "bg-red-100 text-red-700";
 
-                const isExpanded = expanded.has(trade.id)
-                const symbolColor = symbolInfoMap.colorMap[trade.symbol]
-                const symbolSeq = symbolInfoMap.seqMap[trade.id]
+                const isExpanded = expanded.has(trade.id);
+                const symbolColor = symbolInfoMap.colorMap[trade.symbol];
+                const symbolSeq = symbolInfoMap.seqMap[trade.id];
 
                 return (
-                  <div key={trade.id} className={`rounded-lg bg-white overflow-hidden border ${symbolColor ? `border-l-4 ${symbolColor.border}` : ''}`}>
+                  <div
+                    key={trade.id}
+                    className={`rounded-lg overflow-hidden border bg-white ${symbolColor ? `border-l-4 ${symbolColor.border}` : ""}`}
+                  >
                     {/* 종목 헤더 */}
                     <div
-                      className="flex items-center justify-between px-4 py-2 bg-gray-50 cursor-pointer select-none"
+                      className={`flex items-center justify-between px-4 py-2 cursor-pointer select-none ${trade.isCompleted ? "bg-gray-100 opacity-75" : "bg-gray-50"}`}
                       onClick={() => toggle(trade.id)}
                     >
                       <div className="flex items-center gap-2">
                         {symbolTypeMap[trade.symbol] && (
-                          <span className={`text-xs px-1.5 py-0.5 rounded border font-medium ${TYPE_STYLE[symbolTypeMap[trade.symbol]] ?? 'bg-gray-50 text-gray-500 border-gray-200'}`}>
+                          <span
+                            className={`text-xs px-1.5 py-0.5 rounded border font-medium ${TYPE_STYLE[symbolTypeMap[trade.symbol]] ?? "bg-gray-50 text-gray-500 border-gray-200"}`}
+                          >
                             {symbolTypeMap[trade.symbol]}
                           </span>
                         )}
                         <a
-                          href={trade.symbolCode
-                            ? `https://finance.naver.com/item/main.naver?code=${trade.symbolCode}`
-                            : `https://finance.naver.com/search/search.naver?query=${encodeURIComponent(trade.symbol)}&endUrl=&encoding=UTF-8`}
+                          href={
+                            trade.symbolCode
+                              ? `https://finance.naver.com/item/main.naver?code=${trade.symbolCode}`
+                              : `https://finance.naver.com/search/search.naver?query=${encodeURIComponent(trade.symbol)}&endUrl=&encoding=UTF-8`
+                          }
                           target="_blank"
                           rel="noopener noreferrer"
-                          onClick={e => e.stopPropagation()}
+                          onClick={(e) => e.stopPropagation()}
                           className="font-medium hover:underline"
-                        >{trade.symbol}</a>
-                        {trade.symbolCode && <span className="text-gray-400 text-xs">({trade.symbolCode})</span>}
+                        >
+                          {trade.symbol}
+                        </a>
+                        {trade.symbolCode && (
+                          <span className="text-gray-400 text-xs">
+                            ({trade.symbolCode})
+                          </span>
+                        )}
                         {symbolSeq && (
-                          <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${symbolColor?.badge}`}>
+                          <span
+                            className={`text-xs px-1.5 py-0.5 rounded font-medium ${symbolColor?.badge}`}
+                          >
                             {symbolSeq.seq}/{symbolSeq.total}
                           </span>
                         )}
                         <span className="text-xs text-gray-400">
-                          매수 {trade.buyEntries.length}건{trade.sellEntries.length > 0 ? ` · 매도 ${trade.sellEntries.length}건` : ''}
+                          매수 {trade.buyEntries.length}건
+                          {trade.sellEntries.length > 0
+                            ? ` · 매도 ${trade.sellEntries.length}건`
+                            : ""}
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5 flex-wrap justify-end">
                         {!trade.isCompleted ? (
                           <>
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${holdingColor}`}>보유중 {trade.holdingDays}일</span>
-                            <span className="hidden sm:inline text-xs text-gray-500">잔여 {trade.remainingQuantity}주</span>
+                            <span
+                              className={`text-xs px-2 py-0.5 rounded-full ${holdingColor}`}
+                            >
+                              보유중 {trade.holdingDays}일
+                            </span>
+                            <span className="hidden sm:inline text-xs text-gray-500">
+                              잔여 {trade.remainingQuantity}주
+                            </span>
                             {trade.sellEntries.length > 0 && (
                               <>
-                                <span className="hidden sm:inline text-gray-300 text-xs">|</span>
-                                <span className="hidden sm:inline text-xs text-gray-400">일부매도</span>
-                                <span className={`text-xs font-medium ${trade.profitAmount >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
-                                  {(trade.profitAmount >= 0 ? '+' : '') + formatKRW(Math.round(trade.profitAmount))}
+                                <span className="hidden sm:inline text-gray-300 text-xs">
+                                  |
                                 </span>
-                                <span className={`hidden sm:inline text-xs ${trade.profitAmount >= 0 ? 'text-red-400' : 'text-blue-400'}`}>
+                                <span className="hidden sm:inline text-xs text-gray-400">
+                                  일부매도
+                                </span>
+                                <span
+                                  className={`text-xs font-medium ${trade.profitAmount >= 0 ? "text-red-500" : "text-blue-500"}`}
+                                >
+                                  {(trade.profitAmount >= 0 ? "+" : "") +
+                                    formatKRW(Math.round(trade.profitAmount))}
+                                </span>
+                                <span
+                                  className={`hidden sm:inline text-xs ${trade.profitAmount >= 0 ? "text-red-400" : "text-blue-400"}`}
+                                >
                                   {formatRate(trade.profitRate)}
                                 </span>
                               </>
@@ -180,152 +253,270 @@ export default function TradeHistory({ trades, accounts, symbolTypeMap = {}, onE
                           </>
                         ) : (
                           <>
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${isPos ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
+                            <span
+                              className={`text-xs px-2 py-0.5 rounded-full ${isPos ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600"}`}
+                            >
                               완료 {formatRate(trade.profitRate)}
                             </span>
-                            <span className={`text-xs font-medium ${isPos ? 'text-red-500' : 'text-blue-500'}`}>
-                              {(isPos ? '+' : '') + formatKRW(Math.round(trade.profitAmount))}
+                            <span
+                              className={`text-xs font-medium ${isPos ? "text-red-500" : "text-blue-500"}`}
+                            >
+                              {(isPos ? "+" : "") +
+                                formatKRW(Math.round(trade.profitAmount))}
                             </span>
-                            <span className={`text-xs font-medium ${holdingColor.split(' ')[1]}`}>{trade.holdingDays}일</span>
+                            <span
+                              className={`text-xs font-medium ${holdingColor.split(" ")[1]}`}
+                            >
+                              {trade.holdingDays}일
+                            </span>
                           </>
                         )}
                         {!trade.isCompleted && (
-                          <span className="text-xs text-gray-400">{formatKRW(Math.round(trade.avgBuyPrice))}</span>
+                          <span className="text-xs text-gray-400">
+                            {formatKRW(Math.round(trade.avgBuyPrice))}
+                          </span>
                         )}
-                        <button onClick={e => { e.stopPropagation(); onEdit(trade) }} className="text-xs text-gray-400 hover:text-gray-700 px-2 py-0.5 border rounded">수정</button>
                         <button
-                          onClick={e => { e.stopPropagation(); if (confirm(`"${trade.symbol}" 거래를 삭제하시겠습니까?`)) onDelete(trade) }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEdit(trade);
+                          }}
+                          className="text-xs text-gray-400 hover:text-gray-700 px-2 py-0.5 border rounded"
+                        >
+                          수정
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (
+                              confirm(
+                                `"${trade.symbol}" 거래를 삭제하시겠습니까?`,
+                              )
+                            )
+                              onDelete(trade);
+                          }}
                           className="text-xs text-red-300 hover:text-red-500 px-2 py-0.5 border border-red-100 rounded"
-                        >삭제</button>
-                        <span className="text-gray-300 text-xs ml-1">{isExpanded ? '▲' : '▼'}</span>
+                        >
+                          삭제
+                        </button>
+                        <span className="text-gray-300 text-xs ml-1">
+                          {isExpanded ? "▲" : "▼"}
+                        </span>
                       </div>
                     </div>
 
                     {/* 타임라인 바 */}
-                    {isExpanded && (() => {
-                      const today = new Date().toISOString().slice(0, 10)
-                      const minDate = entries[0]?.date.slice(0, 10) ?? today
-                      const maxDate = trade.isCompleted
-                        ? entries[entries.length - 1].date.slice(0, 10)
-                        : today
-                      const totalMs = Math.max(1, new Date(maxDate).getTime() - new Date(minDate).getTime())
-                      function pct(date: string) {
-                        const ms = Math.max(0, new Date(date.slice(0, 10)).getTime() - new Date(minDate).getTime())
-                        return Math.min(100, (ms / totalMs) * 100)
-                      }
-                      const buys = entries.filter(e => e.type === '매수')
-                      const sells = entries.filter(e => e.type === '매도')
-                      return (
-                        <div className="px-6 pt-3 pb-1 border-t">
-                          <div className="relative" style={{ height: 80 }}>
-                            {/* 매도 마커 — 바 위 */}
-                            {sells.map((e, i) => (
-                              <div key={i} className="absolute flex flex-col items-center"
-                                style={{ left: `${pct(e.date)}%`, bottom: 'calc(50% + 4px)', transform: 'translateX(-50%)' }}>
-                                <span className="text-[10px] text-orange-500 whitespace-nowrap leading-tight">{e.date.slice(5, 10)}</span>
-                                <span className="text-[10px] text-orange-400 whitespace-nowrap leading-tight">{formatKRW(e.price)}</span>
-                                <div className="w-2 h-2 rounded-full bg-orange-400 mt-0.5" />
-                              </div>
-                            ))}
-                            {/* 바 */}
-                            <div className="absolute inset-x-0 h-1.5 rounded-full bg-gradient-to-r from-blue-100 via-blue-200 to-orange-100"
-                              style={{ top: '50%', transform: 'translateY(-50%)' }} />
-                            {/* 매수 마커 — 바 아래 */}
-                            {buys.map((e, i) => (
-                              <div key={i} className="absolute flex flex-col items-center"
-                                style={{ left: `${pct(e.date)}%`, top: 'calc(50% + 4px)', transform: 'translateX(-50%)' }}>
-                                <div className="w-2 h-2 rounded-full bg-blue-400 mb-0.5" />
-                                <span className="text-[10px] text-blue-500 whitespace-nowrap leading-tight">{e.date.slice(5, 10)}</span>
-                                <span className="text-[10px] text-blue-400 whitespace-nowrap leading-tight">{formatKRW(e.price)}</span>
-                              </div>
-                            ))}
+                    {isExpanded &&
+                      (() => {
+                        const today = new Date().toISOString().slice(0, 10);
+                        const minDate = entries[0]?.date.slice(0, 10) ?? today;
+                        const maxDate = trade.isCompleted
+                          ? entries[entries.length - 1].date.slice(0, 10)
+                          : today;
+                        const totalMs = Math.max(
+                          1,
+                          new Date(maxDate).getTime() -
+                            new Date(minDate).getTime(),
+                        );
+                        function pct(date: string) {
+                          const ms = Math.max(
+                            0,
+                            new Date(date.slice(0, 10)).getTime() -
+                              new Date(minDate).getTime(),
+                          );
+                          return Math.min(100, (ms / totalMs) * 100);
+                        }
+                        const buys = entries.filter((e) => e.type === "매수");
+                        const sells = entries.filter((e) => e.type === "매도");
+                        return (
+                          <div className="px-6 pt-3 pb-1 border-t">
+                            <div className="relative" style={{ height: 80 }}>
+                              {/* 매도 마커 — 바 위 */}
+                              {sells.map((e, i) => (
+                                <div
+                                  key={i}
+                                  className="absolute flex flex-col items-center"
+                                  style={{
+                                    left: `${pct(e.date)}%`,
+                                    bottom: "calc(50% + 4px)",
+                                    transform: "translateX(-50%)",
+                                  }}
+                                >
+                                  <span className="text-[10px] text-orange-500 whitespace-nowrap leading-tight">
+                                    {e.date.slice(5, 10)}
+                                  </span>
+                                  <span className="text-[10px] text-orange-400 whitespace-nowrap leading-tight">
+                                    {formatKRW(e.price)}
+                                  </span>
+                                  <div className="w-2 h-2 rounded-full bg-orange-400 mt-0.5" />
+                                </div>
+                              ))}
+                              {/* 바 */}
+                              <div
+                                className="absolute inset-x-0 h-1.5 rounded-full bg-gradient-to-r from-blue-100 via-blue-200 to-orange-100"
+                                style={{
+                                  top: "50%",
+                                  transform: "translateY(-50%)",
+                                }}
+                              />
+                              {/* 매수 마커 — 바 아래 */}
+                              {buys.map((e, i) => (
+                                <div
+                                  key={i}
+                                  className="absolute flex flex-col items-center"
+                                  style={{
+                                    left: `${pct(e.date)}%`,
+                                    top: "calc(50% + 4px)",
+                                    transform: "translateX(-50%)",
+                                  }}
+                                >
+                                  <div className="w-2 h-2 rounded-full bg-blue-400 mb-0.5" />
+                                  <span className="text-[10px] text-blue-500 whitespace-nowrap leading-tight">
+                                    {e.date.slice(5, 10)}
+                                  </span>
+                                  <span className="text-[10px] text-blue-400 whitespace-nowrap leading-tight">
+                                    {formatKRW(e.price)}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="flex justify-between text-[10px] text-gray-300">
+                              <span>{minDate}</span>
+                              <span>
+                                {trade.isCompleted
+                                  ? maxDate
+                                  : `오늘 ${maxDate}`}
+                              </span>
+                            </div>
                           </div>
-                          <div className="flex justify-between text-[10px] text-gray-300">
-                            <span>{minDate}</span>
-                            <span>{trade.isCompleted ? maxDate : `오늘 ${maxDate}`}</span>
-                          </div>
-                        </div>
-                      )
-                    })()}
+                        );
+                      })()}
 
                     {/* 거래 내역 (접기/펼치기) */}
-                    {isExpanded && <div className="overflow-x-auto"><table className="w-full text-sm border-t">
-                      <thead>
-                        <tr className="text-xs text-gray-400 border-b bg-gray-50">
-                          <th className="px-4 py-1.5 text-center font-normal w-24">구분</th>
-                          <th className="px-4 py-1.5 text-left font-normal">날짜</th>
-                          <th className="px-4 py-1.5 text-right font-normal">단가</th>
-                          <th className="px-4 py-1.5 text-right font-normal">수량</th>
-                          <th className="px-4 py-1.5 text-right font-normal">금액</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-50">
-                        {entries.map((e, i) => (
-                          <tr key={i} className="hover:bg-gray-50">
-                            <td className="px-4 py-2 text-center">
-                              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${e.type === '매수' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-500'}`}>
-                                {e.type}
-                              </span>
-                            </td>
-                            <td className="px-4 py-2 text-gray-500 text-xs">{e.date.slice(0, 10)}</td>
-                            <td className="px-4 py-2 text-right">{formatKRW(e.price)}</td>
-                            <td className="px-4 py-2 text-right">{e.quantity}주</td>
-                            <td className="px-4 py-2 text-right">{formatKRW(e.price * e.quantity)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-
-                    </table></div>}
+                    {isExpanded && (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm border-t">
+                          <thead>
+                            <tr className="text-xs text-gray-400 border-b bg-gray-50">
+                              <th className="px-4 py-1.5 text-center font-normal w-24">
+                                구분
+                              </th>
+                              <th className="px-4 py-1.5 text-left font-normal">
+                                날짜
+                              </th>
+                              <th className="px-4 py-1.5 text-right font-normal">
+                                단가
+                              </th>
+                              <th className="px-4 py-1.5 text-right font-normal">
+                                수량
+                              </th>
+                              <th className="px-4 py-1.5 text-right font-normal">
+                                금액
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-50">
+                            {entries.map((e, i) => (
+                              <tr key={i} className="hover:bg-gray-50">
+                                <td className="px-4 py-2 text-center">
+                                  <span
+                                    className={`text-xs font-medium px-2 py-0.5 rounded-full ${e.type === "매수" ? "bg-blue-50 text-blue-600" : "bg-orange-50 text-orange-500"}`}
+                                  >
+                                    {e.type}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-2 text-gray-500 text-xs">
+                                  {e.date.slice(0, 10)}
+                                </td>
+                                <td className="px-4 py-2 text-right">
+                                  {formatKRW(e.price)}
+                                </td>
+                                <td className="px-4 py-2 text-right">
+                                  {e.quantity}주
+                                </td>
+                                <td className="px-4 py-2 text-right">
+                                  {formatKRW(e.price * e.quantity)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                     {isExpanded && trade.comment && (
-                      <div className="px-4 py-1.5 text-xs text-gray-400 border-t bg-gray-50">💬 {trade.comment}</div>
+                      <div className="px-4 py-1.5 text-xs text-gray-400 border-t bg-gray-50">
+                        💬 {trade.comment}
+                      </div>
                     )}
                     {isExpanded && (
                       <TradeImageZone
                         tradeId={trade.id}
                         images={imagesMap[trade.id] ?? trade.images}
-                        onUpdate={imgs => setImagesMap(m => ({ ...m, [trade.id]: imgs }))}
+                        onUpdate={(imgs) =>
+                          setImagesMap((m) => ({ ...m, [trade.id]: imgs }))
+                        }
                       />
                     )}
                     {isExpanded && !trade.isCompleted && (
                       <div className="px-4 py-3 border-t bg-gray-50">
                         <div className="flex items-center gap-3 flex-wrap">
-                          <span className="text-xs text-gray-400 whitespace-nowrap">예상 매도가</span>
+                          <span className="text-xs text-gray-400 whitespace-nowrap">
+                            예상 매도가
+                          </span>
                           <input
                             type="number"
-                            value={simPrices[trade.id] ?? ''}
-                            onChange={e => setSimPrices(p => ({ ...p, [trade.id]: e.target.value }))}
+                            value={simPrices[trade.id] ?? ""}
+                            onChange={(e) =>
+                              setSimPrices((p) => ({
+                                ...p,
+                                [trade.id]: e.target.value,
+                              }))
+                            }
                             placeholder={String(Math.round(trade.avgBuyPrice))}
                             className="border rounded px-2 py-1 text-sm w-36 focus:outline-none focus:ring-1 focus:ring-blue-400"
                             min="1"
                           />
                           {(() => {
-                            const sim = calcSim(trade, simPrices[trade.id] ?? '')
-                            if (!sim) return <span className="text-xs text-gray-300">가격을 입력하면 예상 손익이 표시됩니다</span>
-                            const isP = sim.profit >= 0
+                            const sim = calcSim(
+                              trade,
+                              simPrices[trade.id] ?? "",
+                            );
+                            if (!sim)
+                              return (
+                                <span className="text-xs text-gray-300">
+                                  가격을 입력하면 예상 손익이 표시됩니다
+                                </span>
+                              );
+                            const isP = sim.profit >= 0;
                             return (
                               <div className="flex items-center gap-2">
-                                <span className={`text-sm font-semibold ${isP ? 'text-red-500' : 'text-blue-500'}`}>
-                                  {(isP ? '+' : '') + formatKRW(Math.round(sim.profit))}
+                                <span
+                                  className={`text-sm font-semibold ${isP ? "text-red-500" : "text-blue-500"}`}
+                                >
+                                  {(isP ? "+" : "") +
+                                    formatKRW(Math.round(sim.profit))}
                                 </span>
-                                <span className={`text-xs ${isP ? 'text-red-400' : 'text-blue-400'}`}>
+                                <span
+                                  className={`text-xs ${isP ? "text-red-400" : "text-blue-400"}`}
+                                >
                                   {formatRate(sim.rate)}
                                 </span>
                                 <span className="text-xs text-gray-400">
                                   ({trade.remainingQuantity}주 기준)
                                 </span>
                               </div>
-                            )
+                            );
                           })()}
                         </div>
                       </div>
                     )}
                   </div>
-                )
+                );
               })}
             </div>
           </div>
-        )
+        );
       })}
     </div>
-  )
+  );
 }
