@@ -20,7 +20,7 @@ interface StockMaster {
 interface StockMemo {
   id: string
   content: string
-  symbol: string | null
+  symbols: { id: string; symbol: string }[]
   createdAt: string
   images: MemoImage[]
 }
@@ -68,7 +68,7 @@ export default function StockMasterPage() {
   }, [list])
 
   const filtered = useMemo(() => {
-    const symbolsWithMemo = new Set(allMemos.filter(m => m.symbol).map(m => m.symbol))
+    const symbolsWithMemo = new Set(allMemos.flatMap(m => m.symbols.map(s => s.symbol)))
     let result = list.filter(item => {
       if (search.trim()) {
         const q = search.trim()
@@ -83,7 +83,7 @@ export default function StockMasterPage() {
     })
     if (sortMode === 'memoCount') {
       const memoCountMap: Record<string, number> = {}
-      allMemos.forEach(m => { if (m.symbol) memoCountMap[m.symbol] = (memoCountMap[m.symbol] ?? 0) + 1 })
+      allMemos.forEach(m => m.symbols.forEach(s => { memoCountMap[s.symbol] = (memoCountMap[s.symbol] ?? 0) + 1 }))
       result = [...result].sort((a, b) => {
         const diff = (memoCountMap[b.symbol] ?? 0) - (memoCountMap[a.symbol] ?? 0)
         return diff !== 0 ? diff : a.symbol.localeCompare(b.symbol, 'ko')
@@ -159,7 +159,7 @@ export default function StockMasterPage() {
     await apiFetch('/api/memos', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: trimmed, symbol: item.symbol, category: '종목', showOnMain: false, showOnCoin: false }),
+      body: JSON.stringify({ content: trimmed, symbols: [item.symbol], category: '종목', showOnMain: false, showOnCoin: false }),
     })
     setMemoInput('')
     setMemoInputId(null)
@@ -400,7 +400,7 @@ export default function StockMasterPage() {
 
                     {/* 메모 섹션 */}
                     {(() => {
-                      const stockMemos = allMemos.filter(m => m.symbol === item.symbol)
+                      const stockMemos = allMemos.filter(m => m.symbols.some(s => s.symbol === item.symbol))
                       return (
                         <>
                           <button
