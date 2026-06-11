@@ -384,6 +384,7 @@ export default function MemosPage() {
       return 21
     }
     return memos.filter((m) => {
+      if (m.rating === 1) return false
       const base = (m.reviewedAt ?? m.createdAt).slice(0, 10)
       const diffDays = Math.floor(
         (new Date(today).getTime() - new Date(base).getTime()) / 86400000
@@ -770,7 +771,7 @@ export default function MemosPage() {
                 <div
                   key={memo.id}
                   onClick={() => openView(memo)}
-                  className="bg-white rounded-lg border p-3 cursor-pointer hover:border-gray-300 hover:shadow-sm transition-all flex flex-col gap-2 min-h-[120px]"
+                  className={`rounded-lg border p-3 cursor-pointer hover:border-gray-300 hover:shadow-sm transition-all flex flex-col gap-2 min-h-[120px] ${memo.rating === 1 ? 'bg-gray-100' : 'bg-white'}`}
                 >
                   {/* 상단: 배지 행 */}
                   <div className="flex items-center gap-1.5 flex-wrap">
