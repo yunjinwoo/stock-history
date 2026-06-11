@@ -20,7 +20,8 @@ export default function AccountsPage() {
   useEffect(() => { load() }, [])
 
   function handleBackup() {
-    window.location.href = '/api/backup'
+    const base = process.env.NEXT_PUBLIC_BASE_PATH ?? ''
+    window.location.href = `${base}/api/backup`
   }
 
   async function handleRestore(e: React.ChangeEvent<HTMLInputElement>) {
