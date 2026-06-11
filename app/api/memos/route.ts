@@ -24,8 +24,8 @@ export async function POST(req: NextRequest) {
     data: {
       id: crypto.randomUUID(),
       content: content.trim(),
-      ...(showOnMain !== undefined && { showOnMain }),
-      ...(showOnCoin !== undefined && { showOnCoin }),
+      showOnMain: showOnMain ?? false,
+      showOnCoin: showOnCoin ?? false,
       rating: rating != null ? Number(rating) : null,
       category: category ?? null,
       alertDate: alertDate ?? null,

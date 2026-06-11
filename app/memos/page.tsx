@@ -771,7 +771,12 @@ export default function MemosPage() {
                 <div
                   key={memo.id}
                   onClick={() => openView(memo)}
-                  className={`rounded-lg border p-3 cursor-pointer hover:border-gray-300 hover:shadow-sm transition-all flex flex-col gap-2 min-h-[120px] ${memo.rating === 1 ? 'bg-gray-100' : 'bg-white'}`}
+                  className={`rounded-lg border p-3 cursor-pointer hover:border-gray-300 hover:shadow-sm transition-all flex flex-col gap-2 min-h-[120px] ${
+                    memo.rating === 1 ? 'bg-gray-100' :
+                    (memo.rating ?? 0) >= 7 ? 'bg-red-50' :
+                    (memo.rating ?? 0) >= 4 ? 'bg-yellow-50' :
+                    'bg-blue-50'
+                  }`}
                 >
                   {/* 상단: 배지 행 */}
                   <div className="flex items-center gap-1.5 flex-wrap">
