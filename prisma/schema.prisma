@@ -83,8 +83,8 @@ model StockMaster {
 model Memo {
   id          String       @id
   content     String
-  showOnMain  Boolean      @default(true)
-  showOnCoin  Boolean      @default(true)
+  showOnMain  Boolean      @default(false)
+  showOnCoin  Boolean      @default(false)
   rating      Int?
   category    String?
   alertDate   String?
