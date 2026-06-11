@@ -88,6 +88,7 @@ model Memo {
   rating      Int?
   category    String?
   alertDate   String?
+  reviewedAt  String?
   createdAt   String
   updatedAt   String
   images      MemoImage[]

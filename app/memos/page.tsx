@@ -34,6 +34,7 @@ interface Memo {
   category: string | null;
   symbols: { id: string; symbol: string }[];
   alertDate: string | null;
+  reviewedAt: string | null;
   images: MemoImage[];
   createdAt: string;
   updatedAt: string;
@@ -341,6 +342,15 @@ export default function MemosPage() {
     load();
   }
 
+  async function handleReview(id: string) {
+    await apiFetch(`/api/memos/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reviewedAt: new Date().toISOString() }),
+    })
+    load()
+  }
+
   async function handleDelete(id: string) {
     if (!confirm("메모를 삭제하시겠습니까?")) return;
     await apiFetch(`/api/memos/${id}`, { method: "DELETE" });
@@ -368,28 +378,18 @@ export default function MemosPage() {
   }, [memos]);
 
   const reviewMemos = useMemo(() => {
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 30);
-    const cutoffStr = cutoff.toISOString().slice(0, 10);
-    const seen = new Set<string>();
-    const result: Memo[] = [];
-    // 1. 알림 만료
-    memos
-      .filter((m) => m.alertDate && m.alertDate <= today)
-      .forEach((m) => {
-        seen.add(m.id);
-        result.push(m);
-      });
-    // 2. 평점 7 이상 + 30일 이상 미수정
-    memos
-      .filter(
-        (m) =>
-          !seen.has(m.id) &&
-          (m.rating ?? 0) >= 7 &&
-          m.updatedAt.slice(0, 10) <= cutoffStr,
+    function reviewInterval(rating: number | null): number {
+      if ((rating ?? 0) >= 7) return 7
+      if ((rating ?? 0) >= 4) return 14
+      return 21
+    }
+    return memos.filter((m) => {
+      const base = (m.reviewedAt ?? m.createdAt).slice(0, 10)
+      const diffDays = Math.floor(
+        (new Date(today).getTime() - new Date(base).getTime()) / 86400000
       )
-      .forEach((m) => result.push(m));
-    return result;
+      return diffDays >= reviewInterval(m.rating)
+    })
   }, [memos, today]);
 
   const alertCount = useMemo(
@@ -525,17 +525,19 @@ export default function MemosPage() {
                   return (
                     <div
                       key={memo.id}
-                      onClick={() => openView(memo)}
-                      className="flex items-center gap-3 px-3 py-2 hover:bg-orange-100 cursor-pointer transition-colors"
+                      className="flex items-center gap-3 px-3 py-2 hover:bg-orange-100 transition-colors"
                     >
-                      <div className="flex items-center gap-1.5 flex-none">
+                      <div
+                        className="flex items-center gap-1.5 flex-none cursor-pointer"
+                        onClick={() => openView(memo)}
+                      >
                         {isOverdue ? (
                           <span className="text-xs bg-orange-100 text-orange-600 border border-orange-200 px-1.5 py-0.5 rounded">
                             🔔 {memo.alertDate}
                           </span>
                         ) : (
                           <span className="text-xs bg-yellow-50 text-yellow-700 border border-yellow-200 px-1.5 py-0.5 rounded">
-                            ★ {memo.rating}
+                            ★ {memo.rating ?? '-'}
                           </span>
                         )}
                         {memo.category && (
@@ -546,12 +548,21 @@ export default function MemosPage() {
                           </span>
                         )}
                       </div>
-                      <span className="flex-1 text-sm text-gray-700 truncate min-w-0">
+                      <span
+                        className="flex-1 text-sm text-gray-700 truncate min-w-0 cursor-pointer"
+                        onClick={() => openView(memo)}
+                      >
                         {preview}
                       </span>
                       <span className="text-xs text-gray-400 flex-none">
-                        {memo.updatedAt.slice(0, 10)}
+                        {(memo.reviewedAt ?? memo.createdAt).slice(0, 10)}
                       </span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleReview(memo.id) }}
+                        className="text-xs text-orange-500 hover:text-orange-700 border border-orange-200 hover:border-orange-400 px-2 py-0.5 rounded flex-none"
+                      >
+                        확인
+                      </button>
                     </div>
                   );
                 })}
