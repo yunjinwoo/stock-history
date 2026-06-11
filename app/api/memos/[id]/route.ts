@@ -32,6 +32,7 @@ export async function PATCH(
       ...(body.rating !== undefined && { rating: body.rating != null ? Number(body.rating) : null }),
       ...(body.category !== undefined && { category: body.category ?? null }),
       ...(body.alertDate !== undefined && { alertDate: body.alertDate ?? null }),
+      ...(body.reviewedAt !== undefined && { reviewedAt: body.reviewedAt ?? null }),
       ...(body.createdAt !== undefined && { createdAt: body.createdAt }),
       updatedAt: now,
     },
