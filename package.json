@@ -15,7 +15,8 @@
     "dayjs": "^1",
     "next": "^15",
     "react": "^19",
-    "react-dom": "^19"
+    "react-dom": "^19",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/node": "^22",

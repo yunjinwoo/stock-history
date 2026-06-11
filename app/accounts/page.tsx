@@ -19,9 +19,14 @@ export default function AccountsPage() {
 
   useEffect(() => { load() }, [])
 
+  const base = process.env.NEXT_PUBLIC_BASE_PATH ?? ''
+
   function handleBackup() {
-    const base = process.env.NEXT_PUBLIC_BASE_PATH ?? ''
     window.location.href = `${base}/api/backup`
+  }
+
+  function handleExport(type: 'trades' | 'memos') {
+    window.location.href = `${base}/api/export/${type}`
   }
 
   async function handleRestore(e: React.ChangeEvent<HTMLInputElement>) {
@@ -36,7 +41,8 @@ export default function AccountsPage() {
     try {
       const form = new FormData()
       form.append('file', file)
-      const res = await fetch('/api/restore', { method: 'POST', body: form })
+      const base = process.env.NEXT_PUBLIC_BASE_PATH ?? ''
+      const res = await fetch(`${base}/api/restore`, { method: 'POST', body: form })
       if (res.ok) {
         setRestoreMsg({ ok: true, text: '복원 완료. 페이지를 새로고침해주세요.' })
       } else {
@@ -63,12 +69,24 @@ export default function AccountsPage() {
         {/* 백업 / 복원 */}
         <div className="border rounded-lg p-4 space-y-3">
           <h2 className="text-sm font-semibold text-gray-700">데이터 백업 / 복원</h2>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={handleBackup}
               className="text-sm px-4 py-2 rounded border border-gray-300 hover:bg-gray-50"
             >
-              백업 다운로드
+              DB 백업 다운로드
+            </button>
+            <button
+              onClick={() => handleExport('trades')}
+              className="text-sm px-4 py-2 rounded border border-green-300 text-green-700 hover:bg-green-50"
+            >
+              거래내역 엑셀
+            </button>
+            <button
+              onClick={() => handleExport('memos')}
+              className="text-sm px-4 py-2 rounded border border-blue-300 text-blue-700 hover:bg-blue-50"
+            >
+              메모 엑셀
             </button>
             <button
               onClick={() => fileRef.current?.click()}
