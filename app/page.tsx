@@ -90,6 +90,7 @@ export default function HomePage() {
   const [tagFilters, setTagFilters] = useState<string[]>([])
   const [tagDropdownOpen, setTagDropdownOpen] = useState(false)
   const [tagSearch, setTagSearch] = useState('')
+  const [symbolFilter, setSymbolFilter] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'card' | 'table' | 'calendar'>('table')
 
   const loadAccounts = useCallback(async () => {
@@ -170,9 +171,11 @@ export default function HomePage() {
     setTagFilters(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])
   }
 
-  const displayTrades = tagFilters.length > 0
-    ? trades.filter(t => tagFilters.some(tag => symbolTagMap[t.symbol]?.includes(tag)))
-    : trades
+  const displayTrades = trades.filter(t => {
+    if (symbolFilter && t.symbol !== symbolFilter) return false
+    if (tagFilters.length > 0 && !tagFilters.some(tag => symbolTagMap[t.symbol]?.includes(tag))) return false
+    return true
+  })
 
   const holding = displayTrades.filter(t => !t.isCompleted)
   const completed = displayTrades.filter(t => t.isCompleted)
@@ -300,7 +303,15 @@ export default function HomePage() {
                 onClick={() => setHoldingOpen(v => !v)}
                 className="w-full flex items-center justify-between px-3 py-1.5 bg-gray-50 border-b hover:bg-gray-100 transition-colors"
               >
-                <span className="text-xs text-gray-500 font-medium">보유 종목 <span className="text-gray-400">{holding.length}</span></span>
+                <span className="text-xs text-gray-500 font-medium flex items-center gap-2">
+                  보유 종목 <span className="text-gray-400">{holding.length}</span>
+                  {symbolFilter && (
+                    <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                      {symbolFilter}
+                      <button onClick={e => { e.stopPropagation(); setSymbolFilter(null) }} className="hover:text-blue-900">✕</button>
+                    </span>
+                  )}
+                </span>
                 <span className="text-xs text-gray-400">{holdingOpen ? '▲' : '▼'}</span>
               </button>
               {holdingOpen && (
@@ -320,7 +331,10 @@ export default function HomePage() {
                     return (
                       <div key={trade.id} className="border-b last:border-b-0">
                         <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] items-center px-3 py-2 gap-3 hover:bg-gray-50">
-                          <span className="font-medium text-sm text-gray-700">{trade.symbol}</span>
+                          <button
+                            onClick={() => setSymbolFilter(prev => prev === trade.symbol ? null : trade.symbol)}
+                            className={`font-medium text-sm text-left ${symbolFilter === trade.symbol ? 'text-blue-600 underline' : 'text-gray-700 hover:text-blue-500'}`}
+                          >{trade.symbol}</button>
                           <span className="text-xs text-gray-600 text-right tabular-nums">{formatKRW(Math.round(trade.avgBuyPrice))}</span>
                           <span className="text-xs text-gray-400 text-right">{trade.remainingQuantity}주</span>
                           <span className="text-xs text-gray-400 text-right">{trade.holdingDays}일</span>

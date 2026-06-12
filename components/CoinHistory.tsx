@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { CoinTrade } from "@/lib/types";
 import { formatKRW, formatRate, formatQty, lastEntryDate } from "@/lib/utils";
+import TradeChart from "./TradeChart";
 
 interface Props {
   trades: CoinTrade[];
@@ -89,7 +90,7 @@ export default function CoinHistory({ trades, onEdit, onDelete }: Props) {
           >
             {/* 헤더 */}
             <div
-              className={`flex items-center justify-between px-4 py-2 cursor-pointer select-none ${trade.isCompleted ? "bg-gray-100 opacity-75" : "bg-gray-50"}`}
+              className={`flex items-center justify-between px-4 py-2 cursor-pointer select-none ${trade.isCompleted ? "bg-gray-200 opacity-60" : "bg-gray-50"}`}
               onClick={() => toggle(trade.id)}
             >
               <div className="flex items-center gap-2">
@@ -187,86 +188,15 @@ export default function CoinHistory({ trades, onEdit, onDelete }: Props) {
               </div>
             </div>
 
-            {/* 타임라인 바 */}
-            {isExpanded &&
-              (() => {
-                const today = new Date().toISOString().slice(0, 10);
-                const minDate = entries[0]?.date.slice(0, 10) ?? today;
-                const maxDate = trade.isCompleted
-                  ? entries[entries.length - 1].date.slice(0, 10)
-                  : today;
-                const totalMs = Math.max(
-                  1,
-                  new Date(maxDate).getTime() - new Date(minDate).getTime(),
-                );
-                function pct(date: string) {
-                  const ms = Math.max(
-                    0,
-                    new Date(date.slice(0, 10)).getTime() -
-                      new Date(minDate).getTime(),
-                  );
-                  return Math.min(100, (ms / totalMs) * 100);
-                }
-                const buys = entries.filter((e) => e.type === "매수");
-                const sells = entries.filter((e) => e.type === "매도");
-                return (
-                  <div className="px-6 pt-3 pb-1 border-t">
-                    <div className="relative" style={{ height: 80 }}>
-                      {/* 매도 마커 — 바 위 */}
-                      {sells.map((e, i) => (
-                        <div
-                          key={i}
-                          className="absolute flex flex-col items-center"
-                          style={{
-                            left: `${pct(e.date)}%`,
-                            bottom: "calc(50% + 4px)",
-                            transform: "translateX(-50%)",
-                          }}
-                        >
-                          <span className="text-[10px] text-orange-500 whitespace-nowrap leading-tight">
-                            {e.date.slice(5, 10)}
-                          </span>
-                          <span className="text-[10px] text-orange-400 whitespace-nowrap leading-tight">
-                            {formatKRW(e.price)}
-                          </span>
-                          <div className="w-2 h-2 rounded-full bg-orange-400 mt-0.5" />
-                        </div>
-                      ))}
-                      {/* 바 */}
-                      <div
-                        className="absolute inset-x-0 h-1.5 rounded-full bg-gradient-to-r from-blue-100 via-blue-200 to-orange-100"
-                        style={{ top: "50%", transform: "translateY(-50%)" }}
-                      />
-                      {/* 매수 마커 — 바 아래 */}
-                      {buys.map((e, i) => (
-                        <div
-                          key={i}
-                          className="absolute flex flex-col items-center"
-                          style={{
-                            left: `${pct(e.date)}%`,
-                            top: "calc(50% + 4px)",
-                            transform: "translateX(-50%)",
-                          }}
-                        >
-                          <div className="w-2 h-2 rounded-full bg-blue-400 mb-0.5" />
-                          <span className="text-[10px] text-blue-500 whitespace-nowrap leading-tight">
-                            {e.date.slice(5, 10)}
-                          </span>
-                          <span className="text-[10px] text-blue-400 whitespace-nowrap leading-tight">
-                            {formatKRW(e.price)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex justify-between text-[10px] text-gray-300">
-                      <span>{minDate}</span>
-                      <span>
-                        {trade.isCompleted ? maxDate : `오늘 ${maxDate}`}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })()}
+            {/* 가격 차트 */}
+            {isExpanded && (
+              <TradeChart
+                buyEntries={trade.buyEntries}
+                sellEntries={trade.sellEntries}
+                avgBuyPrice={trade.avgBuyPrice}
+                isCompleted={trade.isCompleted}
+              />
+            )}
 
             {/* 거래 내역 */}
             {isExpanded && (
