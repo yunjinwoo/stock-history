@@ -134,6 +134,14 @@ export default function TradeHistory({
               <span className="text-xs text-gray-400">
                 {accountTrades.length}건
               </span>
+              {(() => {
+                const holdingCount = accountTrades.filter(t => !t.isCompleted).length
+                return holdingCount > 0 ? (
+                  <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">
+                    보유 {holdingCount}
+                  </span>
+                ) : null
+              })()}
             </div>
 
             <div className="space-y-3">
