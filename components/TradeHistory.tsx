@@ -5,6 +5,7 @@ import type { Trade, Account, TradeImage } from "@/lib/types";
 // TradeImage used in imagesMap state below
 import { formatKRW, formatRate, lastEntryDate } from "@/lib/utils";
 import TradeImageZone from "./TradeImageZone";
+import TradeChart from "./TradeChart";
 
 const COLOR_PALETTE = [
   { border: "border-l-blue-400", badge: "bg-blue-100 text-blue-700" },
@@ -48,6 +49,15 @@ export default function TradeHistory({
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [simPrices, setSimPrices] = useState<Record<string, string>>({});
   const [imagesMap, setImagesMap] = useState<Record<string, TradeImage[]>>({});
+  const [showCompleted, setShowCompleted] = useState<Set<string>>(new Set());
+
+  function toggleShowCompleted(accountId: string) {
+    setShowCompleted(prev => {
+      const next = new Set(prev)
+      next.has(accountId) ? next.delete(accountId) : next.add(accountId)
+      return next
+    })
+  }
 
   const symbolInfoMap = useMemo(() => {
     const bySymbol: Record<string, Trade[]> = {};
@@ -117,9 +127,10 @@ export default function TradeHistory({
     <div className="space-y-6">
       {accountIds.map((accountId) => {
         const account = accounts.find((a) => a.id === accountId);
-        const accountTrades = [...byAccount[accountId]].sort((a, b) =>
-          lastEntryDate(b).localeCompare(lastEntryDate(a)),
-        );
+        const accountTrades = [...byAccount[accountId]].sort((a, b) => {
+          if (a.isCompleted !== b.isCompleted) return a.isCompleted ? 1 : -1
+          return lastEntryDate(b).localeCompare(lastEntryDate(a))
+        });
 
         return (
           <div key={accountId}>
@@ -136,16 +147,29 @@ export default function TradeHistory({
               </span>
               {(() => {
                 const holdingCount = accountTrades.filter(t => !t.isCompleted).length
-                return holdingCount > 0 ? (
-                  <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">
-                    보유 {holdingCount}
-                  </span>
-                ) : null
+                const completedCount = accountTrades.length - holdingCount
+                return (
+                  <>
+                    {holdingCount > 0 && (
+                      <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">
+                        보유 {holdingCount}
+                      </span>
+                    )}
+                    {completedCount > 0 && (
+                      <button
+                        onClick={() => toggleShowCompleted(accountId)}
+                        className={`text-xs px-1.5 py-0.5 rounded-full border transition-colors ${showCompleted.has(accountId) ? 'bg-gray-200 text-gray-500 border-gray-300' : 'bg-white text-gray-400 border-gray-200 hover:border-gray-400'}`}
+                      >
+                        완료 {completedCount} {showCompleted.has(accountId) ? '숨기기' : '표시'}
+                      </button>
+                    )}
+                  </>
+                )
               })()}
             </div>
 
             <div className="space-y-3">
-              {accountTrades.map((trade) => {
+              {accountTrades.filter(t => !(!showCompleted.has(accountId) && t.isCompleted)).map((trade) => {
                 const entries: EntryRow[] = [
                   ...trade.buyEntries.map((e) => ({
                     date: e.date,
@@ -183,7 +207,7 @@ export default function TradeHistory({
                   >
                     {/* 종목 헤더 */}
                     <div
-                      className={`flex items-center justify-between px-4 py-2 cursor-pointer select-none ${trade.isCompleted ? "bg-gray-100 opacity-75" : "bg-gray-50"}`}
+                      className={`flex items-center justify-between px-4 py-2 cursor-pointer select-none ${trade.isCompleted ? "bg-gray-200 opacity-60" : "bg-gray-50"}`}
                       onClick={() => toggle(trade.id)}
                     >
                       <div className="flex items-center gap-2">
@@ -313,92 +337,15 @@ export default function TradeHistory({
                       </div>
                     </div>
 
-                    {/* 타임라인 바 */}
-                    {isExpanded &&
-                      (() => {
-                        const today = new Date().toISOString().slice(0, 10);
-                        const minDate = entries[0]?.date.slice(0, 10) ?? today;
-                        const maxDate = trade.isCompleted
-                          ? entries[entries.length - 1].date.slice(0, 10)
-                          : today;
-                        const totalMs = Math.max(
-                          1,
-                          new Date(maxDate).getTime() -
-                            new Date(minDate).getTime(),
-                        );
-                        function pct(date: string) {
-                          const ms = Math.max(
-                            0,
-                            new Date(date.slice(0, 10)).getTime() -
-                              new Date(minDate).getTime(),
-                          );
-                          return Math.min(100, (ms / totalMs) * 100);
-                        }
-                        const buys = entries.filter((e) => e.type === "매수");
-                        const sells = entries.filter((e) => e.type === "매도");
-                        return (
-                          <div className="px-6 pt-3 pb-1 border-t">
-                            <div className="relative" style={{ height: 80 }}>
-                              {/* 매도 마커 — 바 위 */}
-                              {sells.map((e, i) => (
-                                <div
-                                  key={i}
-                                  className="absolute flex flex-col items-center"
-                                  style={{
-                                    left: `${pct(e.date)}%`,
-                                    bottom: "calc(50% + 4px)",
-                                    transform: "translateX(-50%)",
-                                  }}
-                                >
-                                  <span className="text-[10px] text-orange-500 whitespace-nowrap leading-tight">
-                                    {e.date.slice(5, 10)}
-                                  </span>
-                                  <span className="text-[10px] text-orange-400 whitespace-nowrap leading-tight">
-                                    {formatKRW(e.price)}
-                                  </span>
-                                  <div className="w-2 h-2 rounded-full bg-orange-400 mt-0.5" />
-                                </div>
-                              ))}
-                              {/* 바 */}
-                              <div
-                                className="absolute inset-x-0 h-1.5 rounded-full bg-gradient-to-r from-blue-100 via-blue-200 to-orange-100"
-                                style={{
-                                  top: "50%",
-                                  transform: "translateY(-50%)",
-                                }}
-                              />
-                              {/* 매수 마커 — 바 아래 */}
-                              {buys.map((e, i) => (
-                                <div
-                                  key={i}
-                                  className="absolute flex flex-col items-center"
-                                  style={{
-                                    left: `${pct(e.date)}%`,
-                                    top: "calc(50% + 4px)",
-                                    transform: "translateX(-50%)",
-                                  }}
-                                >
-                                  <div className="w-2 h-2 rounded-full bg-blue-400 mb-0.5" />
-                                  <span className="text-[10px] text-blue-500 whitespace-nowrap leading-tight">
-                                    {e.date.slice(5, 10)}
-                                  </span>
-                                  <span className="text-[10px] text-blue-400 whitespace-nowrap leading-tight">
-                                    {formatKRW(e.price)}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                            <div className="flex justify-between text-[10px] text-gray-300">
-                              <span>{minDate}</span>
-                              <span>
-                                {trade.isCompleted
-                                  ? maxDate
-                                  : `오늘 ${maxDate}`}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })()}
+                    {/* 가격 차트 */}
+                    {isExpanded && (
+                      <TradeChart
+                        buyEntries={trade.buyEntries}
+                        sellEntries={trade.sellEntries}
+                        avgBuyPrice={trade.avgBuyPrice}
+                        isCompleted={trade.isCompleted}
+                      />
+                    )}
 
                     {/* 거래 내역 (접기/펼치기) */}
                     {isExpanded && (
