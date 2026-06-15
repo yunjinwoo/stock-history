@@ -9,6 +9,7 @@ import { formatKRW } from '@/lib/utils'
 interface StockMasterItem { symbol: string; symbolCode: string; tags: string | null; marketType: string | null }
 import TradeCard from '@/components/TradeCard'
 import TradeHistory from '@/components/TradeHistory'
+import SymbolHistory from '@/components/SymbolHistory'
 import TradeCalendar from '@/components/TradeCalendar'
 import MemoStrip from '@/components/MemoStrip'
 import SummaryBar from '@/components/SummaryBar'
@@ -91,7 +92,7 @@ export default function HomePage() {
   const [tagDropdownOpen, setTagDropdownOpen] = useState(false)
   const [tagSearch, setTagSearch] = useState('')
   const [symbolFilter, setSymbolFilter] = useState<string | null>(null)
-  const [viewMode, setViewMode] = useState<'card' | 'table' | 'calendar'>('table')
+  const [viewMode, setViewMode] = useState<'card' | 'table' | 'calendar' | 'symbol'>('table')
 
   const loadAccounts = useCallback(async () => {
     const data = await apiFetch('/api/accounts').then(r => r.json())
@@ -187,6 +188,7 @@ export default function HomePage() {
         <div className="flex gap-2">
           <div className="flex border rounded overflow-hidden">
             <button onClick={() => setViewMode('table')} className={`text-xs px-2 py-1.5 ${viewMode === 'table' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>≡</button>
+            <button onClick={() => setViewMode('symbol')} className={`text-xs px-2 py-1.5 ${viewMode === 'symbol' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>종목</button>
             <button onClick={() => setViewMode('card')} className={`text-xs px-2 py-1.5 ${viewMode === 'card' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>▦</button>
             <button onClick={() => setViewMode('calendar')} className={`text-xs px-2 py-1.5 ${viewMode === 'calendar' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>📅</button>
           </div>
@@ -416,6 +418,14 @@ export default function HomePage() {
           />
         ) : viewMode === 'table' ? (
           <TradeHistory
+            trades={displayTrades}
+            accounts={accounts}
+            symbolTypeMap={symbolTypeMap}
+            onEdit={trade => { setEditTrade(trade); setShowModal(true) }}
+            onDelete={async trade => { await apiFetch(`/api/trades/${trade.id}`, { method: 'DELETE' }); load() }}
+          />
+        ) : viewMode === 'symbol' ? (
+          <SymbolHistory
             trades={displayTrades}
             accounts={accounts}
             symbolTypeMap={symbolTypeMap}
