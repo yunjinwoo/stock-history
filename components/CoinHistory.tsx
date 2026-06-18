@@ -38,9 +38,10 @@ export default function CoinHistory({ trades, onEdit, onDelete }: Props) {
       </p>
     );
 
-  const sorted = [...trades].sort((a, b) =>
-    lastEntryDate(b).localeCompare(lastEntryDate(a)),
-  );
+  const sorted = [...trades].sort((a, b) => {
+    if (a.isCompleted !== b.isCompleted) return a.isCompleted ? 1 : -1;
+    return lastEntryDate(b).localeCompare(lastEntryDate(a));
+  });
 
   return (
     <div className="space-y-3">
