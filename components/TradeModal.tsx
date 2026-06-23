@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { Trade, Account } from '@/lib/types'
 import type { ParsedTrade } from '@/lib/kakaoParser'
 import KakaoParser from './KakaoParser'
@@ -9,6 +9,7 @@ import { uuid, today, splitDateTime, toDateTimeStr } from '@/lib/utils'
 
 interface Props {
   trade: Trade | null
+  trades?: Trade[]
   accounts: Account[]
   defaultAccountId?: string
   defaultSymbol?: string
@@ -94,10 +95,11 @@ function EntrySection({ type, label, required, entries, onUpdate, onAdd, onRemov
   )
 }
 
-export default function TradeModal({ trade, accounts, defaultAccountId, defaultSymbol, defaultSymbolCode, onClose, onSave }: Props) {
+export default function TradeModal({ trade, trades, accounts, defaultAccountId, defaultSymbol, defaultSymbolCode, onClose, onSave }: Props) {
   const [tab, setTab] = useState<'direct' | 'kakao'>('direct')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [mergeTarget, setMergeTarget] = useState<Trade | null>(null)
 
   const [form, setForm] = useState<FormState>({
     accountId: trade?.accountId ?? defaultAccountId ?? accounts[0]?.id ?? '',
@@ -108,7 +110,24 @@ export default function TradeModal({ trade, accounts, defaultAccountId, defaultS
     sellEntries: trade ? trade.sellEntries.map(toEntry) : [],
   })
 
+  const existingHolding = !trade && !mergeTarget && trades
+    ? trades.find(t => t.accountId === form.accountId && t.symbol === form.symbol.trim() && !t.isCompleted) ?? null
+    : null
+
+  function mergeIntoExisting() {
+    if (!existingHolding) return
+    setForm(f => ({
+      ...f,
+      symbolCode: existingHolding.symbolCode ?? f.symbolCode,
+      comment: existingHolding.comment ?? f.comment,
+      buyEntries: [...existingHolding.buyEntries.map(toEntry), newRow()],
+      sellEntries: existingHolding.sellEntries.map(toEntry),
+    }))
+    setMergeTarget(existingHolding)
+  }
+
   function setField(key: keyof Omit<FormState, 'buyEntries' | 'sellEntries'>, value: string) {
+    if (key === 'accountId' || key === 'symbol') setMergeTarget(null)
     setForm(f => ({ ...f, [key]: value }))
   }
 
@@ -180,8 +199,8 @@ export default function TradeModal({ trade, accounts, defaultAccountId, defaultS
           quantity: Number(r.quantity.replace(/,/g, '')),
         })),
       }
-      const url = trade ? `/api/trades/${trade.id}` : '/api/trades'
-      const method = trade ? 'PATCH' : 'POST'
+      const url = trade ? `/api/trades/${trade.id}` : mergeTarget ? `/api/trades/${mergeTarget.id}` : '/api/trades'
+      const method = (trade || mergeTarget) ? 'PATCH' : 'POST'
       const res = await apiFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
       if (!res.ok) {
         let msg = '저장 실패'
@@ -199,7 +218,7 @@ export default function TradeModal({ trade, accounts, defaultAccountId, defaultS
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center px-5 py-4 border-b">
-          <h2 className="font-semibold">{trade ? '거래 수정' : '새 거래 입력'}</h2>
+          <h2 className="font-semibold">{trade ? '거래 수정' : mergeTarget ? `${mergeTarget.symbol} 포지션에 추가` : '새 거래 입력'}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
         </div>
 
@@ -220,6 +239,26 @@ export default function TradeModal({ trade, accounts, defaultAccountId, defaultS
 
           {tab === 'direct' && (
             <form onSubmit={handleSubmit} className="space-y-4">
+              {existingHolding && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 flex items-center justify-between gap-3">
+                  <p className="text-xs text-amber-700">
+                    이 계좌에 <span className="font-semibold">{existingHolding.symbol}</span> 보유중 포지션이 있습니다.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={mergeIntoExisting}
+                    className="text-xs px-2.5 py-1.5 bg-amber-500 text-white rounded hover:bg-amber-600 whitespace-nowrap shrink-0"
+                  >
+                    기존에 추가
+                  </button>
+                </div>
+              )}
+              {mergeTarget && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-700">
+                  기존 포지션에 추가 중 — 새 매수/매도 행을 입력 후 저장하세요.
+                  <button type="button" onClick={() => { setMergeTarget(null); setForm(f => ({ ...f, buyEntries: [], sellEntries: [] })) }} className="ml-2 underline text-blue-500">취소</button>
+                </div>
+              )}
               <div>
                 <label className={labelCls}>계좌 *</label>
                 <select value={form.accountId} onChange={e => setField('accountId', e.target.value)} className={inputCls}>

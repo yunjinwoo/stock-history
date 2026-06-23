@@ -464,6 +464,7 @@ export default function HomePage() {
       {showModal && (
         <TradeModal
           trade={editTrade}
+          trades={editTrade ? undefined : trades}
           accounts={accounts}
           defaultAccountId={accountFilter !== 'all' ? accountFilter : undefined}
           onClose={() => setShowModal(false)}
