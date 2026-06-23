@@ -131,6 +131,7 @@ export default function CoinsPage() {
             <button onClick={() => setViewMode('calendar')} className={`text-xs px-2.5 py-1.5 ${viewMode === 'calendar' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>📅</button>
           </div>
           <Link href="/" className="hidden sm:inline-flex text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">주식</Link>
+          <Link href="/stats" className="hidden sm:inline-flex text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">통계</Link>
           <Link href="/memos" className="hidden sm:inline-flex text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">메모</Link>
           <button
             onClick={() => { setEditTrade(null); setShowModal(true) }}
