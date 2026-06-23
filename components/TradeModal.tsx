@@ -31,6 +31,8 @@ interface FormState {
   symbol: string
   symbolCode: string
   comment: string
+  targetPrice: string
+  stopLossPrice: string
   buyEntries: EntryRow[]
   sellEntries: EntryRow[]
 }
@@ -106,6 +108,8 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
     symbol: trade?.symbol ?? defaultSymbol ?? '',
     symbolCode: trade?.symbolCode ?? defaultSymbolCode ?? '',
     comment: trade?.comment ?? '',
+    targetPrice: trade?.targetPrice ? trade.targetPrice.toString() : '',
+    stopLossPrice: trade?.stopLossPrice ? trade.stopLossPrice.toString() : '',
     buyEntries: trade ? trade.buyEntries.map(toEntry) : [],
     sellEntries: trade ? trade.sellEntries.map(toEntry) : [],
   })
@@ -188,6 +192,8 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
         symbol: form.symbol.trim(),
         symbolCode: form.symbolCode.trim() || null,
         comment: form.comment.trim() || null,
+        targetPrice: form.targetPrice ? Number(form.targetPrice.replace(/,/g, '')) : null,
+        stopLossPrice: form.stopLossPrice ? Number(form.stopLossPrice.replace(/,/g, '')) : null,
         buyEntries: validBuy.map(r => ({
           date: toDateTimeStr(r.date, r.time),
           price: Number(r.price.replace(/,/g, '')),
@@ -282,6 +288,31 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
 
               <EntrySection type="sellEntries" label="매도 내역" entries={form.sellEntries} onUpdate={updateEntry} onAdd={addEntry} onRemove={removeEntry} />
               <EntrySection type="buyEntries" label="매수 내역" entries={form.buyEntries} onUpdate={updateEntry} onAdd={addEntry} onRemove={removeEntry} />
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>목표가</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={form.targetPrice}
+                    onChange={e => setField('targetPrice', e.target.value.replace(/,/g, ''))}
+                    className={inputCls}
+                    placeholder="매도 목표가"
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>손절가</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={form.stopLossPrice}
+                    onChange={e => setField('stopLossPrice', e.target.value.replace(/,/g, ''))}
+                    className={inputCls}
+                    placeholder="손절 가격"
+                  />
+                </div>
+              </div>
 
               <div>
                 <label className={labelCls}>코멘트</label>

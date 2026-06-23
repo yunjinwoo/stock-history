@@ -193,6 +193,7 @@ export default function HomePage() {
             <button onClick={() => setViewMode('calendar')} className={`text-xs px-2 py-1.5 ${viewMode === 'calendar' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>📅</button>
           </div>
           <Link href="/coins" className="hidden sm:inline-flex text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">코인</Link>
+          <Link href="/stats" className="hidden sm:inline-flex text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">통계</Link>
           <Link href="/memos" className="hidden sm:inline-flex text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">메모</Link>
           <Link href="/stock-master" className="hidden sm:inline-flex text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">종목관리</Link>
           <Link href="/accounts" className="hidden sm:inline-flex text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">계좌관리</Link>
@@ -337,7 +338,19 @@ export default function HomePage() {
                             onClick={() => setSymbolFilter(prev => prev === trade.symbol ? null : trade.symbol)}
                             className={`font-medium text-sm text-left ${symbolFilter === trade.symbol ? 'text-blue-600 underline' : 'text-gray-700 hover:text-blue-500'}`}
                           >{trade.symbol}</button>
-                          <span className="text-xs text-gray-600 text-right tabular-nums">{formatKRW(Math.round(trade.avgBuyPrice))}</span>
+                          <div className="text-right">
+                            <span className="text-xs text-gray-600 tabular-nums">{formatKRW(Math.round(trade.avgBuyPrice))}</span>
+                            {(trade.targetPrice || trade.stopLossPrice) && trade.avgBuyPrice > 0 && (
+                              <div className="flex gap-1 justify-end mt-0.5">
+                                {trade.targetPrice && (
+                                  <span className="text-[10px] text-red-400">↑{Math.round((trade.targetPrice / trade.avgBuyPrice - 1) * 100)}%</span>
+                                )}
+                                {trade.stopLossPrice && (
+                                  <span className="text-[10px] text-blue-400">↓{Math.round((trade.stopLossPrice / trade.avgBuyPrice - 1) * 100)}%</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
                           <span className="text-xs text-gray-400 text-right">{trade.remainingQuantity}주</span>
                           <span className="text-xs text-gray-400 text-right">{trade.holdingDays}일</span>
                           <button
