@@ -11,9 +11,19 @@ import { apiFetch } from '@/lib/api'
 import { formatKRW, formatRate } from '@/lib/utils'
 import ProfitHeatmap from '@/components/ProfitHeatmap'
 
+type ChartPeriod = 'daily' | 'weekly' | 'monthly'
+
+function getWeekStart(dateStr: string): string {
+  const d = new Date(dateStr.slice(0, 10))
+  const day = d.getDay()
+  d.setDate(d.getDate() - (day === 0 ? 6 : day - 1)) // Monday
+  return d.toISOString().slice(0, 10)
+}
+
 export default function StatsPage() {
   const [trades, setTrades] = useState<Trade[]>([])
   const [accounts, setAccounts] = useState<Account[]>([])
+  const [chartPeriod, setChartPeriod] = useState<ChartPeriod>('monthly')
 
   useEffect(() => {
     apiFetch('/api/trades').then(r => r.json()).then((d: unknown) => Array.isArray(d) && setTrades(d as Trade[]))
@@ -28,25 +38,73 @@ export default function StatsPage() {
   const avgRate = completed.length > 0 ? completed.reduce((s, t) => s + t.profitRate, 0) / completed.length : 0
   const avgHoldingDays = completed.length > 0 ? completed.reduce((s, t) => s + t.holdingDays, 0) / completed.length : 0
 
-  // Monthly P&L (last 12 months, keyed by last sell date)
-  const monthlyData = useMemo(() => {
-    const map: Record<string, number> = {}
-    completed.forEach(t => {
+  // 완료 거래의 마지막 매도일 추출 (공통 유틸)
+  const completedWithDate = useMemo(() =>
+    completed.map(t => {
       const lastSell = t.sellEntries.length > 0
         ? t.sellEntries.reduce((max, e) => e.date > max ? e.date : max, t.sellEntries[0].date)
         : t.createdAt
-      const month = lastSell.slice(0, 7)
-      map[month] = (map[month] ?? 0) + t.profitAmount
+      return { profit: t.profitAmount, date: lastSell.slice(0, 10) }
+    }),
+    [completed]
+  )
+
+  // Monthly P&L (last 12 months)
+  const monthlyData = useMemo(() => {
+    const map: Record<string, number> = {}
+    completedWithDate.forEach(({ date, profit }) => {
+      const key = date.slice(0, 7)
+      map[key] = (map[key] ?? 0) + profit
     })
     const result = []
     const now = new Date()
     for (let i = 11; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-      result.push({ label: `${d.getMonth() + 1}월`, key, profit: Math.round(map[key] ?? 0) })
+      result.push({ label: `${d.getMonth() + 1}월`, profit: Math.round(map[key] ?? 0) })
     }
     return result
-  }, [completed])
+  }, [completedWithDate])
+
+  // Weekly P&L (last 13 weeks)
+  const weeklyData = useMemo(() => {
+    const map: Record<string, number> = {}
+    completedWithDate.forEach(({ date, profit }) => {
+      const key = getWeekStart(date)
+      map[key] = (map[key] ?? 0) + profit
+    })
+    const result: { label: string; key: string; profit: number }[] = []
+    const now = new Date()
+    for (let i = 12; i >= 0; i--) {
+      const d = new Date(now)
+      d.setDate(d.getDate() - i * 7)
+      const key = getWeekStart(d.toISOString())
+      const kd = new Date(key)
+      const label = `${kd.getMonth() + 1}/${kd.getDate()}`
+      if (!result.find(r => r.key === key)) {
+        result.push({ label, key, profit: Math.round(map[key] ?? 0) })
+      }
+    }
+    return result
+  }, [completedWithDate])
+
+  // Daily P&L (last 30 days)
+  const dailyData = useMemo(() => {
+    const map: Record<string, number> = {}
+    completedWithDate.forEach(({ date, profit }) => {
+      map[date] = (map[date] ?? 0) + profit
+    })
+    const result = []
+    const now = new Date()
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now)
+      d.setDate(d.getDate() - i)
+      const key = d.toISOString().slice(0, 10)
+      const label = `${d.getMonth() + 1}/${d.getDate()}`
+      result.push({ label, profit: Math.round(map[key] ?? 0) })
+    }
+    return result
+  }, [completedWithDate])
 
   // Daily profits for heatmap
   const dailyProfits = useMemo(() => {
@@ -133,41 +191,64 @@ export default function StatsPage() {
           </div>
         </div>
 
-        {/* Monthly chart */}
+        {/* P&L Chart */}
         <div className="bg-white rounded-xl border p-4">
-          <p className="text-sm font-medium text-gray-600 mb-3">월별 손익 (최근 12개월)</p>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={monthlyData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-              <XAxis
-                dataKey="label"
-                tick={{ fontSize: 10, fill: '#9ca3af' }}
-                tickLine={false}
-                axisLine={false}
-              />
-              <YAxis
-                tickFormatter={v => v === 0 ? '0' : (Math.abs(v) >= 1000000 ? `${(v / 1000000).toFixed(0)}M` : `${(v / 1000).toFixed(0)}K`)}
-                tick={{ fontSize: 10, fill: '#9ca3af' }}
-                tickLine={false}
-                axisLine={false}
-                width={40}
-              />
-              <Tooltip
-                formatter={(v) => {
-                  const n = typeof v === 'number' ? v : 0
-                  return [(n >= 0 ? '+' : '') + formatKRW(n), '손익']
-                }}
-                labelStyle={{ fontSize: 12 }}
-                contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }}
-              />
-              <ReferenceLine y={0} stroke="#e5e7eb" />
-              <Bar dataKey="profit" radius={[3, 3, 0, 0]} maxBarSize={32}>
-                {monthlyData.map((entry, idx) => (
-                  <Cell key={idx} fill={entry.profit >= 0 ? '#ef4444' : '#3b82f6'} fillOpacity={0.75} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-medium text-gray-600">
+              {chartPeriod === 'daily' ? '일별 손익 (최근 30일)' : chartPeriod === 'weekly' ? '주별 손익 (최근 13주)' : '월별 손익 (최근 12개월)'}
+            </p>
+            <div className="flex border rounded overflow-hidden">
+              {(['daily', 'weekly', 'monthly'] as const).map(p => (
+                <button
+                  key={p}
+                  onClick={() => setChartPeriod(p)}
+                  className={`text-xs px-2.5 py-1 ${chartPeriod === p ? 'bg-gray-100 text-gray-800 font-medium' : 'text-gray-400 hover:text-gray-600'}`}
+                >
+                  {p === 'daily' ? '일' : p === 'weekly' ? '주' : '월'}
+                </button>
+              ))}
+            </div>
+          </div>
+          {(() => {
+            const data = chartPeriod === 'daily' ? dailyData : chartPeriod === 'weekly' ? weeklyData : monthlyData
+            // 일별은 30개 데이터라 tick 간격 조정
+            const tickCount = chartPeriod === 'daily' ? 6 : chartPeriod === 'weekly' ? 4 : undefined
+            return (
+              <ResponsiveContainer width="100%" height={180}>
+                <BarChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fontSize: 10, fill: '#9ca3af' }}
+                    tickLine={false}
+                    axisLine={false}
+                    interval={tickCount !== undefined ? Math.floor(data.length / tickCount) : 0}
+                  />
+                  <YAxis
+                    tickFormatter={v => v === 0 ? '0' : (Math.abs(v) >= 1000000 ? `${(v / 1000000).toFixed(0)}M` : `${(v / 1000).toFixed(0)}K`)}
+                    tick={{ fontSize: 10, fill: '#9ca3af' }}
+                    tickLine={false}
+                    axisLine={false}
+                    width={40}
+                  />
+                  <Tooltip
+                    formatter={(v) => {
+                      const n = typeof v === 'number' ? v : 0
+                      return [(n >= 0 ? '+' : '') + formatKRW(n), '손익']
+                    }}
+                    labelStyle={{ fontSize: 12 }}
+                    contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }}
+                  />
+                  <ReferenceLine y={0} stroke="#e5e7eb" />
+                  <Bar dataKey="profit" radius={[3, 3, 0, 0]} maxBarSize={chartPeriod === 'monthly' ? 32 : 20}>
+                    {data.map((entry, idx) => (
+                      <Cell key={idx} fill={entry.profit >= 0 ? '#ef4444' : '#3b82f6'} fillOpacity={0.75} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )
+          })()}
         </div>
 
         {/* Heatmap */}
