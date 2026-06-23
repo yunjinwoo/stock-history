@@ -10,10 +10,10 @@ export async function PATCH(
 ) {
   const { id } = await params
   const body = await req.json()
-  const { accountId, symbol, symbolCode, comment, buyEntries = [], sellEntries = [] } = body
+  const { accountId, symbol, symbolCode, comment, buyEntries, sellEntries, targetPrice, stopLossPrice } = body
   const now = new Date().toISOString()
 
-  if (symbolCode) {
+  if (symbolCode && symbol) {
     const master = await prisma.stockMaster.findUnique({ where: { symbol } })
     if (!master) {
       await prisma.stockMaster.create({
@@ -23,34 +23,46 @@ export async function PATCH(
   }
 
   const trade = await prisma.$transaction(async (tx) => {
-    await tx.buyEntry.deleteMany({ where: { tradeId: id } })
-    await tx.sellEntry.deleteMany({ where: { tradeId: id } })
+    // Only delete/recreate entries if explicitly provided in body
+    if (buyEntries !== undefined) {
+      await tx.buyEntry.deleteMany({ where: { tradeId: id } })
+    }
+    if (sellEntries !== undefined) {
+      await tx.sellEntry.deleteMany({ where: { tradeId: id } })
+    }
+
     return tx.trade.update({
       where: { id },
       data: {
-        accountId,
-        symbol,
-        symbolCode: symbolCode || null,
-        comment: comment || null,
+        ...(accountId !== undefined && { accountId }),
+        ...(symbol !== undefined && { symbol }),
+        ...(symbolCode !== undefined && { symbolCode: symbolCode || null }),
+        ...(comment !== undefined && { comment: comment || null }),
+        ...(targetPrice !== undefined && { targetPrice: targetPrice ? Number(targetPrice) : null }),
+        ...(stopLossPrice !== undefined && { stopLossPrice: stopLossPrice ? Number(stopLossPrice) : null }),
         updatedAt: now,
-        buyEntries: {
-          create: buyEntries.map((e: EntryInput) => ({
-            id: crypto.randomUUID(),
-            date: e.date,
-            price: Number(e.price),
-            quantity: Number(e.quantity),
-            createdAt: now,
-          })),
-        },
-        sellEntries: {
-          create: sellEntries.map((e: EntryInput) => ({
-            id: crypto.randomUUID(),
-            date: e.date,
-            price: Number(e.price),
-            quantity: Number(e.quantity),
-            createdAt: now,
-          })),
-        },
+        ...(buyEntries !== undefined && {
+          buyEntries: {
+            create: (buyEntries as EntryInput[]).map((e) => ({
+              id: crypto.randomUUID(),
+              date: e.date,
+              price: Number(e.price),
+              quantity: Number(e.quantity),
+              createdAt: now,
+            })),
+          },
+        }),
+        ...(sellEntries !== undefined && {
+          sellEntries: {
+            create: (sellEntries as EntryInput[]).map((e) => ({
+              id: crypto.randomUUID(),
+              date: e.date,
+              price: Number(e.price),
+              quantity: Number(e.quantity),
+              createdAt: now,
+            })),
+          },
+        }),
       },
       include: { buyEntries: true, sellEntries: true, images: true },
     })
