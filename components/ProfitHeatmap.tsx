@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useRef, useEffect } from 'react'
 import { formatKRW } from '@/lib/utils'
 
 interface Props {
@@ -25,16 +25,19 @@ function cellColor(profit: number | undefined): string {
 }
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
+const GAP = 1
+const LABEL_WIDTH = 20
 
 export default function ProfitHeatmap({ dailyProfits }: Props) {
   const [hovered, setHovered] = useState<{ date: string; profit: number } | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [cellSize, setCellSize] = useState(10)
 
   const { weeks, monthLabels } = useMemo(() => {
     const today = new Date()
     const start = new Date(today)
     start.setDate(today.getDate() - 364)
-    // Align to Sunday
-    start.setDate(start.getDate() - start.getDay())
+    start.setDate(start.getDate() - start.getDay()) // Align to Sunday
 
     const weeks: { date: string; profit: number | undefined }[][] = []
     const monthLabels: { label: string; col: number }[] = []
@@ -64,40 +67,66 @@ export default function ProfitHeatmap({ dailyProfits }: Props) {
     return { weeks, monthLabels }
   }, [dailyProfits])
 
+  // 컨테이너 너비 기반 셀 크기 계산
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const update = () => {
+      const numWeeks = weeks.length || 53
+      const available = el.clientWidth - LABEL_WIDTH - GAP
+      const size = Math.floor((available - (numWeeks - 1) * GAP) / numWeeks)
+      setCellSize(Math.max(7, Math.min(14, size)))
+    }
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [weeks.length])
+
+  const radius = Math.max(1, Math.floor(cellSize / 5))
+
   return (
-    <div>
+    <div ref={containerRef}>
       {/* Month labels */}
-      <div className="flex mb-1 ml-5" style={{ gap: '2px' }}>
+      <div className="flex mb-1" style={{ gap: GAP, marginLeft: LABEL_WIDTH + GAP }}>
         {weeks.map((_, i) => {
           const label = monthLabels.find(m => m.col === i)
           return (
-            <div key={i} style={{ width: 11, flexShrink: 0 }} className="text-[9px] text-gray-400 overflow-hidden">
+            <div
+              key={i}
+              style={{ width: cellSize, flexShrink: 0 }}
+              className="text-[9px] text-gray-400 overflow-hidden whitespace-nowrap"
+            >
               {label ? label.label : ''}
             </div>
           )
         })}
       </div>
 
-      {/* Grid with weekday labels */}
-      <div className="flex gap-1">
+      {/* Grid */}
+      <div className="flex" style={{ gap: GAP }}>
         {/* Weekday labels */}
-        <div className="flex flex-col" style={{ gap: '2px' }}>
+        <div className="flex flex-col" style={{ gap: GAP, width: LABEL_WIDTH - GAP }}>
           {WEEKDAY_LABELS.map((d, i) => (
-            <div key={i} style={{ height: 11 }} className="text-[9px] text-gray-400 leading-none flex items-center w-4">
+            <div
+              key={i}
+              style={{ height: cellSize }}
+              className="text-[9px] text-gray-400 leading-none flex items-center"
+            >
               {i % 2 === 0 ? d : ''}
             </div>
           ))}
         </div>
 
         {/* Week columns */}
-        <div className="flex" style={{ gap: '2px' }}>
+        <div className="flex" style={{ gap: GAP }}>
           {weeks.map((week, wi) => (
-            <div key={wi} className="flex flex-col" style={{ gap: '2px' }}>
+            <div key={wi} className="flex flex-col" style={{ gap: GAP }}>
               {week.map((day, di) => (
                 <div
                   key={di}
-                  style={{ width: 11, height: 11, borderRadius: 2 }}
-                  className={day.date ? `${cellColor(day.profit)} cursor-pointer transition-opacity hover:opacity-70` : 'bg-transparent'}
+                  style={{ width: cellSize, height: cellSize, borderRadius: radius }}
+                  className={day.date ? `${cellColor(day.profit)} cursor-pointer hover:opacity-70` : 'bg-transparent'}
                   onMouseEnter={() => day.date ? setHovered({ date: day.date, profit: day.profit ?? 0 }) : undefined}
                   onMouseLeave={() => setHovered(null)}
                 />
@@ -109,21 +138,20 @@ export default function ProfitHeatmap({ dailyProfits }: Props) {
 
       {/* Info bar */}
       <div className="mt-2 flex items-center justify-between">
-        <div className="text-xs text-gray-500 h-4">
+        <div className="text-xs text-gray-500 h-4 min-w-0">
           {hovered
             ? `${hovered.date} · ${hovered.profit !== 0 ? (hovered.profit > 0 ? '+' : '') + formatKRW(Math.round(hovered.profit)) : '거래 없음'}`
-            : ' '}
+            : ' '}
         </div>
-        {/* Legend */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0 ml-2">
           <span className="text-[9px] text-gray-400">손실</span>
-          <div style={{ width: 10, height: 10, borderRadius: 2 }} className="bg-blue-500" />
-          <div style={{ width: 10, height: 10, borderRadius: 2 }} className="bg-blue-300" />
-          <div style={{ width: 10, height: 10, borderRadius: 2 }} className="bg-blue-200" />
-          <div style={{ width: 10, height: 10, borderRadius: 2 }} className="bg-gray-100 border border-gray-200" />
-          <div style={{ width: 10, height: 10, borderRadius: 2 }} className="bg-red-200" />
-          <div style={{ width: 10, height: 10, borderRadius: 2 }} className="bg-red-300" />
-          <div style={{ width: 10, height: 10, borderRadius: 2 }} className="bg-red-500" />
+          <div style={{ width: cellSize, height: cellSize, borderRadius: radius }} className="bg-blue-500" />
+          <div style={{ width: cellSize, height: cellSize, borderRadius: radius }} className="bg-blue-300" />
+          <div style={{ width: cellSize, height: cellSize, borderRadius: radius }} className="bg-blue-200" />
+          <div style={{ width: cellSize, height: cellSize, borderRadius: radius }} className="bg-gray-100 border border-gray-200" />
+          <div style={{ width: cellSize, height: cellSize, borderRadius: radius }} className="bg-red-200" />
+          <div style={{ width: cellSize, height: cellSize, borderRadius: radius }} className="bg-red-300" />
+          <div style={{ width: cellSize, height: cellSize, borderRadius: radius }} className="bg-red-500" />
           <span className="text-[9px] text-gray-400">수익</span>
         </div>
       </div>

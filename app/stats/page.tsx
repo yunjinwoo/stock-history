@@ -252,7 +252,7 @@ export default function StatsPage() {
         </div>
 
         {/* Heatmap */}
-        <div className="bg-white rounded-xl border p-4 overflow-x-auto">
+        <div className="bg-white rounded-xl border p-4">
           <p className="text-sm font-medium text-gray-600 mb-3">연간 히트맵 (최근 365일)</p>
           <ProfitHeatmap dailyProfits={dailyProfits} />
         </div>
