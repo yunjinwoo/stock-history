@@ -10,6 +10,7 @@ import type { Trade, Account } from '@/lib/types'
 import { apiFetch } from '@/lib/api'
 import { formatKRW, formatRate } from '@/lib/utils'
 import ProfitHeatmap from '@/components/ProfitHeatmap'
+import SymbolHistory from '@/components/SymbolHistory'
 
 type ChartPeriod = 'daily' | 'weekly' | 'monthly'
 
@@ -24,6 +25,7 @@ export default function StatsPage() {
   const [trades, setTrades] = useState<Trade[]>([])
   const [accounts, setAccounts] = useState<Account[]>([])
   const [chartPeriod, setChartPeriod] = useState<ChartPeriod>('monthly')
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null)
 
   useEffect(() => {
     apiFetch('/api/trades').then(r => r.json()).then((d: unknown) => Array.isArray(d) && setTrades(d as Trade[]))
@@ -140,7 +142,14 @@ export default function StatsPage() {
       .sort((a, b) => b.profit - a.profit)
   }, [completed, accounts])
 
-  // Symbol breakdown (top 5 wins + top 5 losses)
+  // 종목코드 맵 (네이버 링크용)
+  const symbolCodeMap = useMemo(() => {
+    const map: Record<string, string> = {}
+    trades.forEach(t => { if (t.symbolCode) map[t.symbol] = t.symbolCode })
+    return map
+  }, [trades])
+
+  // Symbol breakdown (top 15 wins + top 15 losses)
   const symbolStats = useMemo(() => {
     const map: Record<string, number> = {}
     completed.forEach(t => {
@@ -150,8 +159,8 @@ export default function StatsPage() {
       .map(([symbol, profit]) => ({ symbol, profit: Math.round(profit) }))
       .sort((a, b) => b.profit - a.profit)
     return {
-      top: sorted.slice(0, 5).filter(s => s.profit > 0),
-      bottom: sorted.filter(s => s.profit < 0).slice(-5).reverse(),
+      top: sorted.slice(0, 15).filter(s => s.profit > 0),
+      bottom: sorted.filter(s => s.profit < 0).slice(-15).reverse(),
     }
   }, [completed])
 
@@ -287,12 +296,34 @@ export default function StatsPage() {
               <div className="bg-white rounded-xl border p-4">
                 <p className="text-sm font-medium text-gray-600 mb-2">수익 Top</p>
                 <div className="space-y-1.5">
-                  {symbolStats.top.map(s => (
-                    <div key={s.symbol} className="flex items-center justify-between text-sm gap-2">
-                      <span className="text-gray-600 truncate">{s.symbol}</span>
-                      <span className="text-red-500 font-medium whitespace-nowrap">+{formatKRW(s.profit)}</span>
-                    </div>
-                  ))}
+                  {symbolStats.top.map(s => {
+                    const code = symbolCodeMap[s.symbol]
+                    const naverUrl = code
+                      ? `https://finance.naver.com/item/main.naver?code=${code}`
+                      : `https://finance.naver.com/search/search.naver?query=${encodeURIComponent(s.symbol)}`
+                    return (
+                      <button
+                        key={s.symbol}
+                        onClick={() => setSelectedSymbol(s.symbol)}
+                        className="w-full flex items-center justify-between text-sm gap-2 hover:bg-gray-50 rounded px-1 -mx-1 py-0.5 transition-colors"
+                      >
+                        <span className="flex items-center gap-1 min-w-0">
+                          <span className="text-gray-600 truncate">{s.symbol}</span>
+                          <a
+                            href={naverUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={e => e.stopPropagation()}
+                            className="shrink-0 text-gray-300 hover:text-green-500 transition-colors"
+                            title="네이버 종목 페이지"
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M13.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8.5L13.5 2zm0 1.5L18.5 8H14a.5.5 0 0 1-.5-.5V3.5zM6 20V4h6v4a1.5 1.5 0 0 0 1.5 1.5H20V20H6z"/></svg>
+                          </a>
+                        </span>
+                        <span className="text-red-500 font-medium whitespace-nowrap">+{formatKRW(s.profit)}</span>
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             )}
@@ -300,12 +331,34 @@ export default function StatsPage() {
               <div className="bg-white rounded-xl border p-4">
                 <p className="text-sm font-medium text-gray-600 mb-2">손실 Top</p>
                 <div className="space-y-1.5">
-                  {symbolStats.bottom.map(s => (
-                    <div key={s.symbol} className="flex items-center justify-between text-sm gap-2">
-                      <span className="text-gray-600 truncate">{s.symbol}</span>
-                      <span className="text-blue-500 font-medium whitespace-nowrap">{formatKRW(s.profit)}</span>
-                    </div>
-                  ))}
+                  {symbolStats.bottom.map(s => {
+                    const code = symbolCodeMap[s.symbol]
+                    const naverUrl = code
+                      ? `https://finance.naver.com/item/main.naver?code=${code}`
+                      : `https://finance.naver.com/search/search.naver?query=${encodeURIComponent(s.symbol)}`
+                    return (
+                      <button
+                        key={s.symbol}
+                        onClick={() => setSelectedSymbol(s.symbol)}
+                        className="w-full flex items-center justify-between text-sm gap-2 hover:bg-gray-50 rounded px-1 -mx-1 py-0.5 transition-colors"
+                      >
+                        <span className="flex items-center gap-1 min-w-0">
+                          <span className="text-gray-600 truncate">{s.symbol}</span>
+                          <a
+                            href={naverUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={e => e.stopPropagation()}
+                            className="shrink-0 text-gray-300 hover:text-green-500 transition-colors"
+                            title="네이버 종목 페이지"
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M13.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8.5L13.5 2zm0 1.5L18.5 8H14a.5.5 0 0 1-.5-.5V3.5zM6 20V4h6v4a1.5 1.5 0 0 0 1.5 1.5H20V20H6z"/></svg>
+                          </a>
+                        </span>
+                        <span className="text-blue-500 font-medium whitespace-nowrap">{formatKRW(s.profit)}</span>
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             )}
@@ -316,6 +369,27 @@ export default function StatsPage() {
           <p className="text-center text-gray-400 py-16 text-sm">완료된 거래가 없습니다</p>
         )}
       </div>
+
+      {/* 종목 상세 모달 */}
+      {selectedSymbol && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-white w-full sm:rounded-xl sm:max-w-2xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
+              <h2 className="font-semibold">{selectedSymbol}</h2>
+              <button onClick={() => setSelectedSymbol(null)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+            </div>
+            <div className="overflow-y-auto p-4">
+              <SymbolHistory
+                trades={trades.filter(t => t.symbol === selectedSymbol)}
+                accounts={accounts}
+                defaultExpandedSymbol={selectedSymbol}
+                onEdit={() => {}}
+                onDelete={() => {}}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

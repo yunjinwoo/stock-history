@@ -15,6 +15,7 @@ interface Props {
   trades: Trade[]
   accounts: Account[]
   symbolTypeMap?: Record<string, string>
+  defaultExpandedSymbol?: string
   onEdit: (trade: Trade) => void
   onDelete: (trade: Trade) => void
 }
@@ -40,8 +41,10 @@ interface SymbolGroup {
   trades: Trade[]
 }
 
-export default function SymbolHistory({ trades, accounts, symbolTypeMap = {} }: Props) {
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+export default function SymbolHistory({ trades, accounts, symbolTypeMap = {}, defaultExpandedSymbol, onEdit, onDelete }: Props) {
+  const [expanded, setExpanded] = useState<Set<string>>(
+    defaultExpandedSymbol ? new Set([defaultExpandedSymbol]) : new Set()
+  )
 
   function toggle(symbol: string) {
     setExpanded(prev => {
