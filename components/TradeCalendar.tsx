@@ -14,8 +14,14 @@ type SellEntry = { trade: Trade; price: number; quantity: number }
 type BuyEntry  = { trade: Trade; price: number; quantity: number }
 type DayData   = { sells: SellEntry[]; buys: BuyEntry[] }
 
+type CalCell = { day: number; year: number; month: number; isCurrentMonth: boolean }
+
 function sellProfit(s: SellEntry) {
   return (s.price - s.trade.avgBuyPrice) * s.quantity
+}
+
+function cellKey(c: CalCell) {
+  return `${c.year}-${String(c.month + 1).padStart(2, '0')}-${String(c.day).padStart(2, '0')}`
 }
 
 const DOW_LABELS = ['월', '화', '수', '목', '금', '토', '일']
@@ -58,21 +64,34 @@ export default function TradeCalendar({ trades, onEdit, onDelete }: Props) {
     })
   }, [byDate, year, month])
 
-  // Build calendar grid (Mon-start)
+  const sixMonthTotal = recentMonths.reduce((s, m) => s + m.total, 0)
+  const sixMonthCount = recentMonths.reduce((s, m) => s + m.count, 0)
+
+  // Build calendar grid (Mon-start) with prev/next month overflow
   const startDow = (new Date(year, month, 1).getDay() + 6) % 7
   const daysInMonth = new Date(year, month + 1, 0).getDate()
-  const cells: (number | null)[] = [
-    ...Array(startDow).fill(null),
-    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  const daysInPrevMonth = new Date(year, month, 0).getDate()
+  const prevDate = new Date(year, month - 1, 1)
+  const nextDate = new Date(year, month + 1, 1)
+
+  const cells: CalCell[] = [
+    ...Array.from({ length: startDow }, (_, i) => ({
+      day: daysInPrevMonth - startDow + i + 1,
+      year: prevDate.getFullYear(),
+      month: prevDate.getMonth(),
+      isCurrentMonth: false,
+    })),
+    ...Array.from({ length: daysInMonth }, (_, i) => ({
+      day: i + 1, year, month, isCurrentMonth: true,
+    })),
   ]
-  while (cells.length % 7 !== 0) cells.push(null)
+  let nextDay = 1
+  while (cells.length % 7 !== 0) {
+    cells.push({ day: nextDay++, year: nextDate.getFullYear(), month: nextDate.getMonth(), isCurrentMonth: false })
+  }
   const weeks = Array.from({ length: cells.length / 7 }, (_, i) => cells.slice(i * 7, i * 7 + 7))
 
   const todayKey = today.toISOString().slice(0, 10)
-
-  function dateKey(day: number) {
-    return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-  }
 
   function prevMonth() {
     if (month === 0) { setYear(y => y - 1); setMonth(11) } else setMonth(m => m - 1)
@@ -111,6 +130,15 @@ export default function TradeCalendar({ trades, onEdit, onDelete }: Props) {
             )
           })}
         </div>
+        {sixMonthCount > 0 && (
+          <div className="border-t px-4 py-2 flex items-center justify-between bg-gray-50/50">
+            <span className="text-xs text-gray-400">6개월 합계</span>
+            <span className={`text-sm font-semibold ${sixMonthTotal >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
+              {sixMonthTotal >= 0 ? '+' : ''}{formatKRW(Math.round(sixMonthTotal))}
+              <span className="text-xs font-normal text-gray-400 ml-1">({sixMonthCount}건)</span>
+            </span>
+          </div>
+        )}
       </div>
 
       {/* 월 네비게이션 */}
@@ -131,9 +159,8 @@ export default function TradeCalendar({ trades, onEdit, onDelete }: Props) {
         </div>
         {weeks.map((week, wi) => (
           <div key={wi} className="grid grid-cols-7 divide-x border-b last:border-b-0">
-            {week.map((day, di) => {
-              if (!day) return <div key={di} className="min-h-[72px] bg-gray-50/50" />
-              const key = dateKey(day)
+            {week.map((cell, di) => {
+              const key = cellKey(cell)
               const dayData = byDate[key]
               const hasSells = dayData && dayData.sells.length > 0
               const hasBuys  = dayData && dayData.buys.length > 0
@@ -143,29 +170,32 @@ export default function TradeCalendar({ trades, onEdit, onDelete }: Props) {
               const isSelected = key === selectedDate
               const isSun = di === 6
               const isSat = di === 5
+              const isCurrent = cell.isCurrentMonth
 
               return (
                 <div
                   key={di}
                   onClick={() => hasAny && setSelectedDate(isSelected ? null : key)}
                   className={`min-h-[72px] p-1.5 flex flex-col transition-colors
+                    ${!isCurrent ? 'bg-gray-50/60' : ''}
                     ${hasAny ? 'cursor-pointer hover:bg-gray-50' : ''}
                     ${isSelected ? 'bg-blue-50 ring-1 ring-inset ring-blue-200' : ''}`}
                 >
                   <span className={`text-xs w-6 h-6 flex items-center justify-center rounded-full mb-0.5
                     ${isToday ? 'bg-gray-800 text-white font-bold'
+                      : !isCurrent ? 'text-gray-300'
                       : isSun ? 'text-red-400'
                       : isSat ? 'text-blue-400'
                       : 'text-gray-600'}`}>
-                    {day}
+                    {cell.day}
                   </span>
                   {hasSells && (
-                    <span className={`text-xs font-medium leading-tight ${sellTotal >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                    <span className={`text-xs font-medium leading-tight ${sellTotal >= 0 ? 'text-red-500' : 'text-blue-500'} ${!isCurrent ? 'opacity-50' : ''}`}>
                       {sellTotal >= 0 ? '+' : ''}{formatKRW(Math.round(sellTotal))}
                     </span>
                   )}
                   {hasAny && (
-                    <span className="text-[10px] text-gray-400 mt-0.5">
+                    <span className={`text-[10px] text-gray-400 mt-0.5 ${!isCurrent ? 'opacity-50' : ''}`}>
                       {[
                         hasBuys  && `매수 ${dayData.buys.length}건`,
                         hasSells && `매도 ${dayData.sells.length}건`,
@@ -185,7 +215,6 @@ export default function TradeCalendar({ trades, onEdit, onDelete }: Props) {
           {(() => {
             const dayData = byDate[selectedDate]
             const daySellProfit = dayData.sells.reduce((s, e) => s + sellProfit(e), 0)
-            // 해당 날짜에 활동 있는 종목 모아 그룹화
             const tradeMap = new Map<string, Trade>()
             ;[...dayData.buys, ...dayData.sells].forEach(e => tradeMap.set(e.trade.id, e.trade))
             const dayTrades = Array.from(tradeMap.values())
@@ -209,8 +238,8 @@ export default function TradeCalendar({ trades, onEdit, onDelete }: Props) {
                   const dayBuys  = dayData.buys.filter(e => e.trade.id === trade.id)
                   const dayProfit = daySells.reduce((s, e) => s + sellProfit(e), 0)
                   const entries = [
-                    ...dayBuys.map(e  => ({ type: '매수' as const, price: e.price,  quantity: e.quantity })),
-                    ...daySells.map(e => ({ type: '매도' as const, price: e.price,  quantity: e.quantity })),
+                    ...dayBuys.map(e  => ({ type: '매수' as const, price: e.price, quantity: e.quantity })),
+                    ...daySells.map(e => ({ type: '매도' as const, price: e.price, quantity: e.quantity })),
                   ]
 
                   return (

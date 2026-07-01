@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import type { Trade, Account, TradeImage } from "@/lib/types";
 // TradeImage used in imagesMap state below
 import { formatKRW, formatRate, lastEntryDate } from "@/lib/utils";
+import { apiFetch } from "@/lib/api";
 import TradeImageZone from "./TradeImageZone";
 import TradeChart from "./TradeChart";
 
@@ -50,6 +51,36 @@ export default function TradeHistory({
   const [simPrices, setSimPrices] = useState<Record<string, string>>({});
   const [imagesMap, setImagesMap] = useState<Record<string, TradeImage[]>>({});
   const [showCompleted, setShowCompleted] = useState<Set<string>>(new Set());
+  const [priceInputs, setPriceInputs] = useState<Record<string, { target: string; stop: string }>>({});
+  const [savedSet, setSavedSet] = useState<Set<string>>(new Set());
+
+  function getPriceInput(trade: Trade) {
+    return priceInputs[trade.id] ?? {
+      target: trade.targetPrice ? String(Math.round(trade.targetPrice)) : '',
+      stop: trade.stopLossPrice ? String(Math.round(trade.stopLossPrice)) : '',
+    }
+  }
+
+  function updatePriceInput(tradeId: string, field: 'target' | 'stop', value: string) {
+    setPriceInputs(prev => ({
+      ...prev,
+      [tradeId]: { ...(prev[tradeId] ?? { target: '', stop: '' }), [field]: value },
+    }))
+  }
+
+  async function savePrices(trade: Trade) {
+    const input = getPriceInput(trade)
+    await apiFetch(`/api/trades/${trade.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        targetPrice: input.target ? Number(input.target) : null,
+        stopLossPrice: input.stop ? Number(input.stop) : null,
+      }),
+    })
+    setSavedSet(prev => new Set([...prev, trade.id]))
+    setTimeout(() => setSavedSet(prev => { const n = new Set(prev); n.delete(trade.id); return n }), 2000)
+  }
 
   function toggleShowCompleted(accountId: string) {
     setShowCompleted(prev => {
@@ -412,6 +443,68 @@ export default function TradeHistory({
                         }
                       />
                     )}
+                    {isExpanded && !trade.isCompleted && (() => {
+                      const pi = getPriceInput(trade)
+                      const avg = trade.avgBuyPrice
+                      const qty = trade.remainingQuantity
+                      const targetNum = pi.target ? Number(pi.target) : null
+                      const stopNum = pi.stop ? Number(pi.stop) : null
+                      const targetProfit = targetNum && avg > 0 ? (targetNum - avg) * qty : null
+                      const targetRate = targetNum && avg > 0 ? (targetNum / avg - 1) * 100 : null
+                      const stopProfit = stopNum && avg > 0 ? (stopNum - avg) * qty : null
+                      const stopRate = stopNum && avg > 0 ? (stopNum / avg - 1) * 100 : null
+                      return (
+                        <div className="px-4 py-2.5 border-t bg-gray-50 space-y-2">
+                          {/* 목표가 */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs text-gray-400 w-10 shrink-0">목표가</span>
+                            <input
+                              type="number"
+                              value={pi.target}
+                              onChange={e => updatePriceInput(trade.id, 'target', e.target.value)}
+                              onBlur={() => savePrices(trade)}
+                              onKeyDown={e => e.key === 'Enter' && savePrices(trade)}
+                              placeholder="목표가"
+                              className="border rounded px-2 py-1 text-sm w-28 focus:outline-none focus:ring-1 focus:ring-red-300"
+                            />
+                            {targetProfit !== null && targetRate !== null && (
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-semibold text-red-500">
+                                  +{formatKRW(Math.round(targetProfit))}
+                                </span>
+                                <span className="text-xs text-red-400">+{targetRate.toFixed(1)}%</span>
+                                <span className="text-xs text-gray-400">({qty}주 기준)</span>
+                              </div>
+                            )}
+                          </div>
+                          {/* 손절가 */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs text-gray-400 w-10 shrink-0">손절가</span>
+                            <input
+                              type="number"
+                              value={pi.stop}
+                              onChange={e => updatePriceInput(trade.id, 'stop', e.target.value)}
+                              onBlur={() => savePrices(trade)}
+                              onKeyDown={e => e.key === 'Enter' && savePrices(trade)}
+                              placeholder="손절가"
+                              className="border rounded px-2 py-1 text-sm w-28 focus:outline-none focus:ring-1 focus:ring-blue-300"
+                            />
+                            {stopProfit !== null && stopRate !== null && (
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-semibold text-blue-500">
+                                  {formatKRW(Math.round(stopProfit))}
+                                </span>
+                                <span className="text-xs text-blue-400">{stopRate.toFixed(1)}%</span>
+                                <span className="text-xs text-gray-400">({qty}주 기준)</span>
+                              </div>
+                            )}
+                          </div>
+                          {savedSet.has(trade.id) && (
+                            <span className="text-xs text-green-500">저장됨</span>
+                          )}
+                        </div>
+                      )
+                    })()}
                     {isExpanded && !trade.isCompleted && (
                       <div className="px-4 py-3 border-t bg-gray-50">
                         <div className="flex items-center gap-3 flex-wrap">
