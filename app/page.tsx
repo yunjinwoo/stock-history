@@ -10,6 +10,7 @@ interface StockMasterItem { symbol: string; symbolCode: string; tags: string | n
 import TradeCard from '@/components/TradeCard'
 import TradeHistory from '@/components/TradeHistory'
 import SymbolHistory from '@/components/SymbolHistory'
+import TradeTimeline from '@/components/TradeTimeline'
 import TradeCalendar from '@/components/TradeCalendar'
 import MemoStrip from '@/components/MemoStrip'
 import SummaryBar from '@/components/SummaryBar'
@@ -92,7 +93,7 @@ export default function HomePage() {
   const [tagDropdownOpen, setTagDropdownOpen] = useState(false)
   const [tagSearch, setTagSearch] = useState('')
   const [symbolFilter, setSymbolFilter] = useState<string | null>(null)
-  const [viewMode, setViewMode] = useState<'card' | 'table' | 'calendar' | 'symbol'>('table')
+  const [viewMode, setViewMode] = useState<'card' | 'table' | 'calendar' | 'symbol' | 'timeline'>('table')
 
   const loadAccounts = useCallback(async () => {
     const data = await apiFetch('/api/accounts').then(r => r.json())
@@ -191,6 +192,7 @@ export default function HomePage() {
             <button onClick={() => setViewMode('symbol')} className={`text-xs px-2 py-1.5 ${viewMode === 'symbol' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>종목</button>
             <button onClick={() => setViewMode('card')} className={`text-xs px-2 py-1.5 ${viewMode === 'card' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>▦</button>
             <button onClick={() => setViewMode('calendar')} className={`text-xs px-2 py-1.5 ${viewMode === 'calendar' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>📅</button>
+            <button onClick={() => setViewMode('timeline')} className={`text-xs px-2 py-1.5 ${viewMode === 'timeline' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>복기</button>
           </div>
           <Link href="/coins" className="hidden sm:inline-flex text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">코인</Link>
           <Link href="/stats" className="hidden sm:inline-flex text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">통계</Link>
@@ -439,6 +441,14 @@ export default function HomePage() {
           />
         ) : viewMode === 'symbol' ? (
           <SymbolHistory
+            trades={displayTrades}
+            accounts={accounts}
+            symbolTypeMap={symbolTypeMap}
+            onEdit={trade => { setEditTrade(trade); setShowModal(true) }}
+            onDelete={async trade => { await apiFetch(`/api/trades/${trade.id}`, { method: 'DELETE' }); load() }}
+          />
+        ) : viewMode === 'timeline' ? (
+          <TradeTimeline
             trades={displayTrades}
             accounts={accounts}
             symbolTypeMap={symbolTypeMap}

@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { accountId, symbol, symbolCode, comment, buyEntries = [], sellEntries = [] } = body
+  const { accountId, symbol, symbolCode, comment, exitComment, buyEntries = [], sellEntries = [] } = body
 
   if (!accountId || !symbol) {
     return NextResponse.json({ error: '계좌와 종목명은 필수입니다.' }, { status: 400 })
@@ -57,6 +57,7 @@ export async function POST(req: NextRequest) {
       accountId, symbol,
       symbolCode: resolvedCode,
       comment: comment || null,
+      exitComment: exitComment || null,
       createdAt: now, updatedAt: now,
       buyEntries: { create: makeEntries(buyEntries) },
       sellEntries: { create: makeEntries(sellEntries) },
