@@ -24,6 +24,7 @@ model Trade {
   symbol        String
   symbolCode    String?
   comment       String?
+  exitComment   String?
   targetPrice   Float?
   stopLossPrice Float?
   createdAt     String

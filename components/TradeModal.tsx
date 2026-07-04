@@ -31,6 +31,7 @@ interface FormState {
   symbol: string
   symbolCode: string
   comment: string
+  exitComment: string
   targetPrice: string
   stopLossPrice: string
   buyEntries: EntryRow[]
@@ -108,6 +109,7 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
     symbol: trade?.symbol ?? defaultSymbol ?? '',
     symbolCode: trade?.symbolCode ?? defaultSymbolCode ?? '',
     comment: trade?.comment ?? '',
+    exitComment: trade?.exitComment ?? '',
     targetPrice: trade?.targetPrice ? trade.targetPrice.toString() : '',
     stopLossPrice: trade?.stopLossPrice ? trade.stopLossPrice.toString() : '',
     buyEntries: trade ? trade.buyEntries.map(toEntry) : [],
@@ -192,6 +194,7 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
         symbol: form.symbol.trim(),
         symbolCode: form.symbolCode.trim() || null,
         comment: form.comment.trim() || null,
+        exitComment: form.exitComment.trim() || null,
         targetPrice: form.targetPrice ? Number(form.targetPrice.replace(/,/g, '')) : null,
         stopLossPrice: form.stopLossPrice ? Number(form.stopLossPrice.replace(/,/g, '')) : null,
         buyEntries: validBuy.map(r => ({
@@ -321,6 +324,17 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
                   onChange={e => setField('comment', e.target.value)}
                   className={`${inputCls} h-20 resize-none`}
                   placeholder="매매 이유, 전략 등..."
+                  maxLength={500}
+                />
+              </div>
+
+              <div>
+                <label className={labelCls}>거래완료 코멘트</label>
+                <textarea
+                  value={form.exitComment}
+                  onChange={e => setField('exitComment', e.target.value)}
+                  className={`${inputCls} h-20 resize-none`}
+                  placeholder="청산 후 복기, 잘한 점/아쉬운 점 등..."
                   maxLength={500}
                 />
               </div>

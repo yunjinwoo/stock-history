@@ -126,7 +126,7 @@ export default function CoinCalendar({ trades, onEdit, onDelete }: Props) {
           onChange={e => setUseRealized(e.target.checked)}
           className="w-3.5 h-3.5"
         />
-        실현손익 기준 (매도 시점까지의 매수만 반영)
+        완료된 거래만 집계
       </label>
 
       {/* 최근 6개월 실현손익 */}

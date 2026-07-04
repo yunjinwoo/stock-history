@@ -72,6 +72,7 @@ export interface Trade {
   symbol: string
   symbolCode?: string | null
   comment?: string | null
+  exitComment?: string | null
   targetPrice?: number | null
   stopLossPrice?: number | null
   createdAt: string
