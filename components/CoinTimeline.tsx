@@ -1,29 +1,19 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import type { Trade, Account, TradeImage } from '@/lib/types'
-import { formatKRW, formatRate } from '@/lib/utils'
+import type { CoinTrade } from '@/lib/types'
+import { formatKRW, formatQty, formatRate } from '@/lib/utils'
 import TradeChart from './TradeChart'
-import TradeImageZone from './TradeImageZone'
-
-const TYPE_STYLE: Record<string, string> = {
-  코스피: 'bg-blue-50 text-blue-600 border-blue-200',
-  코스닥: 'bg-green-50 text-green-600 border-green-200',
-  ETF: 'bg-purple-50 text-purple-600 border-purple-200',
-}
 
 interface Props {
-  trades: Trade[]
-  accounts: Account[]
-  symbolTypeMap?: Record<string, string>
-  onEdit: (trade: Trade) => void
-  onDelete: (trade: Trade) => void
+  trades: CoinTrade[]
+  onEdit: (trade: CoinTrade) => void
+  onDelete: (trade: CoinTrade) => void
 }
 
 type WinFilter = 'all' | 'win' | 'loss'
 type GroupMode = 'week' | 'month'
 const COLUMNS_SHOWN = 4
-const MARKET_TYPES = ['코스피', '코스닥', 'ETF'] as const
 
 function getWeekStart(d: Date) {
   const day = (d.getDay() + 6) % 7 // 월=0 ... 일=6
@@ -54,22 +44,16 @@ function rateTier(rate: number) {
   return RATE_TIERS.find(t => t.test(rate))!
 }
 
-export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, onEdit, onDelete }: Props) {
+export default function CoinTimeline({ trades, onEdit, onDelete }: Props) {
   const [winFilter, setWinFilter] = useState<WinFilter>('all')
-  const [marketFilters, setMarketFilters] = useState<string[]>([])
   const [tierFilters, setTierFilters] = useState<string[]>([])
   const [groupMode, setGroupMode] = useState<GroupMode>('month')
   const [offset, setOffset] = useState(0) // 0 = 이번 주/달이 가장 오른쪽
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
-  const [imagesMap, setImagesMap] = useState<Record<string, TradeImage[]>>({})
 
   function changeGroupMode(mode: GroupMode) {
     setGroupMode(mode)
     setOffset(0)
-  }
-
-  function toggleMarket(type: string) {
-    setMarketFilters(prev => prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type])
   }
 
   function toggleTier(id: string) {
@@ -84,12 +68,6 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
     })
   }
 
-  const accountMap = useMemo(() => {
-    const m: Record<string, Account> = {}
-    accounts.forEach(a => { m[a.id] = a })
-    return m
-  }, [accounts])
-
   const rows = useMemo(() => {
     return trades
       .filter(t => t.isCompleted)
@@ -100,9 +78,8 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
         return { trade: t, entryDate, exitDate, exitPrice, isWin: t.profitAmount >= 0 }
       })
       .filter(r => winFilter === 'all' || (winFilter === 'win' ? r.isWin : !r.isWin))
-      .filter(r => marketFilters.length === 0 || marketFilters.includes(symbolTypeMap[r.trade.symbol] ?? ''))
       .filter(r => tierFilters.length === 0 || tierFilters.includes(rateTier(r.trade.profitRate).id))
-  }, [trades, winFilter, marketFilters, tierFilters, symbolTypeMap])
+  }, [trades, winFilter, tierFilters])
 
   const columns = useMemo(() => {
     if (groupMode === 'week') {
@@ -156,20 +133,6 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
             >
               {label}
             </button>
-          ))}
-        </div>
-
-        <div className="bg-white rounded-lg border p-2 space-y-1">
-          {MARKET_TYPES.map(type => (
-            <label key={type} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-gray-50 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={marketFilters.includes(type)}
-                onChange={() => toggleMarket(type)}
-                className="accent-blue-600"
-              />
-              <span className="text-sm text-gray-700">{type}</span>
-            </label>
           ))}
         </div>
 
@@ -236,30 +199,19 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
                 <p className="text-xs text-gray-300 text-center py-6">거래 없음</p>
               ) : (
                 w.items.map(({ trade, exitDate, isWin }) => {
-                  const account = accountMap[trade.accountId]
-                  const marketType = symbolTypeMap[trade.symbol]
                   const isExpanded = expanded.has(trade.id)
                   const color = rateTier(trade.profitRate)
                   const entries = [
                     ...trade.buyEntries.map(e => ({ ...e, type: '매수' as const })),
                     ...trade.sellEntries.map(e => ({ ...e, type: '매도' as const })),
                   ].sort((a, b) => a.date.localeCompare(b.date))
-                  const accountLabel = account ? (account.nickname || `${account.broker} ${account.accountNumber}`) : null
                   return (
                     <div key={trade.id} className={`bg-white rounded-lg border overflow-hidden space-y-1.5 ${color.width} ${color.border}`}>
                       <div className="p-3 pb-0 space-y-1.5">
                         <div className="flex justify-between items-start gap-1">
                           <div className="min-w-0">
-                            <div>
-                              {marketType && (
-                                <span className={`text-[10px] px-1 py-0.5 rounded border font-medium mr-1 ${TYPE_STYLE[marketType] ?? 'bg-gray-50 text-gray-500 border-gray-200'}`}>
-                                  {marketType}
-                                </span>
-                              )}
-                              <span className="font-semibold text-sm">{trade.symbol}</span>
-                            </div>
+                            <span className="font-semibold text-sm">{trade.symbol}</span>
                             <p className="text-[11px] text-gray-400">
-                              {accountLabel && <>{accountLabel} · </>}
                               <span className="tabular-nums">{exitDate.slice(5, 10)}</span>
                               {' · 보유 '}{trade.holdingDays}일{' · '}
                               <span className={`font-medium ${color.text}`}>{formatRate(trade.profitRate)}</span>
@@ -271,9 +223,6 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
                         </div>
                         {trade.comment && (
                           <p className="text-xs text-gray-700 bg-gray-50 rounded p-1.5 whitespace-pre-wrap">💬 {trade.comment}</p>
-                        )}
-                        {trade.exitComment && (
-                          <p className="text-xs text-gray-700 bg-amber-50 rounded p-1.5 whitespace-pre-wrap">📝 {trade.exitComment}</p>
                         )}
                         <div className="flex gap-1.5 justify-end pb-3">
                           <button onClick={() => toggleExpand(trade.id)} className="text-[11px] text-gray-500 hover:text-gray-800 px-1.5 py-0.5 border rounded">
@@ -314,18 +263,11 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
                                   </td>
                                   <td className="px-2 py-1 text-gray-500">{e.date.slice(5, 10)}</td>
                                   <td className="px-2 py-1 text-right">{formatKRW(e.price)}</td>
-                                  <td className="px-2 py-1 text-right">{e.quantity}주</td>
+                                  <td className="px-2 py-1 text-right">{formatQty(e.quantity)}</td>
                                 </tr>
                               ))}
                             </tbody>
                           </table>
-                          <div className="border-t">
-                            <TradeImageZone
-                              tradeId={trade.id}
-                              images={imagesMap[trade.id] ?? trade.images}
-                              onUpdate={imgs => setImagesMap(m => ({ ...m, [trade.id]: imgs }))}
-                            />
-                          </div>
                         </div>
                       )}
                     </div>
