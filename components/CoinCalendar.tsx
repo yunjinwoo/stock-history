@@ -10,12 +10,34 @@ interface Props {
   onDelete: (trade: CoinTrade) => void
 }
 
-type SellEntry = { trade: CoinTrade; price: number; quantity: number }
-type BuyEntry  = { trade: CoinTrade; price: number; quantity: number }
+type SellEntry = { id: string; trade: CoinTrade; price: number; quantity: number }
+type BuyEntry  = { id: string; trade: CoinTrade; price: number; quantity: number }
 type DayData   = { sells: SellEntry[]; buys: BuyEntry[] }
 
-function sellProfit(s: SellEntry) {
-  return (s.price - s.trade.avgBuyPrice) * s.quantity
+// 매도 시점까지 발생한 매수만 반영한 이동평균 원가로 계산한 실현손익 (심볼별 매수/매도를 날짜순으로 처리)
+function computeRealizedProfitMap(trades: CoinTrade[]): Map<string, number> {
+  const map = new Map<string, number>()
+  for (const trade of trades) {
+    const events = [
+      ...trade.buyEntries.map(e => ({ ...e, kind: 'buy' as const })),
+      ...trade.sellEntries.map(e => ({ ...e, kind: 'sell' as const })),
+    ].sort((a, b) => a.date.localeCompare(b.date))
+
+    let qty = 0
+    let cost = 0
+    for (const e of events) {
+      if (e.kind === 'buy') {
+        qty += e.quantity
+        cost += e.price * e.quantity
+      } else {
+        const avgCost = qty > 0 ? cost / qty : 0
+        map.set(e.id, (e.price - avgCost) * e.quantity)
+        cost -= avgCost * e.quantity
+        qty -= e.quantity
+      }
+    }
+  }
+  return map
 }
 
 const DOW_LABELS = ['월', '화', '수', '목', '금', '토', '일']
@@ -25,23 +47,35 @@ export default function CoinCalendar({ trades, onEdit, onDelete }: Props) {
   const [year, setYear] = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth())
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [useRealized, setUseRealized] = useState(false)
+
+  // "실현손익 기준" 체크 시 전량매도(완료)된 종목만 집계, 미체크 시 기존 방식(보유중 포함) 그대로
+  const completedTrades = useMemo(() => trades.filter(t => t.isCompleted), [trades])
+  const displayTrades = useRealized ? completedTrades : trades
+
+  const realizedProfitMap = useMemo(() => computeRealizedProfitMap(completedTrades), [completedTrades])
+
+  function sellProfit(s: SellEntry) {
+    if (useRealized) return realizedProfitMap.get(s.id) ?? 0
+    return (s.price - s.trade.avgBuyPrice) * s.quantity
+  }
 
   const byDate = useMemo(() => {
     const map: Record<string, DayData> = {}
-    for (const trade of trades) {
+    for (const trade of displayTrades) {
       for (const e of trade.buyEntries) {
         const date = e.date.slice(0, 10)
         const day = map[date] ??= { sells: [], buys: [] }
-        day.buys.push({ trade, price: e.price, quantity: e.quantity })
+        day.buys.push({ id: e.id, trade, price: e.price, quantity: e.quantity })
       }
       for (const e of trade.sellEntries) {
         const date = e.date.slice(0, 10)
         const day = map[date] ??= { sells: [], buys: [] }
-        day.sells.push({ trade, price: e.price, quantity: e.quantity })
+        day.sells.push({ id: e.id, trade, price: e.price, quantity: e.quantity })
       }
     }
     return map
-  }, [trades])
+  }, [displayTrades])
 
   const recentMonths = useMemo(() => {
     return Array.from({ length: 6 }, (_, i) => {
@@ -56,7 +90,7 @@ export default function CoinCalendar({ trades, onEdit, onDelete }: Props) {
       const count = daySells.length
       return { year: y, month: m, label: `${m + 1}월`, total, count }
     })
-  }, [byDate, year, month])
+  }, [byDate, year, month, useRealized, realizedProfitMap])
 
   const startDow = (new Date(year, month, 1).getDay() + 6) % 7
   const daysInMonth = new Date(year, month + 1, 0).getDate()
@@ -84,6 +118,17 @@ export default function CoinCalendar({ trades, onEdit, onDelete }: Props) {
 
   return (
     <div className="space-y-4 max-w-2xl mx-auto">
+      {/* 손익 계산 방식 토글 */}
+      <label className="flex items-center justify-end gap-1.5 text-xs text-gray-500 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={useRealized}
+          onChange={e => setUseRealized(e.target.checked)}
+          className="w-3.5 h-3.5"
+        />
+        실현손익 기준 (매도 시점까지의 매수만 반영)
+      </label>
+
       {/* 최근 6개월 실현손익 */}
       <div className="rounded-lg border bg-white overflow-hidden">
         <div className="grid grid-cols-6 divide-x">
