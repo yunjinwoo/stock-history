@@ -7,6 +7,7 @@ import { apiFetch } from '@/lib/api'
 import { formatKRW, formatQty } from '@/lib/utils'
 import CoinHistory from '@/components/CoinHistory'
 import CoinCalendar from '@/components/CoinCalendar'
+import CoinTimeline from '@/components/CoinTimeline'
 import CoinModal from '@/components/CoinModal'
 import MemoStrip from '@/components/MemoStrip'
 
@@ -20,7 +21,7 @@ export default function CoinsPage() {
   const [editTrade, setEditTrade] = useState<CoinTrade | null>(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
-  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list')
+  const [viewMode, setViewMode] = useState<'list' | 'calendar' | 'timeline'>('list')
   const [holdingOpen, setHoldingOpen] = useState(false)
   const [simRows, setSimRows] = useState<Record<string, { price: string; qty: string }[]>>({})
   const [savedSims, setSavedSims] = useState<Record<string, { id: string; price: number; quantity: number }[]>>({})
@@ -129,6 +130,7 @@ export default function CoinsPage() {
           <div className="flex border rounded overflow-hidden">
             <button onClick={() => setViewMode('list')} className={`text-xs px-2.5 py-1.5 ${viewMode === 'list' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>≡</button>
             <button onClick={() => setViewMode('calendar')} className={`text-xs px-2.5 py-1.5 ${viewMode === 'calendar' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>📅</button>
+            <button onClick={() => setViewMode('timeline')} className={`text-xs px-2.5 py-1.5 ${viewMode === 'timeline' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>복기</button>
           </div>
           <Link href="/" className="hidden sm:inline-flex text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">주식</Link>
           <Link href="/stats" className="hidden sm:inline-flex text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">통계</Link>
@@ -142,7 +144,8 @@ export default function CoinsPage() {
         </div>
       </header>
 
-      <div className="px-4 py-4 space-y-3 max-w-4xl mx-auto">
+      <div className="px-4 py-4 space-y-3">
+      <div className="max-w-4xl mx-auto space-y-3">
         <MemoStrip memos={memos} page="coin" />
         {/* 요약 */}
         <div className="grid grid-cols-3 gap-3">
@@ -282,20 +285,29 @@ export default function CoinsPage() {
             )}
           </div>
         )}
+      </div>
 
-        {/* 목록 / 달력 */}
+        {/* 목록 / 달력 / 복기 */}
         {viewMode === 'calendar' ? (
           <CoinCalendar
             trades={trades}
             onEdit={trade => { setEditTrade(trade); setShowModal(true) }}
             onDelete={async trade => { await apiFetch(`/api/coins/${trade.id}`, { method: 'DELETE' }); load() }}
           />
-        ) : (
-          <CoinHistory
+        ) : viewMode === 'timeline' ? (
+          <CoinTimeline
             trades={trades}
             onEdit={trade => { setEditTrade(trade); setShowModal(true) }}
             onDelete={async trade => { await apiFetch(`/api/coins/${trade.id}`, { method: 'DELETE' }); load() }}
           />
+        ) : (
+          <div className="max-w-4xl mx-auto">
+            <CoinHistory
+              trades={trades}
+              onEdit={trade => { setEditTrade(trade); setShowModal(true) }}
+              onDelete={async trade => { await apiFetch(`/api/coins/${trade.id}`, { method: 'DELETE' }); load() }}
+            />
+          </div>
         )}
       </div>
 
