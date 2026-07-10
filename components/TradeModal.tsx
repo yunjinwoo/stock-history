@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import type { Trade, Account } from '@/lib/types'
 import type { ParsedTrade } from '@/lib/kakaoParser'
 import KakaoParser from './KakaoParser'
 import { apiFetch } from '@/lib/api'
-import { uuid, today, splitDateTime, toDateTimeStr } from '@/lib/utils'
+import { uuid, today, splitDateTime, toDateTimeStr, formatKRW } from '@/lib/utils'
 
 interface Props {
   trade: Trade | null
@@ -115,6 +115,15 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
     buyEntries: trade ? trade.buyEntries.map(toEntry) : [],
     sellEntries: trade ? trade.sellEntries.map(toEntry) : [],
   })
+
+  function rowAmount(r: EntryRow): number {
+    const price = Number(r.price.replace(/,/g, ''))
+    const quantity = Number(r.quantity.replace(/,/g, ''))
+    return price && quantity ? price * quantity : 0
+  }
+
+  const buyTotal = useMemo(() => form.buyEntries.reduce((sum, r) => sum + rowAmount(r), 0), [form.buyEntries])
+  const sellTotal = useMemo(() => form.sellEntries.reduce((sum, r) => sum + rowAmount(r), 0), [form.sellEntries])
 
   const existingHolding = !trade && !mergeTarget && trades
     ? trades.find(t => t.accountId === form.accountId && t.symbol === form.symbol.trim() && !t.isCompleted) ?? null
@@ -268,17 +277,16 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
                   <button type="button" onClick={() => { setMergeTarget(null); setForm(f => ({ ...f, buyEntries: [], sellEntries: [] })) }} className="ml-2 underline text-blue-500">취소</button>
                 </div>
               )}
-              <div>
-                <label className={labelCls}>계좌 *</label>
-                <select value={form.accountId} onChange={e => setField('accountId', e.target.value)} className={inputCls}>
-                  <option value="">계좌 선택</option>
-                  {accounts.map(a => (
-                    <option key={a.id} value={a.id}>{a.nickname || `${a.broker} ${a.accountNumber}`}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-[2fr_2fr_1fr] gap-3">
+                <div>
+                  <label className={labelCls}>계좌 *</label>
+                  <select value={form.accountId} onChange={e => setField('accountId', e.target.value)} className={inputCls}>
+                    <option value="">계좌 선택</option>
+                    {accounts.map(a => (
+                      <option key={a.id} value={a.id}>{a.nickname || `${a.broker} ${a.accountNumber}`}</option>
+                    ))}
+                  </select>
+                </div>
                 <div>
                   <label className={labelCls}>종목명 *</label>
                   <input value={form.symbol} onChange={e => setField('symbol', e.target.value)} className={inputCls} placeholder="삼성전자" />
@@ -291,6 +299,23 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
 
               <EntrySection type="sellEntries" label="매도 내역" entries={form.sellEntries} onUpdate={updateEntry} onAdd={addEntry} onRemove={removeEntry} />
               <EntrySection type="buyEntries" label="매수 내역" entries={form.buyEntries} onUpdate={updateEntry} onAdd={addEntry} onRemove={removeEntry} />
+
+              {(buyTotal > 0 || sellTotal > 0) && (
+                <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-1">
+                  <div className="flex justify-between text-gray-500">
+                    <span>매수총액</span>
+                    <span>{formatKRW(buyTotal)}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-500">
+                    <span>매도총액</span>
+                    <span>{formatKRW(sellTotal)}</span>
+                  </div>
+                  <div className={`flex justify-between font-medium pt-1 border-t ${sellTotal - buyTotal >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                    <span>합산</span>
+                    <span>{(sellTotal - buyTotal >= 0 ? '+' : '') + formatKRW(sellTotal - buyTotal)}</span>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
