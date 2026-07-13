@@ -9,7 +9,9 @@
       "Bash(curl -s http://localhost:3000/api/accounts)",
       "PowerShell(& \"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" auth status)",
       "PowerShell(& \"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" repo view yunjinwoo/stock-history 2>&1)",
-      "Bash(git config *)"
+      "Bash(git config *)",
+      "Bash(npx tsc *)",
+      "Bash(git checkout *)"
     ]
   }
 }
