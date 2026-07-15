@@ -1,11 +1,12 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import type { Trade } from '@/lib/types'
+import type { Trade, Account } from '@/lib/types'
 import { formatKRW } from '@/lib/utils'
 
 interface Props {
   trades: Trade[]
+  accounts: Account[]
   onEdit: (trade: Trade) => void
   onDelete: (trade: Trade) => void
 }
@@ -26,7 +27,7 @@ function cellKey(c: CalCell) {
 
 const DOW_LABELS = ['월', '화', '수', '목', '금', '토', '일']
 
-export default function TradeCalendar({ trades, onEdit, onDelete }: Props) {
+export default function TradeCalendar({ trades, accounts, onEdit, onDelete }: Props) {
   const today = new Date()
   const [year, setYear] = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth())
@@ -241,6 +242,7 @@ export default function TradeCalendar({ trades, onEdit, onDelete }: Props) {
                     ...dayBuys.map(e  => ({ type: '매수' as const, price: e.price, quantity: e.quantity })),
                     ...daySells.map(e => ({ type: '매도' as const, price: e.price, quantity: e.quantity })),
                   ]
+                  const account = accounts.find(a => a.id === trade.accountId)
 
                   return (
                     <div key={trade.id} className="rounded-lg border bg-white overflow-hidden">
@@ -248,6 +250,11 @@ export default function TradeCalendar({ trades, onEdit, onDelete }: Props) {
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{trade.symbol}</span>
                           {trade.symbolCode && <span className="text-gray-400 text-xs">({trade.symbolCode})</span>}
+                          {account && (
+                            <span className="text-[10px] bg-gray-100 text-gray-500 px-1 py-0.5 rounded font-medium">
+                              {account.broker}
+                            </span>
+                          )}
                           {dayBuys.length > 0  && <span className="text-xs text-blue-500">매수 {dayBuys.length}건</span>}
                           {daySells.length > 0 && <span className="text-xs text-orange-500">매도 {daySells.length}건</span>}
                         </div>

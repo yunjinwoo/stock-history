@@ -428,6 +428,7 @@ export default function HomePage() {
         {viewMode === 'calendar' ? (
           <TradeCalendar
             trades={displayTrades}
+            accounts={accounts}
             onEdit={trade => { setEditTrade(trade); setShowModal(true) }}
             onDelete={async trade => { await apiFetch(`/api/trades/${trade.id}`, { method: 'DELETE' }); load() }}
           />
