@@ -12,7 +12,8 @@ DB 파일: `../data/stock-history.db` (SQLite)
 ```
 Account ──< Trade ──< BuyEntry
                  ├──< SellEntry
-                 └──< TradeImage
+                 ├──< TradeImage
+                 └──< SimEntry  (tradeId 문자열 연결, FK 없음)
 
 CoinTrade ──< CoinBuyEntry
           └──< CoinSellEntry
@@ -20,7 +21,7 @@ CoinTrade ──< CoinBuyEntry
 StockMaster  (독립 테이블 — Trade·Memo와 symbol 문자열로 연결, FK 없음)
 
 Memo ──< MemoImage
-  └── symbol?  (StockMaster.symbol과 문자열 연결, FK 없음)
+  └──< MemoSymbol  (연결 종목명 N개, StockMaster.symbol과 문자열 연결)
 ```
 
 ---
@@ -65,6 +66,21 @@ Memo ──< MemoImage
 | price | Float | 단가 |
 | quantity | Int | 수량 |
 | createdAt | String | |
+
+---
+
+## SimEntry (예상 매도 시뮬레이션)
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| id | String (UUID) | PK |
+| tradeId | String | Trade와 문자열로만 연결 (Prisma `@relation` 없음, cascade 삭제 안 됨) |
+| price | Float | 시뮬레이션 매도 단가 |
+| quantity | Int | 시뮬레이션 매도 수량 |
+| createdAt | String | |
+
+> 보유중 종목 상세에서 "예상 매도가 입력 시 예상 손익 계산"에 쓰이는 임시 시나리오 저장용.  
+> `BuyEntry`/`SellEntry`와 달리 Trade FK에 관계가 걸려있지 않아, Trade를 삭제해도 SimEntry는 자동으로 지워지지 않음.
 
 ---
 
@@ -140,13 +156,27 @@ Memo ──< MemoImage
 | showOnCoin | Boolean | 코인 페이지 상단 핀 표시 여부 (기본 true) |
 | rating | Int? | 평점 1~10 (선택) |
 | category | String? | 분류: 원칙/전략/시장/종목/일지/기타 (선택) |
-| symbol | String? | 연결 종목명 (선택, StockMaster.symbol과 문자열 연결) |
+| alertDate | String? | 복기 알림 날짜 (선택, `YYYY-MM-DD`) — 지나면 메모 목록에서 🔔로 강조 표시 |
+| reviewedAt | String? | 복기 완료 시각 (선택) — "복기 완료" 처리 시 현재 시각으로 세팅 |
 | createdAt | String | |
 | updatedAt | String | |
 
-> `symbol`이 설정된 메모는 종목관리 페이지에서 해당 종목 카드 내에 표시됨.  
+> 종목 연결은 단일 `symbol` 필드가 아니라 `MemoSymbol` 관계 테이블로 N개까지 태그 가능 (아래 참고).  
 > 종목관리에서 작성 시 `category: '종목'`, `showOnMain/showOnCoin: false`가 기본값으로 세팅됨.  
-> 메모 페이지에서 종목별 필터로 조회 가능.
+> 메모 페이지에서 종목별/알림일별 필터, 정렬(알림일 빠른순 등)로 조회 가능.
+
+---
+
+## MemoSymbol (메모 연결 종목)
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| id | String (UUID) | PK |
+| memoId | String | Memo FK (삭제 시 cascade) |
+| symbol | String | 연결 종목명 (StockMaster.symbol과 문자열 연결, FK 없음) |
+
+> 메모 하나에 종목 태그를 여러 개 붙일 수 있도록 별도 테이블로 분리됨.  
+> `symbol`이 태그된 메모는 종목관리 페이지에서 해당 종목 카드 내에 표시됨.
 
 ---
 

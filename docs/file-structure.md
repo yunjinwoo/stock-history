@@ -9,6 +9,7 @@ stock-history/
 │   ├── memos/page.tsx            # 메모 관리 페이지
 │   ├── accounts/page.tsx         # 계좌 관리 페이지
 │   ├── stock-master/page.tsx     # 종목 마스터 관리 페이지
+│   ├── stats/page.tsx            # 통계 대시보드 페이지
 │   └── api/                      # API 엔드포인트
 │       ├── trades/
 │       │   ├── route.ts          # GET(목록 조회), POST(새 거래 저장)
@@ -26,6 +27,16 @@ stock-history/
 │       ├── stock-master/
 │       │   ├── route.ts          # GET, POST(upsert + 기존 trades 일괄 업데이트)
 │       │   └── [id]/route.ts     # PATCH, DELETE
+│       ├── sim-entries/
+│       │   ├── route.ts          # GET, POST(예상 매도 시뮬레이션 항목 추가)
+│       │   └── [id]/route.ts     # PATCH, DELETE
+│       ├── backup/
+│       │   └── route.ts          # GET(SQLite DB 파일 다운로드)
+│       ├── restore/
+│       │   └── route.ts          # POST(업로드한 DB 파일로 교체)
+│       ├── export/
+│       │   ├── trades/route.ts   # GET(주식·코인 거래 엑셀 내보내기)
+│       │   └── memos/route.ts    # GET(메모 엑셀 내보내기)
 │       ├── uploads/
 │       │   └── route.ts          # POST(이미지 업로드 — tradeId 또는 memoId)
 │       ├── images/
@@ -42,10 +53,17 @@ stock-history/
 │   ├── TradeCard.tsx             # 주식 카드형 뷰 아이템
 │   ├── TradeCalendar.tsx         # 주식 캘린더형 뷰
 │   ├── TradeTable.tsx            # 거래 내역 서브 테이블
+│   ├── TradeChart.tsx            # 거래 가격 차트 (recharts)
+│   ├── TradeTimeline.tsx         # 주식 복기용 타임라인 뷰
 │   ├── SummaryBar.tsx            # 상단 요약 통계 바
+│   ├── SymbolHistory.tsx         # 통계 페이지 종목 상세 내역
+│   ├── ProfitHeatmap.tsx         # 통계 페이지 연간 손익 히트맵
 │   ├── CoinModal.tsx             # 코인 거래 입력/수정 모달
 │   ├── CoinHistory.tsx           # 코인 목록
+│   ├── CoinCalendar.tsx          # 코인 캘린더형 뷰
+│   ├── CoinTimeline.tsx          # 코인 복기용 타임라인 뷰 (주/월별 토글)
 │   ├── MemoStrip.tsx             # 핀 메모 표시 띠
+│   ├── MemoCalendar.tsx          # 메모 캘린더형 뷰
 │   ├── TradeImageZone.tsx        # 거래 이미지 업로드/표시 (드래그, 클립보드, 라이트박스)
 │   ├── MemoImageZone.tsx         # 메모 이미지 업로드/표시 (TradeImageZone과 동일 UX)
 │   ├── BottomTabBar.tsx          # 모바일 하단 탭바 (sm 미만에서만 표시)
@@ -59,7 +77,8 @@ stock-history/
 │   ├── utils.ts                  # 계산 함수, 포맷 함수 모음
 │   ├── kakaoParser.ts            # 증권사별 카톡 알림 파서
 │   ├── kakaoParser.test.ts       # 파서 Vitest 테스트
-│   └── coinParser.ts             # 코인 거래소 붙여넣기 파서
+│   ├── coinParser.ts             # 코인 거래소 붙여넣기 파서
+│   └── coinParser.test.ts        # 코인 파서 Vitest 테스트
 │
 ├── prisma/
 │   └── schema.prisma             # DB 스키마 정의
@@ -69,7 +88,8 @@ stock-history/
 │   ├── kakaoParser.md            # 증권사별 실제 알림 포맷
 │   └── deploy.md                 # 서버 배포 가이드
 ├── next.config.ts                # Next.js 설정 (basePath 등)
-└── CLAUDE.md                     # AI 개발 보조용 규칙 문서
+├── CLAUDE.md                     # AI 개발 보조용 규칙 문서 (Claude Code용)
+└── AGENTS.md                     # AI 개발 보조용 규칙 문서 (CLAUDE.md와 동기화, 범용 에이전트용)
 ```
 
 ## 핵심 파일 한 줄 설명
