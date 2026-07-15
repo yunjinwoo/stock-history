@@ -43,6 +43,10 @@ GET /api/trades 응답에 images 배열 포함
 | `app/api/trade-images/[id]/route.ts` | 이미지 삭제 |
 | `components/TradeHistory.tsx` | TradeImageZone 렌더링, 이미지 상태 관리 |
 
+> `app/api/uploads`와 `app/api/images`는 메모 이미지 기능과 공유됩니다.  
+> 쿼리로 `tradeId` 대신 `memoId`를 넘기면 `TradeImage` 대신 `MemoImage`로 저장되고, 삭제는 `DELETE /api/memo-images/[id]`를 씁니다.  
+> UI 쪽 동일 기능은 `components/MemoImageZone.tsx` (TradeImageZone과 동일 UX).
+
 ---
 
 ## TradeImageZone 컴포넌트 상세

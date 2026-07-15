@@ -26,6 +26,9 @@ npx prisma db push
 
 # 개발 서버 실행 (포트 3002)
 npm run dev
+
+# 테스트 실행 (파서 등)
+npm run test
 ```
 
 ## 처음 읽는 순서 추천

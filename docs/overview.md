@@ -29,4 +29,11 @@
 /stock/memos      → 메모 관리
 /stock/accounts   → 계좌 관리
 /stock/stock-master → 종목 마스터 관리
+/stock/stats      → 통계 대시보드 (연간 히트맵, 종목 상세, 일/주/월별 차트)
 ```
+
+## 데이터 백업/이전
+
+- `GET /api/backup` — SQLite DB 파일(`data/stock-history.db`) 통째로 다운로드
+- `POST /api/restore` — 업로드한 DB 파일로 교체 (서버 재시작 필요)
+- `GET /api/export/trades`, `GET /api/export/memos` — 주식/코인 거래·메모를 엑셀(xlsx)로 내보내기
