@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import type { Trade, Account } from '@/lib/types'
 import { apiFetch } from '@/lib/api'
-import { formatKRW } from '@/lib/utils'
+import { formatKRW, formatRate } from '@/lib/utils'
 
 interface StockMasterItem { symbol: string; symbolCode: string; tags: string | null; marketType: string | null }
 import TradeCard from '@/components/TradeCard'
@@ -28,6 +28,8 @@ export default function HomePage() {
   const [holdingOpen, setHoldingOpen] = useState(false)
   const [simRows, setSimRows] = useState<Record<string, { price: string; qty: string }[]>>({})
   const [savedSims, setSavedSims] = useState<Record<string, { id: string; price: number; quantity: number }[]>>({})
+  const [priceMap, setPriceMap] = useState<Record<string, number>>({})
+  const [pricesLoading, setPricesLoading] = useState(false)
 
   function addSimRow(tradeId: string) {
     setSimRows(prev => ({ ...prev, [tradeId]: [...(prev[tradeId] ?? []), { price: '', qty: '' }] }))
@@ -184,6 +186,23 @@ export default function HomePage() {
   const holding = displayTrades.filter(t => !t.isCompleted)
   const completed = displayTrades.filter(t => t.isCompleted)
 
+  async function loadPrices() {
+    const codes = [...new Set(holding.map(t => t.symbolCode).filter((c): c is string => !!c))]
+    if (codes.length === 0) return
+    setPricesLoading(true)
+    try {
+      const res = await apiFetch(`/api/stock-price?codes=${codes.join(',')}`)
+      const json = await res.json()
+      if (Array.isArray(json?.data)) {
+        const map: Record<string, number> = {}
+        for (const item of json.data) map[item.code] = Number(item.price)
+        setPriceMap(prev => ({ ...prev, ...map }))
+      }
+    } finally {
+      setPricesLoading(false)
+    }
+  }
+
   return (
     <div className="min-h-screen">
       <header className="bg-white border-b px-4 py-3 flex justify-between items-center sticky top-0 z-10">
@@ -316,9 +335,9 @@ export default function HomePage() {
         {viewMode !== 'calendar' && holding.length > 0 && (
           <div className="max-w-2xl mx-auto">
             <div className="rounded-lg border bg-white overflow-hidden">
-              <button
+              <div
                 onClick={() => setHoldingOpen(v => !v)}
-                className="w-full flex items-center justify-between px-3 py-1.5 bg-gray-50 border-b hover:bg-gray-100 transition-colors"
+                className="w-full flex items-center justify-between px-3 py-1.5 bg-gray-50 border-b hover:bg-gray-100 transition-colors cursor-pointer"
               >
                 <span className="text-xs text-gray-500 font-medium flex items-center gap-2">
                   보유 종목 <span className="text-gray-400">{holding.length}</span>
@@ -329,13 +348,23 @@ export default function HomePage() {
                     </span>
                   )}
                 </span>
-                <span className="text-xs text-gray-400">{holdingOpen ? '▲' : '▼'}</span>
-              </button>
+                <span className="flex items-center gap-2">
+                  <button
+                    onClick={e => { e.stopPropagation(); loadPrices() }}
+                    disabled={pricesLoading}
+                    className="text-xs px-2 py-0.5 rounded border text-blue-600 border-blue-200 hover:bg-blue-50 disabled:opacity-50"
+                  >
+                    {pricesLoading ? '조회중...' : '현재가 새로고침'}
+                  </button>
+                  <span className="text-xs text-gray-400">{holdingOpen ? '▲' : '▼'}</span>
+                </span>
+              </div>
               {holdingOpen && (
                 <>
-                  <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] text-xs text-gray-400 bg-gray-50 border-b px-3 py-1.5 gap-3">
+                  <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto] text-xs text-gray-400 bg-gray-50 border-b px-3 py-1.5 gap-3">
                     <span>종목</span>
                     <span className="text-right">평균매수가</span>
+                    <span className="text-right">평가손익</span>
                     <span className="text-right">잔여</span>
                     <span className="text-right">보유일</span>
                     <span />
@@ -345,9 +374,12 @@ export default function HomePage() {
                     const rows = simRows[trade.id] ?? []
                     const saved = savedSims[trade.id] ?? []
                     const newAvg = calcNewAvg(trade, rows, saved)
+                    const currentPrice = trade.symbolCode ? priceMap[trade.symbolCode] : undefined
+                    const evalProfit = currentPrice != null ? (currentPrice - trade.avgBuyPrice) * trade.remainingQuantity : null
+                    const evalRate = currentPrice != null && trade.avgBuyPrice > 0 ? (currentPrice / trade.avgBuyPrice - 1) * 100 : null
                     return (
                       <div key={trade.id} className="border-b last:border-b-0">
-                        <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] items-center px-3 py-2 gap-3 hover:bg-gray-50">
+                        <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto] items-center px-3 py-2 gap-3 hover:bg-gray-50">
                           <button
                             onClick={() => setSymbolFilter(prev => prev === trade.symbol ? null : trade.symbol)}
                             className={`font-medium text-sm text-left ${symbolFilter === trade.symbol ? 'text-blue-600 underline' : 'text-gray-700 hover:text-blue-500'}`}
@@ -363,6 +395,18 @@ export default function HomePage() {
                                   <span className="text-[10px] text-blue-400">↓{Math.round((trade.stopLossPrice / trade.avgBuyPrice - 1) * 100)}%</span>
                                 )}
                               </div>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            {evalProfit != null ? (
+                              <>
+                                <span className={`text-xs font-medium tabular-nums ${evalProfit >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                                  {(evalProfit >= 0 ? '+' : '') + formatKRW(Math.round(evalProfit))}
+                                </span>
+                                <div className={`text-[10px] ${evalProfit >= 0 ? 'text-red-400' : 'text-blue-400'}`}>{formatRate(evalRate)}</div>
+                              </>
+                            ) : (
+                              <span className="text-xs text-gray-300">-</span>
                             )}
                           </div>
                           <span className="text-xs text-gray-400 text-right">{trade.remainingQuantity}주</span>
@@ -449,6 +493,7 @@ export default function HomePage() {
             trades={displayTrades}
             accounts={accounts}
             symbolTypeMap={symbolTypeMap}
+            priceMap={priceMap}
             onEdit={trade => { setEditTrade(trade); setShowModal(true) }}
             onDelete={async trade => { await apiFetch(`/api/trades/${trade.id}`, { method: 'DELETE' }); load() }}
           />
