@@ -22,6 +22,7 @@ export default function CoinsPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [viewMode, setViewMode] = useState<'list' | 'calendar' | 'timeline'>('list')
+  const [noPlanFilter, setNoPlanFilter] = useState(false)
   const [holdingOpen, setHoldingOpen] = useState(false)
   const [simRows, setSimRows] = useState<Record<string, { price: string; qty: string }[]>>({})
   const [savedSims, setSavedSims] = useState<Record<string, { id: string; price: number; quantity: number }[]>>({})
@@ -118,8 +119,9 @@ export default function CoinsPage() {
     })
   }, [trades])
 
-  const holding = trades.filter(t => !t.isCompleted)
-  const completed = trades.filter(t => t.isCompleted)
+  const displayTrades = trades.filter(t => !noPlanFilter || !t.plannedHoldingPeriod)
+  const holding = displayTrades.filter(t => !t.isCompleted)
+  const completed = displayTrades.filter(t => t.isCompleted)
   const totalProfit = completed.reduce((s, t) => s + t.profitAmount, 0)
 
   return (
@@ -185,6 +187,16 @@ export default function CoinsPage() {
               </button>
             ))}
           </div>
+          <button
+            onClick={() => setNoPlanFilter(v => !v)}
+            className={`text-sm px-3 py-1.5 rounded border whitespace-nowrap transition-colors ${
+              noPlanFilter
+                ? 'bg-amber-50 border-amber-300 text-amber-700'
+                : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            계획 없음
+          </button>
         </div>
 
         {/* 보유 종목 요약 — 평균매수가 · 추가매수 시뮬 */}
@@ -290,20 +302,19 @@ export default function CoinsPage() {
         {/* 목록 / 달력 / 복기 */}
         {viewMode === 'calendar' ? (
           <CoinCalendar
-            trades={trades}
+            trades={displayTrades}
             onEdit={trade => { setEditTrade(trade); setShowModal(true) }}
             onDelete={async trade => { await apiFetch(`/api/coins/${trade.id}`, { method: 'DELETE' }); load() }}
           />
         ) : viewMode === 'timeline' ? (
           <CoinTimeline
-            trades={trades}
+            trades={displayTrades}
             onEdit={trade => { setEditTrade(trade); setShowModal(true) }}
-            onDelete={async trade => { await apiFetch(`/api/coins/${trade.id}`, { method: 'DELETE' }); load() }}
           />
         ) : (
           <div className="max-w-4xl mx-auto">
             <CoinHistory
-              trades={trades}
+              trades={displayTrades}
               onEdit={trade => { setEditTrade(trade); setShowModal(true) }}
               onDelete={async trade => { await apiFetch(`/api/coins/${trade.id}`, { method: 'DELETE' }); load() }}
             />

@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import type { Trade, Account, TradeImage } from '@/lib/types'
+import { HOLDING_PLAN_OPTIONS, type Trade, type Account, type TradeImage } from '@/lib/types'
 import { formatKRW, formatRate } from '@/lib/utils'
 import TradeChart from './TradeChart'
 import TradeImageZone from './TradeImageZone'
@@ -17,13 +17,14 @@ interface Props {
   accounts: Account[]
   symbolTypeMap?: Record<string, string>
   onEdit: (trade: Trade) => void
-  onDelete: (trade: Trade) => void
 }
 
 type WinFilter = 'all' | 'win' | 'loss'
 type GroupMode = 'week' | 'month'
 const COLUMNS_SHOWN = 4
 const MARKET_TYPES = ['코스피', '코스닥', 'ETF'] as const
+const NO_PLAN = '계획 없음'
+const PLAN_OPTIONS = [...HOLDING_PLAN_OPTIONS, NO_PLAN] as const
 
 function getWeekStart(d: Date) {
   const day = (d.getDay() + 6) % 7 // 월=0 ... 일=6
@@ -54,11 +55,12 @@ function rateTier(rate: number) {
   return RATE_TIERS.find(t => t.test(rate))!
 }
 
-export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, onEdit, onDelete }: Props) {
+export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, onEdit }: Props) {
   const [winFilter, setWinFilter] = useState<WinFilter>('all')
   const [marketFilters, setMarketFilters] = useState<string[]>([])
   const [tierFilters, setTierFilters] = useState<string[]>([])
-  const [groupMode, setGroupMode] = useState<GroupMode>('month')
+  const [planFilters, setPlanFilters] = useState<string[]>([])
+  const [groupMode, setGroupMode] = useState<GroupMode>('week')
   const [offset, setOffset] = useState(0) // 0 = 이번 주/달이 가장 오른쪽
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [imagesMap, setImagesMap] = useState<Record<string, TradeImage[]>>({})
@@ -74,6 +76,10 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
 
   function toggleTier(id: string) {
     setTierFilters(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id])
+  }
+
+  function togglePlan(plan: string) {
+    setPlanFilters(prev => prev.includes(plan) ? prev.filter(p => p !== plan) : [...prev, plan])
   }
 
   function toggleExpand(tradeId: string) {
@@ -102,11 +108,19 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
       .filter(r => winFilter === 'all' || (winFilter === 'win' ? r.isWin : !r.isWin))
       .filter(r => marketFilters.length === 0 || marketFilters.includes(symbolTypeMap[r.trade.symbol] ?? ''))
       .filter(r => tierFilters.length === 0 || tierFilters.includes(rateTier(r.trade.profitRate).id))
-  }, [trades, winFilter, marketFilters, tierFilters, symbolTypeMap])
+      .filter(r => planFilters.length === 0 || planFilters.includes(r.trade.plannedHoldingPeriod || NO_PLAN))
+  }, [trades, winFilter, marketFilters, tierFilters, planFilters, symbolTypeMap])
+
+  // 거래 없는 최근 주/달이 오른쪽에 비어 보이지 않도록, 가장 최근 거래가 있는 시점을 기준으로 삼음
+  const anchorDate = useMemo(() => {
+    if (rows.length === 0) return new Date()
+    const maxExit = rows.reduce((max, r) => r.exitDate > max ? r.exitDate : max, rows[0].exitDate)
+    return new Date(maxExit.slice(0, 10))
+  }, [rows])
 
   const columns = useMemo(() => {
     if (groupMode === 'week') {
-      const thisWeekStart = getWeekStart(new Date())
+      const thisWeekStart = getWeekStart(anchorDate)
       return Array.from({ length: COLUMNS_SHOWN }, (_, i) => {
         const backFromNewest = offset + (COLUMNS_SHOWN - 1 - i)
         const start = addDays(thisWeekStart, -backFromNewest * 7)
@@ -120,8 +134,7 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
         return { label: `${fmtMD(start)} ~ ${fmtMD(end)}`, items, total }
       })
     }
-    const today = new Date()
-    const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+    const thisMonthStart = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), 1)
     return Array.from({ length: COLUMNS_SHOWN }, (_, i) => {
       const backFromNewest = offset + (COLUMNS_SHOWN - 1 - i)
       const start = new Date(thisMonthStart.getFullYear(), thisMonthStart.getMonth() - backFromNewest, 1)
@@ -132,7 +145,7 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
       const total = items.reduce((s, r) => s + r.trade.profitAmount, 0)
       return { label: fmtYM(start), items, total }
     })
-  }, [rows, offset, groupMode])
+  }, [rows, offset, groupMode, anchorDate])
 
   const totalCount = rows.length
   const winCount = rows.filter(r => r.isWin).length
@@ -184,6 +197,20 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
               />
               <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${tier.dot}`} />
               <span className="text-sm text-gray-700">{tier.label}</span>
+            </label>
+          ))}
+        </div>
+
+        <div className="bg-white rounded-lg border p-2 space-y-1">
+          {PLAN_OPTIONS.map(plan => (
+            <label key={plan} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-gray-50 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={planFilters.includes(plan)}
+                onChange={() => togglePlan(plan)}
+                className="accent-blue-600"
+              />
+              <span className="text-sm text-gray-700">{plan}</span>
             </label>
           ))}
         </div>
@@ -279,11 +306,14 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
                           <button onClick={() => toggleExpand(trade.id)} className="text-[11px] text-gray-500 hover:text-gray-800 px-1.5 py-0.5 border rounded">
                             {isExpanded ? '▲ 접기' : '▼ 상세'}
                           </button>
-                          <button onClick={() => onEdit(trade)} className="text-[11px] text-gray-500 hover:text-gray-800 px-1.5 py-0.5 border rounded">수정</button>
                           <button
-                            onClick={() => { if (confirm(`"${trade.symbol}" 거래를 삭제하시겠습니까?`)) onDelete(trade) }}
-                            className="text-[11px] text-red-400 hover:text-red-600 px-1.5 py-0.5 border border-red-200 rounded"
-                          >삭제</button>
+                            onClick={() => onEdit(trade)}
+                            className={`text-[11px] px-1.5 py-0.5 border rounded ${
+                              !trade.plannedHoldingPeriod
+                                ? 'bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100'
+                                : 'text-gray-500 hover:text-gray-800'
+                            }`}
+                          >수정</button>
                         </div>
                       </div>
 

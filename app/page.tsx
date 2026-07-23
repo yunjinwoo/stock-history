@@ -93,6 +93,7 @@ export default function HomePage() {
   const [tagDropdownOpen, setTagDropdownOpen] = useState(false)
   const [tagSearch, setTagSearch] = useState('')
   const [symbolFilter, setSymbolFilter] = useState<string | null>(null)
+  const [noPlanFilter, setNoPlanFilter] = useState(false)
   const [viewMode, setViewMode] = useState<'card' | 'table' | 'calendar' | 'symbol' | 'timeline'>('table')
 
   const loadAccounts = useCallback(async () => {
@@ -176,6 +177,7 @@ export default function HomePage() {
   const displayTrades = trades.filter(t => {
     if (symbolFilter && t.symbol !== symbolFilter) return false
     if (tagFilters.length > 0 && !tagFilters.some(tag => symbolTagMap[t.symbol]?.includes(tag))) return false
+    if (noPlanFilter && t.plannedHoldingPeriod) return false
     return true
   })
 
@@ -238,6 +240,16 @@ export default function HomePage() {
                 <option key={a.id} value={a.id}>{a.nickname || `${a.broker} ${a.accountNumber}`}</option>
               ))}
             </select>
+            <button
+              onClick={() => setNoPlanFilter(v => !v)}
+              className={`text-sm px-3 py-1.5 rounded border whitespace-nowrap transition-colors ${
+                noPlanFilter
+                  ? 'bg-amber-50 border-amber-300 text-amber-700'
+                  : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              계획 없음
+            </button>
             {allTags.length > 0 && (
             <div className="relative">
               <button
@@ -454,7 +466,6 @@ export default function HomePage() {
             accounts={accounts}
             symbolTypeMap={symbolTypeMap}
             onEdit={trade => { setEditTrade(trade); setShowModal(true) }}
-            onDelete={async trade => { await apiFetch(`/api/trades/${trade.id}`, { method: 'DELETE' }); load() }}
           />
         ) : (
           <div className="max-w-2xl mx-auto space-y-2">
