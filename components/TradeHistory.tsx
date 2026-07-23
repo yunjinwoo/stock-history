@@ -35,6 +35,7 @@ interface Props {
   trades: Trade[];
   accounts: Account[];
   symbolTypeMap?: Record<string, string>;
+  priceMap?: Record<string, number>;
   onEdit: (trade: Trade) => void;
   onDelete: (trade: Trade) => void;
 }
@@ -50,6 +51,7 @@ export default function TradeHistory({
   trades,
   accounts,
   symbolTypeMap = {},
+  priceMap = {},
   onEdit,
   onDelete,
 }: Props) {
@@ -353,6 +355,17 @@ export default function TradeHistory({
                             {formatKRW(Math.round(trade.avgBuyPrice))}
                           </span>
                         )}
+                        {!trade.isCompleted && trade.symbolCode && priceMap[trade.symbolCode] != null && (() => {
+                          const currentPrice = priceMap[trade.symbolCode!];
+                          const evalProfit = (currentPrice - trade.avgBuyPrice) * trade.remainingQuantity;
+                          const evalRate = trade.avgBuyPrice > 0 ? (currentPrice / trade.avgBuyPrice - 1) * 100 : 0;
+                          return (
+                            <span className={`text-xs font-medium whitespace-nowrap ${evalProfit >= 0 ? "text-red-500" : "text-blue-500"}`}>
+                              {(evalProfit >= 0 ? "+" : "") + formatKRW(Math.round(evalProfit))}
+                              <span className="hidden sm:inline"> ({formatRate(evalRate)})</span>
+                            </span>
+                          );
+                        })()}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -391,6 +404,7 @@ export default function TradeHistory({
                         isCompleted={trade.isCompleted}
                         targetPrice={trade.targetPrice}
                         stopLossPrice={trade.stopLossPrice}
+                        currentPrice={trade.symbolCode ? priceMap[trade.symbolCode] : undefined}
                       />
                     )}
 

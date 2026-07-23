@@ -19,6 +19,7 @@ interface Props {
   isCompleted: boolean
   targetPrice?: number | null
   stopLossPrice?: number | null
+  currentPrice?: number | null
 }
 
 function toTs(date: string) {
@@ -35,18 +36,18 @@ function CustomTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null
   const point = payload[0]?.payload
   if (!point) return null
-  const { date, price, quantity } = point
-  if (price == null) return null
+  const { date, y, quantity, label } = point
+  if (y == null) return null
   return (
     <div className="bg-white border rounded shadow px-2 py-1.5 text-xs space-y-0.5">
       <p className="text-gray-500">{date?.slice(0, 10)}</p>
-      <p className="font-medium">{formatKRW(price)}</p>
-      <p className="text-gray-400">{quantity}주</p>
+      <p className="font-medium">{formatKRW(y)}</p>
+      <p className="text-gray-400">{label ?? `${quantity}주`}</p>
     </div>
   )
 }
 
-export default function TradeChart({ buyEntries, sellEntries, avgBuyPrice, isCompleted, targetPrice, stopLossPrice }: Props) {
+export default function TradeChart({ buyEntries, sellEntries, avgBuyPrice, isCompleted, targetPrice, stopLossPrice, currentPrice }: Props) {
   const buyData = buyEntries.map(e => ({ date: e.date, x: toTs(e.date), y: e.price, quantity: e.quantity }))
   const sellData = sellEntries.map(e => ({ date: e.date, x: toTs(e.date), y: e.price, quantity: e.quantity }))
 
@@ -56,7 +57,14 @@ export default function TradeChart({ buyEntries, sellEntries, avgBuyPrice, isCom
 
   const minTs = Math.min(...allTs)
   const maxTs = isCompleted ? Math.max(...allTs) : Date.now()
-  const refPrices = [avgBuyPrice, targetPrice, stopLossPrice].filter((p): p is number => p != null)
+
+  // 보유중인 거래만 오늘 날짜에 평균가/현재가 점을 찍음
+  const todayTs = Date.now()
+  const todayStr = new Date(todayTs).toISOString()
+  const avgData = !isCompleted ? [{ date: todayStr, x: todayTs, y: avgBuyPrice, label: '평균가' }] : []
+  const currentData = !isCompleted && currentPrice != null ? [{ date: todayStr, x: todayTs, y: currentPrice, label: '현재가' }] : []
+
+  const refPrices = [targetPrice, stopLossPrice, avgBuyPrice, currentPrice].filter((p): p is number => p != null)
   const minPrice = Math.min(...allPrices, ...refPrices)
   const maxPrice = Math.max(...allPrices, ...refPrices)
   const pad = (maxPrice - minPrice) * 0.2 || maxPrice * 0.1
@@ -93,12 +101,6 @@ export default function TradeChart({ buyEntries, sellEntries, avgBuyPrice, isCom
             iconSize={8}
             wrapperStyle={{ fontSize: 11, paddingTop: 4 }}
           />
-          <ReferenceLine
-            y={avgBuyPrice}
-            stroke="#93c5fd"
-            strokeDasharray="4 3"
-            label={{ value: `평균 ${formatKRW(Math.round(avgBuyPrice))}`, position: 'insideTopRight', fontSize: 10, fill: '#60a5fa' }}
-          />
           {targetPrice != null && (
             <ReferenceLine
               y={targetPrice}
@@ -117,6 +119,12 @@ export default function TradeChart({ buyEntries, sellEntries, avgBuyPrice, isCom
           )}
           <Scatter name="매수" data={buyData} fill="#3b82f6" opacity={0.85} />
           <Scatter name="매도" data={sellData} fill="#f97316" opacity={0.85} />
+          {avgData.length > 0 && (
+            <Scatter name="평균가" data={avgData} fill="#60a5fa" shape="diamond" />
+          )}
+          {currentData.length > 0 && (
+            <Scatter name="현재가" data={currentData} fill="#10b981" shape="star" />
+          )}
         </ScatterChart>
       </ResponsiveContainer>
     </div>
