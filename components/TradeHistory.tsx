@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import type { Trade, Account, TradeImage } from "@/lib/types";
 // TradeImage used in imagesMap state below
-import { formatKRW, formatRate, lastEntryDate } from "@/lib/utils";
+import { formatKRW, formatRate, lastEntryDate, planStatus } from "@/lib/utils";
 import { apiFetch } from "@/lib/api";
 import TradeImageZone from "./TradeImageZone";
 import TradeChart from "./TradeChart";
@@ -23,6 +23,12 @@ const TYPE_STYLE: Record<string, string> = {
   코스피: "bg-blue-50 text-blue-600 border-blue-200",
   코스닥: "bg-green-50 text-green-600 border-green-200",
   ETF: "bg-purple-50 text-purple-600 border-purple-200",
+};
+
+const PLAN_TONE_STYLE: Record<"neutral" | "good" | "bad", string> = {
+  neutral: "border-gray-200 text-gray-500 bg-white",
+  good: "border-green-200 text-green-600 bg-green-50",
+  bad: "border-orange-200 text-orange-600 bg-orange-50",
 };
 
 interface Props {
@@ -280,6 +286,14 @@ export default function TradeHistory({
                             ? ` · 매도 ${trade.sellEntries.length}건`
                             : ""}
                         </span>
+                        {(() => {
+                          const plan = planStatus(trade);
+                          return plan && (
+                            <span className={`text-xs px-1.5 py-0.5 rounded border ${PLAN_TONE_STYLE[plan.tone]}`}>
+                              📋 {plan.label}
+                            </span>
+                          );
+                        })()}
                       </div>
                       <div className="flex items-center gap-1.5 flex-wrap justify-end">
                         {!trade.isCompleted ? (
@@ -375,6 +389,8 @@ export default function TradeHistory({
                         sellEntries={trade.sellEntries}
                         avgBuyPrice={trade.avgBuyPrice}
                         isCompleted={trade.isCompleted}
+                        targetPrice={trade.targetPrice}
+                        stopLossPrice={trade.stopLossPrice}
                       />
                     )}
 

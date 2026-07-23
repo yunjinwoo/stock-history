@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import type { CoinTrade } from '@/lib/types'
+import { HOLDING_PLAN_OPTIONS, type CoinTrade } from '@/lib/types'
 import { apiFetch } from '@/lib/api'
 import { uuid, today } from '@/lib/utils'
 import { parsePastedText } from '@/lib/coinParser'
@@ -90,6 +90,7 @@ export default function CoinModal({ trade, onClose, onSave, symbols = [] }: Prop
   // 수정 폼 (기존 거래)
   const [symbol, setSymbol] = useState(trade?.symbol ?? '')
   const [comment, setComment] = useState(trade?.comment ?? '')
+  const [plannedHoldingPeriod, setPlannedHoldingPeriod] = useState(trade?.plannedHoldingPeriod ?? '')
   const [buyEntries, setBuyEntries] = useState<EntryRow[]>(trade ? trade.buyEntries.map(toEntry) : [])
   const [sellEntries, setSellEntries] = useState<EntryRow[]>(trade ? trade.sellEntries.map(toEntry) : [])
 
@@ -154,6 +155,7 @@ export default function CoinModal({ trade, onClose, onSave, symbols = [] }: Prop
       const payload = {
         symbol: symbol.trim(),
         comment: comment.trim() || null,
+        plannedHoldingPeriod: plannedHoldingPeriod || null,
         buyEntries: validBuy.map(r => ({ date: `${r.date}T00:00:00`, price: Number(r.price.replace(/,/g, '')), quantity: Number(r.quantity.replace(/,/g, '')) })),
         sellEntries: validSell.map(r => ({ date: `${r.date}T00:00:00`, price: Number(r.price.replace(/,/g, '')), quantity: Number(r.quantity.replace(/,/g, '')) })),
       }
@@ -255,6 +257,13 @@ export default function CoinModal({ trade, onClose, onSave, symbols = [] }: Prop
                   </div>
                 )
               })()}
+              <div>
+                <label className={labelCls}>매매 계획</label>
+                <select value={plannedHoldingPeriod} onChange={e => setPlannedHoldingPeriod(e.target.value)} className={inputCls}>
+                  <option value="">계획 없음</option>
+                  {HOLDING_PLAN_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </div>
               <div>
                 <label className={labelCls}>코멘트</label>
                 <textarea value={comment} onChange={e => setComment(e.target.value)} className={`${inputCls} h-20 resize-none`} placeholder="매매 이유, 전략 등..." maxLength={500} />

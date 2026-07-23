@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 import type { CoinTrade } from "@/lib/types";
-import { formatKRW, formatRate, formatQty, lastEntryDate } from "@/lib/utils";
+import { formatKRW, formatRate, formatQty, lastEntryDate, planStatus } from "@/lib/utils";
+
+const PLAN_TONE_STYLE: Record<"neutral" | "good" | "bad", string> = {
+  neutral: "border-gray-200 text-gray-500 bg-white",
+  good: "border-green-200 text-green-600 bg-green-50",
+  bad: "border-orange-200 text-orange-600 bg-orange-50",
+};
 import TradeChart from "./TradeChart";
 
 interface Props {
@@ -110,6 +116,14 @@ export default function CoinHistory({ trades, onEdit, onDelete }: Props) {
                     ? ` · 매도 ${trade.sellEntries.length}건`
                     : ""}
                 </span>
+                {(() => {
+                  const plan = planStatus(trade);
+                  return plan && (
+                    <span className={`text-xs px-1.5 py-0.5 rounded border ${PLAN_TONE_STYLE[plan.tone]}`}>
+                      📋 {plan.label}
+                    </span>
+                  );
+                })()}
               </div>
               <div className="flex items-center gap-1.5 flex-wrap justify-end">
                 {!trade.isCompleted ? (
