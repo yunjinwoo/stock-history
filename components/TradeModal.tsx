@@ -262,7 +262,7 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center px-5 py-4 border-b">
           <h2 className="font-semibold">{trade ? '거래 수정' : mergeTarget ? `${mergeTarget.symbol} 포지션에 추가` : '새 거래 입력'}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
@@ -325,8 +325,10 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
                 </div>
               </div>
 
-              <EntrySection type="sellEntries" label="매도 내역" entries={form.sellEntries} onUpdate={updateEntry} onAdd={addEntry} onRemove={removeEntry} />
-              <EntrySection type="buyEntries" label="매수 내역" entries={form.buyEntries} onUpdate={updateEntry} onAdd={addEntry} onRemove={removeEntry} />
+              <div className="grid grid-cols-2 gap-3">
+                <EntrySection type="sellEntries" label="매도 내역" entries={form.sellEntries} onUpdate={updateEntry} onAdd={addEntry} onRemove={removeEntry} />
+                <EntrySection type="buyEntries" label="매수 내역" entries={form.buyEntries} onUpdate={updateEntry} onAdd={addEntry} onRemove={removeEntry} />
+              </div>
 
               {(buyTotal > 0 || sellTotal > 0) && (
                 <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-1">
