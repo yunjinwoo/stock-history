@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import type { Trade, Account } from '@/lib/types'
+import { HOLDING_PLAN_OPTIONS, HOLDING_PLAN_STOP_LOSS_PCT, HOLDING_PLAN_TARGET_PCT, type HoldingPlan, type Trade, type Account } from '@/lib/types'
 import type { ParsedTrade } from '@/lib/kakaoParser'
 import KakaoParser from './KakaoParser'
 import { apiFetch } from '@/lib/api'
@@ -34,6 +34,7 @@ interface FormState {
   exitComment: string
   targetPrice: string
   stopLossPrice: string
+  plannedHoldingPeriod: string
   buyEntries: EntryRow[]
   sellEntries: EntryRow[]
 }
@@ -103,6 +104,8 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [mergeTarget, setMergeTarget] = useState<Trade | null>(null)
+  const [stopLossTouched, setStopLossTouched] = useState(!!trade?.stopLossPrice)
+  const [targetTouched, setTargetTouched] = useState(!!trade?.targetPrice)
 
   const [form, setForm] = useState<FormState>({
     accountId: trade?.accountId ?? defaultAccountId ?? accounts[0]?.id ?? '',
@@ -112,6 +115,7 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
     exitComment: trade?.exitComment ?? '',
     targetPrice: trade?.targetPrice ? trade.targetPrice.toString() : '',
     stopLossPrice: trade?.stopLossPrice ? trade.stopLossPrice.toString() : '',
+    plannedHoldingPeriod: trade?.plannedHoldingPeriod ?? '',
     buyEntries: trade ? trade.buyEntries.map(toEntry) : [],
     sellEntries: trade ? trade.sellEntries.map(toEntry) : [],
   })
@@ -124,6 +128,29 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
 
   const buyTotal = useMemo(() => form.buyEntries.reduce((sum, r) => sum + rowAmount(r), 0), [form.buyEntries])
   const sellTotal = useMemo(() => form.sellEntries.reduce((sum, r) => sum + rowAmount(r), 0), [form.sellEntries])
+
+  const avgBuyPrice = useMemo(() => {
+    const validRows = form.buyEntries.filter(r => r.price && r.quantity)
+    const qty = validRows.reduce((s, r) => s + Number(r.quantity.replace(/,/g, '')), 0)
+    if (qty <= 0) return 0
+    return validRows.reduce((s, r) => s + Number(r.price.replace(/,/g, '')) * Number(r.quantity.replace(/,/g, '')), 0) / qty
+  }, [form.buyEntries])
+
+  useEffect(() => {
+    if (stopLossTouched || !form.plannedHoldingPeriod || avgBuyPrice <= 0) return
+    const pct = HOLDING_PLAN_STOP_LOSS_PCT[form.plannedHoldingPeriod as HoldingPlan]
+    if (pct == null) return
+    const suggested = Math.round(avgBuyPrice * (1 - pct / 100))
+    setForm(f => ({ ...f, stopLossPrice: String(suggested) }))
+  }, [form.plannedHoldingPeriod, avgBuyPrice, stopLossTouched])
+
+  useEffect(() => {
+    if (targetTouched || !form.plannedHoldingPeriod || avgBuyPrice <= 0) return
+    const pct = HOLDING_PLAN_TARGET_PCT[form.plannedHoldingPeriod as HoldingPlan]
+    if (pct == null) return
+    const suggested = Math.round(avgBuyPrice * (1 + pct / 100))
+    setForm(f => ({ ...f, targetPrice: String(suggested) }))
+  }, [form.plannedHoldingPeriod, avgBuyPrice, targetTouched])
 
   const existingHolding = !trade && !mergeTarget && trades
     ? trades.find(t => t.accountId === form.accountId && t.symbol === form.symbol.trim() && !t.isCompleted) ?? null
@@ -206,6 +233,7 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
         exitComment: form.exitComment.trim() || null,
         targetPrice: form.targetPrice ? Number(form.targetPrice.replace(/,/g, '')) : null,
         stopLossPrice: form.stopLossPrice ? Number(form.stopLossPrice.replace(/,/g, '')) : null,
+        plannedHoldingPeriod: form.plannedHoldingPeriod || null,
         buyEntries: validBuy.map(r => ({
           date: toDateTimeStr(r.date, r.time),
           price: Number(r.price.replace(/,/g, '')),
@@ -317,6 +345,14 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
                 </div>
               )}
 
+              <div>
+                <label className={labelCls}>매매 계획</label>
+                <select value={form.plannedHoldingPeriod} onChange={e => setField('plannedHoldingPeriod', e.target.value)} className={inputCls}>
+                  <option value="">계획 없음</option>
+                  {HOLDING_PLAN_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelCls}>목표가</label>
@@ -324,10 +360,19 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
                     type="text"
                     inputMode="numeric"
                     value={form.targetPrice}
-                    onChange={e => setField('targetPrice', e.target.value.replace(/,/g, ''))}
+                    onChange={e => { setField('targetPrice', e.target.value.replace(/,/g, '')); setTargetTouched(true) }}
                     className={inputCls}
                     placeholder="매도 목표가"
                   />
+                  {form.plannedHoldingPeriod && (
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {targetTouched
+                        ? <button type="button" onClick={() => setTargetTouched(false)} className="text-blue-400 hover:text-blue-600">
+                            {form.plannedHoldingPeriod} 기준 +{HOLDING_PLAN_TARGET_PCT[form.plannedHoldingPeriod as HoldingPlan]}%로 재계산
+                          </button>
+                        : `${form.plannedHoldingPeriod} 기준 +${HOLDING_PLAN_TARGET_PCT[form.plannedHoldingPeriod as HoldingPlan]}% 자동 입력됨`}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className={labelCls}>손절가</label>
@@ -335,10 +380,19 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
                     type="text"
                     inputMode="numeric"
                     value={form.stopLossPrice}
-                    onChange={e => setField('stopLossPrice', e.target.value.replace(/,/g, ''))}
+                    onChange={e => { setField('stopLossPrice', e.target.value.replace(/,/g, '')); setStopLossTouched(true) }}
                     className={inputCls}
                     placeholder="손절 가격"
                   />
+                  {form.plannedHoldingPeriod && (
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {stopLossTouched
+                        ? <button type="button" onClick={() => setStopLossTouched(false)} className="text-blue-400 hover:text-blue-600">
+                            {form.plannedHoldingPeriod} 기준 -{HOLDING_PLAN_STOP_LOSS_PCT[form.plannedHoldingPeriod as HoldingPlan]}%로 재계산
+                          </button>
+                        : `${form.plannedHoldingPeriod} 기준 -${HOLDING_PLAN_STOP_LOSS_PCT[form.plannedHoldingPeriod as HoldingPlan]}% 자동 입력됨`}
+                    </p>
+                  )}
                 </div>
               </div>
 

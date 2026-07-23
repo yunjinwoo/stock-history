@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { symbol, comment, buyEntries = [], sellEntries = [] } = body
+  const { symbol, comment, plannedHoldingPeriod, buyEntries = [], sellEntries = [] } = body
 
   if (!symbol) return NextResponse.json({ error: '종목명은 필수입니다.' }, { status: 400 })
   if (buyEntries.length === 0 && sellEntries.length === 0)
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
   } else {
     trade = await prisma.coinTrade.create({
       data: {
-        id: uuid(), symbol, comment: comment || null, createdAt: now, updatedAt: now,
+        id: uuid(), symbol, comment: comment || null, plannedHoldingPeriod: plannedHoldingPeriod || null, createdAt: now, updatedAt: now,
         buyEntries: { create: makeEntries(buyEntries) },
         sellEntries: { create: makeEntries(sellEntries) },
       },

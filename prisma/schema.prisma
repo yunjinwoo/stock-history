@@ -19,20 +19,21 @@ model Account {
 }
 
 model Trade {
-  id            String       @id
-  accountId     String
-  symbol        String
-  symbolCode    String?
-  comment       String?
-  exitComment   String?
-  targetPrice   Float?
-  stopLossPrice Float?
-  createdAt     String
-  updatedAt     String
-  account       Account      @relation(fields: [accountId], references: [id])
-  buyEntries    BuyEntry[]
-  sellEntries   SellEntry[]
-  images        TradeImage[]
+  id                   String       @id
+  accountId            String
+  symbol               String
+  symbolCode           String?
+  comment              String?
+  exitComment          String?
+  targetPrice          Float?
+  stopLossPrice        Float?
+  plannedHoldingPeriod String?
+  createdAt            String
+  updatedAt            String
+  account              Account      @relation(fields: [accountId], references: [id])
+  buyEntries           BuyEntry[]
+  sellEntries          SellEntry[]
+  images               TradeImage[]
 }
 
 model TradeImage {
@@ -44,13 +45,14 @@ model TradeImage {
 }
 
 model CoinTrade {
-  id          String           @id
-  symbol      String
-  comment     String?
-  createdAt   String
-  updatedAt   String
-  buyEntries  CoinBuyEntry[]
-  sellEntries CoinSellEntry[]
+  id                   String           @id
+  symbol               String
+  comment              String?
+  plannedHoldingPeriod String?
+  createdAt            String
+  updatedAt            String
+  buyEntries           CoinBuyEntry[]
+  sellEntries          CoinSellEntry[]
 }
 
 model CoinBuyEntry {

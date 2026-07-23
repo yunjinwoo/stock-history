@@ -1,7 +1,7 @@
 import dayjs from 'dayjs'
-import type { Trade } from './types'
+import type { Trade, CoinTrade, HoldingPlan } from './types'
+import { HOLDING_PLAN_DAYS } from './types'
 import type { Trade as PrismaTrade, BuyEntry, SellEntry, TradeImage, CoinTrade as PrismaCoinTrade, CoinBuyEntry, CoinSellEntry } from '@prisma/client'
-import type { CoinTrade } from './types'
 
 export function uuid(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -17,6 +17,12 @@ type TradeWithEntries = PrismaTrade & { buyEntries: BuyEntry[]; sellEntries: Sel
 
 export function calcHoldingDays(from: string, to?: string | null): number {
   return Math.max(0, (to ? dayjs(to) : dayjs()).diff(dayjs(from), 'day'))
+}
+
+function calcPlanExceeded(plannedHoldingPeriod: string | null | undefined, holdingDays: number): boolean | null {
+  if (!plannedHoldingPeriod) return null
+  const maxDays = HOLDING_PLAN_DAYS[plannedHoldingPeriod as HoldingPlan]
+  return maxDays != null ? holdingDays > maxDays : null
 }
 
 export function enrichTrade(t: TradeWithEntries): Trade {
@@ -55,6 +61,7 @@ export function enrichTrade(t: TradeWithEntries): Trade {
     profitRate,
     holdingDays,
     isCompleted,
+    planExceeded: calcPlanExceeded(t.plannedHoldingPeriod, holdingDays),
   }
 }
 
@@ -95,6 +102,7 @@ export function enrichCoinTrade(t: CoinTradeWithEntries): CoinTrade {
     profitRate,
     holdingDays: calcHoldingDays(firstBuy, lastSell),
     isCompleted,
+    planExceeded: calcPlanExceeded(t.plannedHoldingPeriod, calcHoldingDays(firstBuy, lastSell)),
   }
 }
 
@@ -127,6 +135,14 @@ export function toDateTimeStr(date: string, time: string): string {
 
 export function formatKRW(n: number): string {
   return n.toLocaleString('ko-KR') + '원'
+}
+
+export function planStatus(trade: { plannedHoldingPeriod?: string | null; planExceeded: boolean | null }): { label: string; tone: 'neutral' | 'good' | 'bad' } | null {
+  if (!trade.plannedHoldingPeriod) return null
+  if (trade.planExceeded == null) return { label: trade.plannedHoldingPeriod, tone: 'neutral' }
+  return trade.planExceeded
+    ? { label: `${trade.plannedHoldingPeriod} 초과`, tone: 'bad' }
+    : { label: `${trade.plannedHoldingPeriod} 이내`, tone: 'good' }
 }
 
 export function formatRate(n: number | null | undefined): string {

@@ -17,6 +17,8 @@ interface Props {
   sellEntries: Entry[]
   avgBuyPrice: number
   isCompleted: boolean
+  targetPrice?: number | null
+  stopLossPrice?: number | null
 }
 
 function toTs(date: string) {
@@ -44,7 +46,7 @@ function CustomTooltip({ active, payload }: any) {
   )
 }
 
-export default function TradeChart({ buyEntries, sellEntries, avgBuyPrice, isCompleted }: Props) {
+export default function TradeChart({ buyEntries, sellEntries, avgBuyPrice, isCompleted, targetPrice, stopLossPrice }: Props) {
   const buyData = buyEntries.map(e => ({ date: e.date, x: toTs(e.date), y: e.price, quantity: e.quantity }))
   const sellData = sellEntries.map(e => ({ date: e.date, x: toTs(e.date), y: e.price, quantity: e.quantity }))
 
@@ -54,8 +56,9 @@ export default function TradeChart({ buyEntries, sellEntries, avgBuyPrice, isCom
 
   const minTs = Math.min(...allTs)
   const maxTs = isCompleted ? Math.max(...allTs) : Date.now()
-  const minPrice = Math.min(...allPrices, avgBuyPrice)
-  const maxPrice = Math.max(...allPrices, avgBuyPrice)
+  const refPrices = [avgBuyPrice, targetPrice, stopLossPrice].filter((p): p is number => p != null)
+  const minPrice = Math.min(...allPrices, ...refPrices)
+  const maxPrice = Math.max(...allPrices, ...refPrices)
   const pad = (maxPrice - minPrice) * 0.2 || maxPrice * 0.1
 
   return (
@@ -96,6 +99,22 @@ export default function TradeChart({ buyEntries, sellEntries, avgBuyPrice, isCom
             strokeDasharray="4 3"
             label={{ value: `평균 ${formatKRW(Math.round(avgBuyPrice))}`, position: 'insideTopRight', fontSize: 10, fill: '#60a5fa' }}
           />
+          {targetPrice != null && (
+            <ReferenceLine
+              y={targetPrice}
+              stroke="#ef4444"
+              strokeDasharray="4 3"
+              label={{ value: `목표 ${formatKRW(Math.round(targetPrice))}`, position: 'insideBottomRight', fontSize: 10, fill: '#ef4444' }}
+            />
+          )}
+          {stopLossPrice != null && (
+            <ReferenceLine
+              y={stopLossPrice}
+              stroke="#6b7280"
+              strokeDasharray="4 3"
+              label={{ value: `손절 ${formatKRW(Math.round(stopLossPrice))}`, position: 'insideBottomRight', fontSize: 10, fill: '#6b7280' }}
+            />
+          )}
           <Scatter name="매수" data={buyData} fill="#3b82f6" opacity={0.85} />
           <Scatter name="매도" data={sellData} fill="#f97316" opacity={0.85} />
         </ScatterChart>

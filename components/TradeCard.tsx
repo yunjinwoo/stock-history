@@ -2,7 +2,13 @@
 
 import { useState } from 'react'
 import type { Trade, Account, TradeImage } from '@/lib/types'
-import { formatKRW, formatRate } from '@/lib/utils'
+import { formatKRW, formatRate, planStatus } from '@/lib/utils'
+
+const PLAN_TONE_STYLE: Record<'neutral' | 'good' | 'bad', string> = {
+  neutral: 'border-gray-200 text-gray-500 bg-white',
+  good: 'border-green-200 text-green-600 bg-green-50',
+  bad: 'border-orange-200 text-orange-600 bg-orange-50',
+}
 import TradeImageZone from '@/components/TradeImageZone'
 
 const TYPE_STYLE: Record<string, string> = {
@@ -50,6 +56,14 @@ export default function TradeCard({ trade, account, marketType, onEdit, onDelete
           )}
           <span className="font-semibold">{trade.symbol}</span>
           {trade.symbolCode && <span className="text-gray-400 text-xs ml-1">({trade.symbolCode})</span>}
+          {(() => {
+            const plan = planStatus(trade)
+            return plan && (
+              <span className={`text-xs px-1.5 py-0.5 rounded border ml-1.5 ${PLAN_TONE_STYLE[plan.tone]}`}>
+                📋 {plan.label}
+              </span>
+            )
+          })()}
           {account && (
             <p className="text-gray-400 text-xs mt-0.5">
               {account.broker} · {account.nickname || account.accountNumber}

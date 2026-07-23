@@ -294,6 +294,8 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
                             sellEntries={trade.sellEntries}
                             avgBuyPrice={trade.avgBuyPrice}
                             isCompleted={trade.isCompleted}
+                            targetPrice={trade.targetPrice}
+                            stopLossPrice={trade.stopLossPrice}
                           />
                           <table className="w-full text-xs border-t">
                             <thead>
