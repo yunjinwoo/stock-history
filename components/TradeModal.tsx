@@ -115,7 +115,7 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
     exitComment: trade?.exitComment ?? '',
     targetPrice: trade?.targetPrice ? trade.targetPrice.toString() : '',
     stopLossPrice: trade?.stopLossPrice ? trade.stopLossPrice.toString() : '',
-    plannedHoldingPeriod: trade?.plannedHoldingPeriod ?? '',
+    plannedHoldingPeriod: trade?.plannedHoldingPeriod ?? '1주일',
     buyEntries: trade ? trade.buyEntries.map(toEntry) : [],
     sellEntries: trade ? trade.sellEntries.map(toEntry) : [],
   })
