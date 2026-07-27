@@ -28,6 +28,18 @@ export const HOLDING_PLAN_TARGET_PCT: Record<HoldingPlan, number> = {
   '6개월이상': 50,
 }
 
+// 매매 점수 (1~5점, 2/4점은 수익률로 자동 계산, 1/3/5점은 수동 평가)
+export const TRADE_SCORE_OPTIONS = [1, 2, 3, 4, 5] as const
+export type TradeScore = typeof TRADE_SCORE_OPTIONS[number]
+
+export const TRADE_SCORE_LABELS: Record<TradeScore, string> = {
+  1: '손절 실패',
+  2: '손절 준수',
+  3: '무난',
+  4: '목표 초과 수익',
+  5: '계획대로 익절',
+}
+
 export interface Account {
   id: string
   broker: string
@@ -67,6 +79,7 @@ export interface CoinTrade {
   symbol: string
   comment?: string | null
   plannedHoldingPeriod?: string | null
+  tradeScore?: number | null
   createdAt: string
   updatedAt: string
   buyEntries: CoinBuyEntry[]
@@ -108,6 +121,7 @@ export interface Trade {
   targetPrice?: number | null
   stopLossPrice?: number | null
   plannedHoldingPeriod?: string | null
+  tradeScore?: number | null
   createdAt: string
   updatedAt: string
   buyEntries: BuyEntry[]

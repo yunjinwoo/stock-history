@@ -124,6 +124,11 @@ export default function CoinHistory({ trades, onEdit, onDelete }: Props) {
                     </span>
                   );
                 })()}
+                {trade.isCompleted && trade.tradeScore != null && (
+                  <span className="text-xs px-1.5 py-0.5 rounded border border-yellow-200 text-yellow-600 bg-yellow-50">
+                    ⭐ {trade.tradeScore}점
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-1.5 flex-wrap justify-end">
                 {!trade.isCompleted ? (

@@ -145,6 +145,12 @@ export function planStatus(trade: { plannedHoldingPeriod?: string | null; planEx
     : { label: `${trade.plannedHoldingPeriod} 이내`, tone: 'good' }
 }
 
+export function calcAutoTradeScore(profitRate: number): number {
+  if (profitRate > 2) return 4
+  if (profitRate <= 0 && profitRate >= -5) return 2
+  return 3
+}
+
 export function formatRate(n: number | null | undefined): string {
   if (n == null || !isFinite(n)) return '-'
   return (n >= 0 ? '+' : '') + n.toFixed(1) + '%'

@@ -64,6 +64,11 @@ export default function TradeCard({ trade, account, marketType, onEdit, onDelete
               </span>
             )
           })()}
+          {trade.isCompleted && trade.tradeScore != null && (
+            <span className="text-xs px-1.5 py-0.5 rounded border ml-1.5 border-yellow-200 text-yellow-600 bg-yellow-50">
+              ⭐ {trade.tradeScore}점
+            </span>
+          )}
           {account && (
             <p className="text-gray-400 text-xs mt-0.5">
               {account.broker} · {account.nickname || account.accountNumber}

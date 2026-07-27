@@ -10,7 +10,7 @@ export async function PATCH(
 ) {
   const { id } = await params
   const body = await req.json()
-  const { symbol, comment, plannedHoldingPeriod, buyEntries = [], sellEntries = [] } = body
+  const { symbol, comment, plannedHoldingPeriod, tradeScore, buyEntries = [], sellEntries = [] } = body
   const now = new Date().toISOString()
 
   const trade = await prisma.$transaction(async (tx) => {
@@ -19,7 +19,9 @@ export async function PATCH(
     return tx.coinTrade.update({
       where: { id },
       data: {
-        symbol, comment: comment || null, plannedHoldingPeriod: plannedHoldingPeriod || null, updatedAt: now,
+        symbol, comment: comment || null, plannedHoldingPeriod: plannedHoldingPeriod || null,
+        tradeScore: tradeScore != null ? Number(tradeScore) : null,
+        updatedAt: now,
         buyEntries: { create: buyEntries.map((e: EntryInput) => ({ id: uuid(), date: e.date, price: Number(e.price), quantity: Number(e.quantity), createdAt: now })) },
         sellEntries: { create: sellEntries.map((e: EntryInput) => ({ id: uuid(), date: e.date, price: Number(e.price), quantity: Number(e.quantity), createdAt: now })) },
       },

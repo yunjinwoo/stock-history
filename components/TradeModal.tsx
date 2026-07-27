@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { HOLDING_PLAN_OPTIONS, HOLDING_PLAN_STOP_LOSS_PCT, HOLDING_PLAN_TARGET_PCT, type HoldingPlan, type Trade, type Account } from '@/lib/types'
+import { HOLDING_PLAN_OPTIONS, HOLDING_PLAN_STOP_LOSS_PCT, HOLDING_PLAN_TARGET_PCT, TRADE_SCORE_OPTIONS, TRADE_SCORE_LABELS, type HoldingPlan, type Trade, type Account } from '@/lib/types'
 import type { ParsedTrade } from '@/lib/kakaoParser'
 import KakaoParser from './KakaoParser'
 import { apiFetch } from '@/lib/api'
-import { uuid, today, splitDateTime, toDateTimeStr, formatKRW } from '@/lib/utils'
+import { uuid, today, splitDateTime, toDateTimeStr, formatKRW, calcAutoTradeScore } from '@/lib/utils'
 
 interface Props {
   trade: Trade | null
@@ -35,6 +35,7 @@ interface FormState {
   targetPrice: string
   stopLossPrice: string
   plannedHoldingPeriod: string
+  tradeScore: number | null
   buyEntries: EntryRow[]
   sellEntries: EntryRow[]
 }
@@ -106,6 +107,7 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
   const [mergeTarget, setMergeTarget] = useState<Trade | null>(null)
   const [stopLossTouched, setStopLossTouched] = useState(!!trade?.stopLossPrice)
   const [targetTouched, setTargetTouched] = useState(!!trade?.targetPrice)
+  const [scoreTouched, setScoreTouched] = useState(trade?.tradeScore != null)
 
   const [form, setForm] = useState<FormState>({
     accountId: trade?.accountId ?? defaultAccountId ?? accounts[0]?.id ?? '',
@@ -116,6 +118,7 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
     targetPrice: trade?.targetPrice ? trade.targetPrice.toString() : '',
     stopLossPrice: trade?.stopLossPrice ? trade.stopLossPrice.toString() : '',
     plannedHoldingPeriod: trade?.plannedHoldingPeriod ?? '1주일',
+    tradeScore: trade?.tradeScore ?? null,
     buyEntries: trade ? trade.buyEntries.map(toEntry) : [],
     sellEntries: trade ? trade.sellEntries.map(toEntry) : [],
   })
@@ -135,6 +138,19 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
     if (qty <= 0) return 0
     return validRows.reduce((s, r) => s + Number(r.price.replace(/,/g, '')) * Number(r.quantity.replace(/,/g, '')), 0) / qty
   }, [form.buyEntries])
+
+  const buyQty = useMemo(() => form.buyEntries.reduce((s, r) => s + (Number(r.quantity.replace(/,/g, '')) || 0), 0), [form.buyEntries])
+  const sellQty = useMemo(() => form.sellEntries.reduce((s, r) => s + (Number(r.quantity.replace(/,/g, '')) || 0), 0), [form.sellEntries])
+  const isFormCompleted = buyQty > 0 && sellQty >= buyQty
+  const formProfitRate = useMemo(() => {
+    if (sellQty <= 0 || avgBuyPrice <= 0) return 0
+    return ((sellTotal - avgBuyPrice * sellQty) / (avgBuyPrice * sellQty)) * 100
+  }, [sellTotal, avgBuyPrice, sellQty])
+
+  useEffect(() => {
+    if (scoreTouched || !isFormCompleted) return
+    setForm(f => ({ ...f, tradeScore: calcAutoTradeScore(formProfitRate) }))
+  }, [isFormCompleted, formProfitRate, scoreTouched])
 
   useEffect(() => {
     if (stopLossTouched || !form.plannedHoldingPeriod || avgBuyPrice <= 0) return
@@ -234,6 +250,7 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
         targetPrice: form.targetPrice ? Number(form.targetPrice.replace(/,/g, '')) : null,
         stopLossPrice: form.stopLossPrice ? Number(form.stopLossPrice.replace(/,/g, '')) : null,
         plannedHoldingPeriod: form.plannedHoldingPeriod || null,
+        tradeScore: form.tradeScore,
         buyEntries: validBuy.map(r => ({
           date: toDateTimeStr(r.date, r.time),
           price: Number(r.price.replace(/,/g, '')),
@@ -353,6 +370,29 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
                   <option value="">계획 없음</option>
                   {HOLDING_PLAN_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
+              </div>
+
+              <div>
+                <label className={labelCls}>매매 점수</label>
+                <select
+                  value={form.tradeScore ?? ''}
+                  onChange={e => { setForm(f => ({ ...f, tradeScore: e.target.value ? Number(e.target.value) : null })); setScoreTouched(true) }}
+                  className={inputCls}
+                  disabled={!isFormCompleted}
+                >
+                  <option value="">평가 없음</option>
+                  {TRADE_SCORE_OPTIONS.map(s => <option key={s} value={s}>{s}점 - {TRADE_SCORE_LABELS[s]}</option>)}
+                </select>
+                {!isFormCompleted && <p className="text-xs text-gray-400 mt-0.5">매도 완료 후 평가할 수 있습니다.</p>}
+                {isFormCompleted && (
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {scoreTouched
+                      ? <button type="button" onClick={() => setScoreTouched(false)} className="text-blue-400 hover:text-blue-600">
+                          수익률({formProfitRate >= 0 ? '+' : ''}{formProfitRate.toFixed(1)}%) 기준으로 재계산
+                        </button>
+                      : `수익률(${formProfitRate >= 0 ? '+' : ''}${formProfitRate.toFixed(1)}%) 기준 자동 입력됨`}
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">

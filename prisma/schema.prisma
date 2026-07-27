@@ -28,6 +28,7 @@ model Trade {
   targetPrice          Float?
   stopLossPrice        Float?
   plannedHoldingPeriod String?
+  tradeScore           Int?
   createdAt            String
   updatedAt            String
   account              Account      @relation(fields: [accountId], references: [id])
@@ -49,6 +50,7 @@ model CoinTrade {
   symbol               String
   comment              String?
   plannedHoldingPeriod String?
+  tradeScore           Int?
   createdAt            String
   updatedAt            String
   buyEntries           CoinBuyEntry[]
