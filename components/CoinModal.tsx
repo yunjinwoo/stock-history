@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
-import { HOLDING_PLAN_OPTIONS, type CoinTrade } from '@/lib/types'
+import { useState, useMemo, useEffect } from 'react'
+import { HOLDING_PLAN_OPTIONS, TRADE_SCORE_OPTIONS, TRADE_SCORE_LABELS, type CoinTrade } from '@/lib/types'
 import { apiFetch } from '@/lib/api'
-import { uuid, today } from '@/lib/utils'
+import { uuid, today, calcAutoTradeScore } from '@/lib/utils'
 import { parsePastedText } from '@/lib/coinParser'
 import type { ParsedEntry } from '@/lib/coinParser'
 
@@ -91,6 +91,8 @@ export default function CoinModal({ trade, onClose, onSave, symbols = [] }: Prop
   const [symbol, setSymbol] = useState(trade?.symbol ?? '')
   const [comment, setComment] = useState(trade?.comment ?? '')
   const [plannedHoldingPeriod, setPlannedHoldingPeriod] = useState(trade?.plannedHoldingPeriod ?? '')
+  const [tradeScore, setTradeScore] = useState<number | null>(trade?.tradeScore ?? null)
+  const [scoreTouched, setScoreTouched] = useState(trade?.tradeScore != null)
   const [buyEntries, setBuyEntries] = useState<EntryRow[]>(trade ? trade.buyEntries.map(toEntry) : [])
   const [sellEntries, setSellEntries] = useState<EntryRow[]>(trade ? trade.sellEntries.map(toEntry) : [])
 
@@ -113,6 +115,25 @@ export default function CoinModal({ trade, onClose, onSave, symbols = [] }: Prop
     const setter = type === 'buy' ? setBuyEntries : setSellEntries
     setter(prev => prev.filter(r => r.key !== key))
   }
+
+  const buyQty = useMemo(() => buyEntries.reduce((s, r) => s + (Number(r.quantity.replace(/,/g, '')) || 0), 0), [buyEntries])
+  const sellQty = useMemo(() => sellEntries.reduce((s, r) => s + (Number(r.quantity.replace(/,/g, '')) || 0), 0), [sellEntries])
+  const avgBuyPrice = useMemo(() => {
+    const qty = buyQty
+    if (qty <= 0) return 0
+    return buyEntries.reduce((s, r) => s + (Number(r.price.replace(/,/g, '')) || 0) * (Number(r.quantity.replace(/,/g, '')) || 0), 0) / qty
+  }, [buyEntries, buyQty])
+  const sellTotal = useMemo(() => sellEntries.reduce((s, r) => s + (Number(r.price.replace(/,/g, '')) || 0) * (Number(r.quantity.replace(/,/g, '')) || 0), 0), [sellEntries])
+  const isFormCompleted = buyQty > 0 && sellQty >= buyQty
+  const formProfitRate = useMemo(() => {
+    if (sellQty <= 0 || avgBuyPrice <= 0) return 0
+    return ((sellTotal - avgBuyPrice * sellQty) / (avgBuyPrice * sellQty)) * 100
+  }, [sellTotal, avgBuyPrice, sellQty])
+
+  useEffect(() => {
+    if (scoreTouched || !isFormCompleted) return
+    setTradeScore(calcAutoTradeScore(formProfitRate))
+  }, [isFormCompleted, formProfitRate, scoreTouched])
 
   async function handleAddSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -156,6 +177,7 @@ export default function CoinModal({ trade, onClose, onSave, symbols = [] }: Prop
         symbol: symbol.trim(),
         comment: comment.trim() || null,
         plannedHoldingPeriod: plannedHoldingPeriod || null,
+        tradeScore,
         buyEntries: validBuy.map(r => ({ date: `${r.date}T00:00:00`, price: Number(r.price.replace(/,/g, '')), quantity: Number(r.quantity.replace(/,/g, '')) })),
         sellEntries: validSell.map(r => ({ date: `${r.date}T00:00:00`, price: Number(r.price.replace(/,/g, '')), quantity: Number(r.quantity.replace(/,/g, '')) })),
       }
@@ -265,6 +287,28 @@ export default function CoinModal({ trade, onClose, onSave, symbols = [] }: Prop
                   <option value="">계획 없음</option>
                   {HOLDING_PLAN_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
+              </div>
+              <div>
+                <label className={labelCls}>매매 점수</label>
+                <select
+                  value={tradeScore ?? ''}
+                  onChange={e => { setTradeScore(e.target.value ? Number(e.target.value) : null); setScoreTouched(true) }}
+                  className={inputCls}
+                  disabled={!isFormCompleted}
+                >
+                  <option value="">평가 없음</option>
+                  {TRADE_SCORE_OPTIONS.map(s => <option key={s} value={s}>{s}점 - {TRADE_SCORE_LABELS[s]}</option>)}
+                </select>
+                {!isFormCompleted && <p className="text-xs text-gray-400 mt-0.5">매도 완료 후 평가할 수 있습니다.</p>}
+                {isFormCompleted && (
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {scoreTouched
+                      ? <button type="button" onClick={() => setScoreTouched(false)} className="text-blue-400 hover:text-blue-600">
+                          수익률({formProfitRate >= 0 ? '+' : ''}{formProfitRate.toFixed(1)}%) 기준으로 재계산
+                        </button>
+                      : `수익률(${formProfitRate >= 0 ? '+' : ''}${formProfitRate.toFixed(1)}%) 기준 자동 입력됨`}
+                  </p>
+                )}
               </div>
               <div>
                 <label className={labelCls}>코멘트</label>
