@@ -30,6 +30,8 @@ stock-history/
 │       ├── sim-entries/
 │       │   ├── route.ts          # GET, POST(예상 매도 시뮬레이션 항목 추가)
 │       │   └── [id]/route.ts     # PATCH, DELETE
+│       ├── stock-price/
+│       │   └── route.ts          # GET(같은 서버 파이썬 현재가 API 프록시)
 │       ├── backup/
 │       │   └── route.ts          # GET(SQLite DB 파일 다운로드)
 │       ├── restore/

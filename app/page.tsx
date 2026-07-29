@@ -520,6 +520,7 @@ export default function HomePage() {
                 trade={trade}
                 account={accounts.find(a => a.id === trade.accountId)}
                 marketType={symbolTypeMap[trade.symbol]}
+                priceMap={priceMap}
                 onEdit={() => { setEditTrade(trade); setShowModal(true) }}
                 onDelete={async () => { await apiFetch(`/api/trades/${trade.id}`, { method: 'DELETE' }); load() }}
               />
@@ -530,6 +531,7 @@ export default function HomePage() {
                 trade={trade}
                 account={accounts.find(a => a.id === trade.accountId)}
                 marketType={symbolTypeMap[trade.symbol]}
+                priceMap={priceMap}
                 onEdit={() => { setEditTrade(trade); setShowModal(true) }}
                 onDelete={async () => { await apiFetch(`/api/trades/${trade.id}`, { method: 'DELETE' }); load() }}
               />

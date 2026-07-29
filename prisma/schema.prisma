@@ -125,6 +125,16 @@ model SimEntry {
   createdAt String
 }
 
+model TradeScenario {
+  tradeId      String  @id
+  currentPrice String?
+  budget       String?
+  targetProfit String?
+  rowsJson     String
+  createdAt    String
+  updatedAt    String
+}
+
 model BuyEntry {
   id        String @id
   tradeId   String

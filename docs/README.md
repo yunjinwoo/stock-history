@@ -13,6 +13,7 @@
 | [key-concepts.md](./key-concepts.md) | 핵심 패턴 및 주의사항 (basePath, enrichTrade, 파서 등) |
 | [how-to-add-feature.md](./how-to-add-feature.md) | 새 기능 추가 방법 (페이지/API/DB/파서) |
 | [feature-trade-images.md](./feature-trade-images.md) | 거래 차트 이미지 첨부 기능 상세 |
+| [feature-current-price-recovery.md](./feature-current-price-recovery.md) | 현재가 연동(외부 파이썬 API) 및 손실 회복 계산기 상세 |
 | [history.md](./history.md) | 개발 이력 (기능별 변경 내용) |
 
 ## 빠른 시작

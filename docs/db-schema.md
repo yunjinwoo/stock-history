@@ -49,10 +49,14 @@ Memo ──< MemoImage
 | symbol | String | 종목명 (예: 삼성전자) |
 | symbolCode | String? | 종목코드 (예: 005930) |
 | comment | String? | 코멘트 |
+| exitComment | String? | 거래완료(청산) 후 복기 코멘트 |
+| targetPrice | Float? | 목표가 (매매 계획 선택 시 자동 계산되기도 함) |
+| stopLossPrice | Float? | 손절가 (매매 계획 선택 시 자동 계산되기도 함) |
+| plannedHoldingPeriod | String? | 매매 계획: `1일`/`1주일`/`1달`/`6개월이내`/`6개월이상` 중 하나 |
 | createdAt | String | |
 | updatedAt | String | |
 
-> `avgBuyPrice`, `profitAmount` 등 계산 필드는 DB에 없음 — 조회 시 `enrichTrade()`가 계산
+> `avgBuyPrice`, `profitAmount`, `planExceeded` 등 계산 필드는 DB에 없음 — 조회 시 `enrichTrade()`가 계산
 
 ---
 
@@ -106,10 +110,11 @@ Memo ──< MemoImage
 | id | String (UUID) | PK |
 | symbol | String | 코인명 (예: BTC) |
 | comment | String? | 코멘트 |
+| plannedHoldingPeriod | String? | 매매 계획: `1일`/`1주일`/`1달`/`6개월이내`/`6개월이상` 중 하나 |
 | createdAt | String | |
 | updatedAt | String | |
 
-> 주식 Trade와 달리 `accountId` 없음 (코인은 계좌 개념 없음)
+> 주식 Trade와 달리 `accountId`, `targetPrice`, `stopLossPrice` 없음 (코인은 계좌 개념 없음, 목표가/손절가 필드도 없음)
 
 ---
 
