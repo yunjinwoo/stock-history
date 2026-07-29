@@ -32,6 +32,8 @@ stock-history/
 │       │   └── [id]/route.ts     # PATCH, DELETE
 │       ├── stock-price/
 │       │   └── route.ts          # GET(같은 서버 파이썬 현재가 API 프록시)
+│       ├── trade-scenarios/
+│       │   └── [tradeId]/route.ts # GET, PUT(매매 시나리오 저장/불러오기), DELETE(초기화)
 │       ├── backup/
 │       │   └── route.ts          # GET(SQLite DB 파일 다운로드)
 │       ├── restore/

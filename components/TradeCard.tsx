@@ -356,21 +356,28 @@ export default function TradeCard({ trade, account, marketType, priceMap = {}, o
                 {/* 영역3: 전체 요약 (위로 이동) */}
                 {anyProfit && (
                   <div className="text-xs bg-white rounded border p-2 space-y-0.5">
-                    <p className="font-medium text-gray-700">전체 요약</p>
-                    {rowResults.map(({ row, calc }, idx) => ({ row, calc, idx })).filter(r => r.calc?.profit != null).map(({ row, calc, idx }) => (
-                      <p key={row.key} className="text-gray-500">
-                        <button
-                          type="button"
-                          onClick={() => scrollToScenarioRow(row.key)}
-                          className="text-blue-500 hover:underline font-medium"
-                        >{idx + 1}회차</button>
-                        {' '}{formatKRW(Number(row.buyPrice))} → {formatKRW(Number(row.sellPrice))}
-                        {' : '}
-                        <span className={calc!.profit! >= 0 ? 'text-red-500' : 'text-blue-500'}>
-                          {(calc!.profit! >= 0 ? '+' : '') + formatKRW(Math.round(calc!.profit!))}
-                        </span>
-                      </p>
-                    ))}
+                    <p className="font-medium text-gray-700">
+                      전체 요약{' '}
+                      <span className="text-gray-400 font-normal">
+                        (총 {rowResults.filter(r => r.calc?.profit != null).length}회차)
+                      </span>
+                    </p>
+                    <div className="grid grid-cols-2 gap-x-3 max-h-56 overflow-y-auto">
+                      {rowResults.map(({ row, calc }, idx) => ({ row, calc, idx })).filter(r => r.calc?.profit != null).map(({ row, calc, idx }) => (
+                        <p key={row.key} className="text-gray-500">
+                          <button
+                            type="button"
+                            onClick={() => scrollToScenarioRow(row.key)}
+                            className="text-blue-500 hover:underline font-medium"
+                          >{idx + 1}회차</button>
+                          {' '}{formatKRW(Number(row.buyPrice))} → {formatKRW(Number(row.sellPrice))}
+                          {' : '}
+                          <span className={calc!.profit! >= 0 ? 'text-red-500' : 'text-blue-500'}>
+                            {(calc!.profit! >= 0 ? '+' : '') + formatKRW(Math.round(calc!.profit!))}
+                          </span>
+                        </p>
+                      ))}
+                    </div>
                     <p className="pt-1 border-t font-medium text-gray-700">
                       전체 수익{' '}
                       <span className={totalProfit >= 0 ? 'text-red-500' : 'text-blue-500'}>
