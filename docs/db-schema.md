@@ -53,6 +53,7 @@ Memo ──< MemoImage
 | targetPrice | Float? | 목표가 (매매 계획 선택 시 자동 계산되기도 함) |
 | stopLossPrice | Float? | 손절가 (매매 계획 선택 시 자동 계산되기도 함) |
 | plannedHoldingPeriod | String? | 매매 계획: `1일`/`1주일`/`1달`/`6개월이내`/`6개월이상` 중 하나 |
+| tradeScore | Int? | 매매 점수 1~5점 (매도 완료된 거래에만 입력) |
 | createdAt | String | |
 | updatedAt | String | |
 
@@ -88,6 +89,24 @@ Memo ──< MemoImage
 
 ---
 
+## TradeScenario (매매 시나리오 계산기)
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| tradeId | String | PK, Trade와 문자열로만 연결 (Prisma `@relation` 없음, cascade 삭제 안 됨) |
+| currentPrice | String? | 현재가 입력값 |
+| budget | String? | 여유자금 입력값 |
+| targetProfit | String? | 목표 전체수익 입력값 |
+| rowsJson | String | 매매 시나리오 행 목록(매도가/수량/수익률 등)을 JSON 문자열로 직렬화 |
+| createdAt | String | |
+| updatedAt | String | |
+
+> 카드형 뷰(`TradeCard`)의 매매 시나리오 계산기 입력값을 거래(Trade)별로 저장해, 새로고침해도 유지되도록 함.  
+> `SimEntry`와 마찬가지로 Trade FK 관계가 없어 Trade 삭제 시 자동으로 지워지지 않음.  
+> `tradeId`가 PK이므로 거래당 하나의 시나리오 세트만 저장 (여러 행은 `rowsJson` 안에 배열로 보관).
+
+---
+
 ## TradeImage (거래 첨부 이미지)
 
 | 필드 | 타입 | 설명 |
@@ -111,6 +130,7 @@ Memo ──< MemoImage
 | symbol | String | 코인명 (예: BTC) |
 | comment | String? | 코멘트 |
 | plannedHoldingPeriod | String? | 매매 계획: `1일`/`1주일`/`1달`/`6개월이내`/`6개월이상` 중 하나 |
+| tradeScore | Int? | 매매 점수 1~5점 (매도 완료된 거래에만 입력) |
 | createdAt | String | |
 | updatedAt | String | |
 
@@ -141,6 +161,7 @@ Memo ──< MemoImage
 | symbol | String (unique) | 종목명 |
 | symbolCode | String | 종목코드 |
 | tags | String? | 태그 목록 (쉼표 구분 문자열, 예: `"반도체,대형주,배당"`) |
+| marketType | String? | 시장 구분: `코스피`/`코스닥`/`ETF` 중 하나 (복기 페이지 필터에 사용) |
 | createdAt | String | |
 | updatedAt | String | |
 
