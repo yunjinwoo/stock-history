@@ -42,6 +42,21 @@ function newScenarioRow(buyPrice: string): ScenarioRow {
   return { key: uuid(), buyPrice, sellPrice, rateInput: DEFAULT_RATE_PCT }
 }
 
+// 선택된 행들을 여유자금 기준 수량 가중평균으로 합쳤을 때의 매수가
+function calcMergedBuyPrice(rows: ScenarioRow[], budget: number): number | null {
+  if (budget <= 0) return null
+  let totalQty = 0
+  let totalCost = 0
+  rows.forEach(row => {
+    const buy = Number(row.buyPrice)
+    if (!(buy > 0)) return
+    const qty = Math.floor(budget / buy)
+    totalQty += qty
+    totalCost += qty * buy
+  })
+  return totalQty > 0 ? Math.round(totalCost / totalQty) : null
+}
+
 function calcScenarioRow(row: ScenarioRow, budget: number) {
   const buy = Number(row.buyPrice)
   const sell = Number(row.sellPrice)
@@ -75,6 +90,7 @@ export default function TradeCard({ trade, account, marketType, priceMap = {}, o
   const [scenarioRows, setScenarioRows] = useState<ScenarioRow[]>([])
   const [scenarioTargetProfit, setScenarioTargetProfit] = useState(defaultTargetProfit)
   const [scenarioSaved, setScenarioSaved] = useState(false)
+  const [selectedScenarioKeys, setSelectedScenarioKeys] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (!scenarioOpen || scenarioLoaded) return
@@ -101,6 +117,33 @@ export default function TradeCard({ trade, account, marketType, priceMap = {}, o
   }
   function removeScenarioRow(key: string) {
     setScenarioRows(rows => rows.filter(r => r.key !== key))
+    setSelectedScenarioKeys(keys => {
+      if (!keys.has(key)) return keys
+      const next = new Set(keys)
+      next.delete(key)
+      return next
+    })
+  }
+  function toggleScenarioSelect(key: string) {
+    setSelectedScenarioKeys(keys => {
+      const next = new Set(keys)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+  // 선택한 시나리오 행들을 수량 가중평균 매수가 하나로 합쳐 맨 위로 올림 (매도가는 기본 수익률로 자동 재계산)
+  function mergeSelectedScenarioRows() {
+    const budget = Number(scenarioBudget) || 0
+    const selected = scenarioRows.filter(r => selectedScenarioKeys.has(r.key))
+    if (selected.length < 2) return
+
+    const avgBuyPrice = calcMergedBuyPrice(selected, budget)
+    if (avgBuyPrice == null) return
+
+    const merged = newScenarioRow(String(avgBuyPrice))
+    setScenarioRows(rows => [merged, ...rows.filter(r => !selectedScenarioKeys.has(r.key))])
+    setSelectedScenarioKeys(new Set())
   }
   function updateScenarioRow(key: string, field: 'buyPrice' | 'sellPrice' | 'rateInput', value: string) {
     setScenarioRows(rows => rows.map(r => r.key === key ? { ...r, [field]: value } : r))
@@ -153,6 +196,7 @@ export default function TradeCard({ trade, account, marketType, priceMap = {}, o
     setScenarioTargetProfit(defaultTargetProfit)
     setScenarioCurrentPrice(defaultCurrentPrice)
     setScenarioBudget('500000')
+    setSelectedScenarioKeys(new Set())
     await apiFetch(`/api/trade-scenarios/${trade.id}`, { method: 'DELETE' })
   }
 
@@ -281,6 +325,11 @@ export default function TradeCard({ trade, account, marketType, priceMap = {}, o
             const budget = Number(scenarioBudget) || 0
             const rowResults = scenarioRows.map(row => ({ row, calc: calcScenarioRow(row, budget) }))
             const totalProfit = rowResults.reduce((sum, r) => sum + (r.calc?.profit ?? 0), 0)
+            const selectedScenarioRows = scenarioRows.filter(r => selectedScenarioKeys.has(r.key))
+            const mergePreviewBuyPrice = selectedScenarioRows.length >= 2 ? calcMergedBuyPrice(selectedScenarioRows, budget) : null
+            const mergePreviewSellPrice = mergePreviewBuyPrice != null
+              ? Math.round(mergePreviewBuyPrice * (1 + Number(DEFAULT_RATE_PCT) / 100))
+              : null
             const anyProfit = rowResults.some(r => r.calc?.profit != null)
             return (
               <div className="mt-2 space-y-3 bg-gray-50 rounded p-2.5">
@@ -339,6 +388,21 @@ export default function TradeCard({ trade, account, marketType, priceMap = {}, o
                     onClick={autoFillToTarget}
                     className="text-blue-600 hover:text-blue-800 px-2 py-1 border border-blue-200 rounded bg-blue-50"
                   >목표까지 자동 추가</button>
+                  {selectedScenarioKeys.size >= 2 && (
+                    <>
+                      <span className="text-gray-300">|</span>
+                      <button
+                        type="button"
+                        onClick={mergeSelectedScenarioRows}
+                        className="text-purple-600 hover:text-purple-800 px-2 py-1 border border-purple-200 rounded bg-purple-50"
+                      >선택 {selectedScenarioKeys.size}건 평균가로 병합</button>
+                      {mergePreviewBuyPrice != null && (
+                        <span className="text-gray-400">
+                          → 평균 {formatKRW(mergePreviewBuyPrice)} · 매도 {formatKRW(mergePreviewSellPrice!)}
+                        </span>
+                      )}
+                    </>
+                  )}
                   <span className="text-gray-300">|</span>
                   <button
                     type="button"
@@ -391,7 +455,14 @@ export default function TradeCard({ trade, account, marketType, priceMap = {}, o
                 <div className="space-y-1.5">
                   {rowResults.map(({ row, calc }, idx) => (
                     <div key={row.key} id={`scenario-row-${trade.id}-${row.key}`} className="bg-white rounded border p-2 space-y-1 scroll-mt-16">
-                      <p className="text-[11px] font-medium text-gray-500">{idx + 1}회차</p>
+                      <label className="flex items-center gap-1.5">
+                        <input
+                          type="checkbox"
+                          checked={selectedScenarioKeys.has(row.key)}
+                          onChange={() => toggleScenarioSelect(row.key)}
+                        />
+                        <span className="text-[11px] font-medium text-gray-500">{idx + 1}회차</span>
+                      </label>
                       <div className="grid grid-cols-[1fr_1fr_auto_auto] gap-1.5 items-end text-[11px]">
                         <label className="space-y-0.5">
                           <span className="text-gray-400 block">매수가</span>
