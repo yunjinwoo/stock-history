@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo, memo } from 'react'
 import type { Trade, Account, TradeImage } from '@/lib/types'
 import { formatKRW, formatRate, planStatus, uuid } from '@/lib/utils'
 import { apiFetch } from '@/lib/api'
@@ -76,6 +76,115 @@ interface SavedScenario {
   rowsJson: string
 }
 
+const ScenarioRowItem = memo(function ScenarioRowItem({
+  tradeId, row, idx, budget, selected, onToggleSelect, onUpdate, onApplyRate, onRemove,
+}: {
+  tradeId: string
+  row: ScenarioRow
+  idx: number
+  budget: number
+  selected: boolean
+  onToggleSelect: (key: string) => void
+  onUpdate: (key: string, field: 'buyPrice' | 'sellPrice' | 'rateInput', value: string) => void
+  onApplyRate: (key: string) => void
+  onRemove: (key: string) => void
+}) {
+  const calc = useMemo(() => calcScenarioRow(row, budget), [row, budget])
+  return (
+    <div id={`scenario-row-${tradeId}-${row.key}`} className="bg-white rounded border p-2 space-y-1 scroll-mt-16">
+      <label className="flex items-center gap-1.5">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={() => onToggleSelect(row.key)}
+        />
+        <span className="text-[11px] font-medium text-gray-500">{idx + 1}회차</span>
+      </label>
+      <div className="grid grid-cols-[1fr_1fr_auto_auto] gap-1.5 items-end text-[11px]">
+        <label className="space-y-0.5">
+          <span className="text-gray-400 block">매수가</span>
+          <input
+            type="number"
+            value={row.buyPrice}
+            onChange={e => onUpdate(row.key, 'buyPrice', e.target.value)}
+            className="border rounded px-1.5 py-1 w-full focus:outline-none focus:ring-1 focus:ring-blue-400"
+          />
+        </label>
+        <label className="space-y-0.5">
+          <span className="text-gray-400 block">매도가</span>
+          <input
+            type="number"
+            value={row.sellPrice}
+            onChange={e => onUpdate(row.key, 'sellPrice', e.target.value)}
+            className="border rounded px-1.5 py-1 w-full focus:outline-none focus:ring-1 focus:ring-blue-400"
+          />
+        </label>
+        <label className="space-y-0.5">
+          <span className="text-gray-400 block">수익률%</span>
+          <input
+            type="number"
+            value={row.rateInput}
+            onChange={e => onUpdate(row.key, 'rateInput', e.target.value)}
+            onBlur={() => onApplyRate(row.key)}
+            onKeyDown={e => e.key === 'Enter' && onApplyRate(row.key)}
+            placeholder="입력시 매도가 계산"
+            className="border rounded px-1.5 py-1 w-16 focus:outline-none focus:ring-1 focus:ring-blue-400"
+          />
+        </label>
+        <button
+          type="button"
+          onClick={() => onRemove(row.key)}
+          className="text-red-400 hover:text-red-600 pb-1 text-base leading-none"
+        >×</button>
+      </div>
+      {calc && calc.qty > 0 ? (
+        <p className="text-[11px] text-gray-500">
+          매수가능 <span className="font-medium text-gray-700">{calc.qty}주</span> (투자금 {formatKRW(calc.invest)})
+          {calc.profit != null && (
+            <>
+              {' · 부분수익 '}
+              <span className={`font-medium ${calc.profit >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                {(calc.profit >= 0 ? '+' : '') + formatKRW(Math.round(calc.profit))}
+              </span>
+              {calc.rate != null && (
+                <span className={calc.profit >= 0 ? 'text-red-400' : 'text-blue-400'}> ({formatRate(calc.rate)})</span>
+              )}
+            </>
+          )}
+        </p>
+      ) : (
+        <p className="text-[11px] text-gray-300">매수가와 여유자금을 입력하면 매수 가능 수량이 표시됩니다</p>
+      )}
+    </div>
+  )
+})
+
+const ScenarioSummaryItem = memo(function ScenarioSummaryItem({
+  row, idx, budget, onScrollTo,
+}: {
+  row: ScenarioRow
+  idx: number
+  budget: number
+  onScrollTo: (key: string) => void
+}) {
+  const calc = useMemo(() => calcScenarioRow(row, budget), [row, budget])
+  if (calc?.profit == null) return null
+  return (
+    <p className="text-gray-500">
+      <button
+        type="button"
+        onClick={() => onScrollTo(row.key)}
+        className="text-blue-500 hover:underline font-medium"
+      >{idx + 1}회차</button>
+      {' '}{formatKRW(Number(row.buyPrice))} → {formatKRW(Number(row.sellPrice))}
+      {' : '}
+      <span className={calc.profit >= 0 ? 'text-red-500' : 'text-blue-500'}>
+        {(calc.profit >= 0 ? '+' : '') + formatKRW(Math.round(calc.profit))}
+      </span>
+    </p>
+  )
+})
+
 export default function TradeCard({ trade, account, marketType, priceMap = {}, onEdit, onDelete }: Props) {
   const [showEntries, setShowEntries] = useState(false)
   const [showFullComment, setShowFullComment] = useState(false)
@@ -112,10 +221,10 @@ export default function TradeCard({ trade, account, marketType, priceMap = {}, o
   function addScenarioRow() {
     setScenarioRows(rows => [...rows, newScenarioRow(scenarioCurrentPrice)])
   }
-  function scrollToScenarioRow(key: string) {
+  const scrollToScenarioRow = useCallback((key: string) => {
     document.getElementById(`scenario-row-${trade.id}-${key}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  }
-  function removeScenarioRow(key: string) {
+  }, [trade.id])
+  const removeScenarioRow = useCallback((key: string) => {
     setScenarioRows(rows => rows.filter(r => r.key !== key))
     setSelectedScenarioKeys(keys => {
       if (!keys.has(key)) return keys
@@ -123,15 +232,15 @@ export default function TradeCard({ trade, account, marketType, priceMap = {}, o
       next.delete(key)
       return next
     })
-  }
-  function toggleScenarioSelect(key: string) {
+  }, [])
+  const toggleScenarioSelect = useCallback((key: string) => {
     setSelectedScenarioKeys(keys => {
       const next = new Set(keys)
       if (next.has(key)) next.delete(key)
       else next.add(key)
       return next
     })
-  }
+  }, [])
   // 선택한 시나리오 행들을 수량 가중평균 매수가 하나로 합쳐 맨 위로 올림 (매도가는 기본 수익률로 자동 재계산)
   function mergeSelectedScenarioRows() {
     const budget = Number(scenarioBudget) || 0
@@ -145,10 +254,10 @@ export default function TradeCard({ trade, account, marketType, priceMap = {}, o
     setScenarioRows(rows => [merged, ...rows.filter(r => !selectedScenarioKeys.has(r.key))])
     setSelectedScenarioKeys(new Set())
   }
-  function updateScenarioRow(key: string, field: 'buyPrice' | 'sellPrice' | 'rateInput', value: string) {
+  const updateScenarioRow = useCallback((key: string, field: 'buyPrice' | 'sellPrice' | 'rateInput', value: string) => {
     setScenarioRows(rows => rows.map(r => r.key === key ? { ...r, [field]: value } : r))
-  }
-  function applyRateToRow(key: string) {
+  }, [])
+  const applyRateToRow = useCallback((key: string) => {
     setScenarioRows(rows => rows.map(r => {
       if (r.key !== key) return r
       const buy = Number(r.buyPrice)
@@ -156,7 +265,7 @@ export default function TradeCard({ trade, account, marketType, priceMap = {}, o
       if (!buy || !rate) return r
       return { ...r, sellPrice: String(Math.round(buy * (1 + rate / 100))) }
     }))
-  }
+  }, [])
   function loadCurrentPriceFromApi() {
     const p = trade.symbolCode ? priceMap[trade.symbolCode] : undefined
     if (p != null) setScenarioCurrentPrice(String(p))
@@ -191,6 +300,22 @@ export default function TradeCard({ trade, account, marketType, priceMap = {}, o
     setScenarioSaved(true)
     setTimeout(() => setScenarioSaved(false), 2000)
   }
+  const scenarioBudgetNum = Number(scenarioBudget) || 0
+  const { totalProfit: scenarioTotalProfit, anyProfit: scenarioAnyProfit, roundCount: scenarioRoundCount } = useMemo(() => {
+    let totalProfit = 0
+    let anyProfit = false
+    let roundCount = 0
+    for (const row of scenarioRows) {
+      const calc = calcScenarioRow(row, scenarioBudgetNum)
+      if (calc?.profit != null) {
+        totalProfit += calc.profit
+        anyProfit = true
+        roundCount++
+      }
+    }
+    return { totalProfit, anyProfit, roundCount }
+  }, [scenarioRows, scenarioBudgetNum])
+
   async function resetScenario() {
     setScenarioRows([])
     setScenarioTargetProfit(defaultTargetProfit)
@@ -226,6 +351,16 @@ export default function TradeCard({ trade, account, marketType, priceMap = {}, o
           )}
           <span className="font-semibold">{trade.symbol}</span>
           {trade.symbolCode && <span className="text-gray-400 text-xs ml-1">({trade.symbolCode})</span>}
+          {trade.symbolCode && (
+            <a
+              href={`https://www.tradingview.com/chart/?symbol=KRX%3A${trade.symbolCode}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={e => e.stopPropagation()}
+              className="text-blue-400 hover:text-blue-600 text-xs ml-1"
+              title="트레이딩뷰 차트 열기"
+            >📈</a>
+          )}
           {(() => {
             const plan = planStatus(trade)
             return plan && (
@@ -322,15 +457,12 @@ export default function TradeCard({ trade, account, marketType, priceMap = {}, o
             {scenarioOpen ? '▲ 매매 시나리오 접기' : '▼ 매매 시나리오'}
           </button>
           {scenarioOpen && (() => {
-            const budget = Number(scenarioBudget) || 0
-            const rowResults = scenarioRows.map(row => ({ row, calc: calcScenarioRow(row, budget) }))
-            const totalProfit = rowResults.reduce((sum, r) => sum + (r.calc?.profit ?? 0), 0)
+            const budget = scenarioBudgetNum
             const selectedScenarioRows = scenarioRows.filter(r => selectedScenarioKeys.has(r.key))
             const mergePreviewBuyPrice = selectedScenarioRows.length >= 2 ? calcMergedBuyPrice(selectedScenarioRows, budget) : null
             const mergePreviewSellPrice = mergePreviewBuyPrice != null
               ? Math.round(mergePreviewBuyPrice * (1 + Number(DEFAULT_RATE_PCT) / 100))
               : null
-            const anyProfit = rowResults.some(r => r.calc?.profit != null)
             return (
               <div className="mt-2 space-y-3 bg-gray-50 rounded p-2.5">
                 {/* 영역1: 현재가 · 여유자금 */}
@@ -418,34 +550,29 @@ export default function TradeCard({ trade, account, marketType, priceMap = {}, o
                 </div>
 
                 {/* 영역3: 전체 요약 (위로 이동) */}
-                {anyProfit && (
+                {scenarioAnyProfit && (
                   <div className="text-xs bg-white rounded border p-2 space-y-0.5">
                     <p className="font-medium text-gray-700">
                       전체 요약{' '}
                       <span className="text-gray-400 font-normal">
-                        (총 {rowResults.filter(r => r.calc?.profit != null).length}회차)
+                        (총 {scenarioRoundCount}회차)
                       </span>
                     </p>
                     <div className="grid grid-cols-2 gap-x-3 max-h-56 overflow-y-auto">
-                      {rowResults.map(({ row, calc }, idx) => ({ row, calc, idx })).filter(r => r.calc?.profit != null).map(({ row, calc, idx }) => (
-                        <p key={row.key} className="text-gray-500">
-                          <button
-                            type="button"
-                            onClick={() => scrollToScenarioRow(row.key)}
-                            className="text-blue-500 hover:underline font-medium"
-                          >{idx + 1}회차</button>
-                          {' '}{formatKRW(Number(row.buyPrice))} → {formatKRW(Number(row.sellPrice))}
-                          {' : '}
-                          <span className={calc!.profit! >= 0 ? 'text-red-500' : 'text-blue-500'}>
-                            {(calc!.profit! >= 0 ? '+' : '') + formatKRW(Math.round(calc!.profit!))}
-                          </span>
-                        </p>
+                      {scenarioRows.map((row, idx) => (
+                        <ScenarioSummaryItem
+                          key={row.key}
+                          row={row}
+                          idx={idx}
+                          budget={budget}
+                          onScrollTo={scrollToScenarioRow}
+                        />
                       ))}
                     </div>
                     <p className="pt-1 border-t font-medium text-gray-700">
                       전체 수익{' '}
-                      <span className={totalProfit >= 0 ? 'text-red-500' : 'text-blue-500'}>
-                        {(totalProfit >= 0 ? '+' : '') + formatKRW(Math.round(totalProfit))}
+                      <span className={scenarioTotalProfit >= 0 ? 'text-red-500' : 'text-blue-500'}>
+                        {(scenarioTotalProfit >= 0 ? '+' : '') + formatKRW(Math.round(scenarioTotalProfit))}
                       </span>
                     </p>
                   </div>
@@ -453,72 +580,19 @@ export default function TradeCard({ trade, account, marketType, priceMap = {}, o
 
                 {/* 영역2: 매매 시나리오 행들 */}
                 <div className="space-y-1.5">
-                  {rowResults.map(({ row, calc }, idx) => (
-                    <div key={row.key} id={`scenario-row-${trade.id}-${row.key}`} className="bg-white rounded border p-2 space-y-1 scroll-mt-16">
-                      <label className="flex items-center gap-1.5">
-                        <input
-                          type="checkbox"
-                          checked={selectedScenarioKeys.has(row.key)}
-                          onChange={() => toggleScenarioSelect(row.key)}
-                        />
-                        <span className="text-[11px] font-medium text-gray-500">{idx + 1}회차</span>
-                      </label>
-                      <div className="grid grid-cols-[1fr_1fr_auto_auto] gap-1.5 items-end text-[11px]">
-                        <label className="space-y-0.5">
-                          <span className="text-gray-400 block">매수가</span>
-                          <input
-                            type="number"
-                            value={row.buyPrice}
-                            onChange={e => updateScenarioRow(row.key, 'buyPrice', e.target.value)}
-                            className="border rounded px-1.5 py-1 w-full focus:outline-none focus:ring-1 focus:ring-blue-400"
-                          />
-                        </label>
-                        <label className="space-y-0.5">
-                          <span className="text-gray-400 block">매도가</span>
-                          <input
-                            type="number"
-                            value={row.sellPrice}
-                            onChange={e => updateScenarioRow(row.key, 'sellPrice', e.target.value)}
-                            className="border rounded px-1.5 py-1 w-full focus:outline-none focus:ring-1 focus:ring-blue-400"
-                          />
-                        </label>
-                        <label className="space-y-0.5">
-                          <span className="text-gray-400 block">수익률%</span>
-                          <input
-                            type="number"
-                            value={row.rateInput}
-                            onChange={e => updateScenarioRow(row.key, 'rateInput', e.target.value)}
-                            onBlur={() => applyRateToRow(row.key)}
-                            onKeyDown={e => e.key === 'Enter' && applyRateToRow(row.key)}
-                            placeholder="입력시 매도가 계산"
-                            className="border rounded px-1.5 py-1 w-16 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                          />
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => removeScenarioRow(row.key)}
-                          className="text-red-400 hover:text-red-600 pb-1 text-base leading-none"
-                        >×</button>
-                      </div>
-                      {calc && calc.qty > 0 ? (
-                        <p className="text-[11px] text-gray-500">
-                          매수가능 <span className="font-medium text-gray-700">{calc.qty}주</span> (투자금 {formatKRW(calc.invest)})
-                          {calc.profit != null && (
-                            <>
-                              {' · 부분수익 '}
-                              <span className={`font-medium ${calc.profit >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
-                                {(calc.profit >= 0 ? '+' : '') + formatKRW(Math.round(calc.profit))}
-                              </span>
-                              {calc.rate != null && (
-                                <span className={calc.profit >= 0 ? 'text-red-400' : 'text-blue-400'}> ({formatRate(calc.rate)})</span>
-                              )}
-                            </>
-                          )}
-                        </p>
-                      ) : (
-                        <p className="text-[11px] text-gray-300">매수가와 여유자금을 입력하면 매수 가능 수량이 표시됩니다</p>
-                      )}
-                    </div>
+                  {scenarioRows.map((row, idx) => (
+                    <ScenarioRowItem
+                      key={row.key}
+                      tradeId={trade.id}
+                      row={row}
+                      idx={idx}
+                      budget={budget}
+                      selected={selectedScenarioKeys.has(row.key)}
+                      onToggleSelect={toggleScenarioSelect}
+                      onUpdate={updateScenarioRow}
+                      onApplyRate={applyRateToRow}
+                      onRemove={removeScenarioRow}
+                    />
                   ))}
                 </div>
               </div>
