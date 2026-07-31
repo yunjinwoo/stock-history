@@ -523,6 +523,7 @@ export default function HomePage() {
                 priceMap={priceMap}
                 onEdit={() => { setEditTrade(trade); setShowModal(true) }}
                 onDelete={async () => { await apiFetch(`/api/trades/${trade.id}`, { method: 'DELETE' }); load() }}
+                onSplit={load}
               />
             ))}
             {completed.map(trade => (
@@ -534,6 +535,7 @@ export default function HomePage() {
                 priceMap={priceMap}
                 onEdit={() => { setEditTrade(trade); setShowModal(true) }}
                 onDelete={async () => { await apiFetch(`/api/trades/${trade.id}`, { method: 'DELETE' }); load() }}
+                onSplit={load}
               />
             ))}
             {trades.length === 0 && (
