@@ -25,6 +25,7 @@ interface Props {
   priceMap?: Record<string, number>
   onEdit: () => void
   onDelete: () => void
+  onSplit?: () => void
 }
 
 interface ScenarioRow {
@@ -185,8 +186,10 @@ const ScenarioSummaryItem = memo(function ScenarioSummaryItem({
   )
 })
 
-export default function TradeCard({ trade, account, marketType, priceMap = {}, onEdit, onDelete }: Props) {
+export default function TradeCard({ trade, account, marketType, priceMap = {}, onEdit, onDelete, onSplit }: Props) {
   const [showEntries, setShowEntries] = useState(false)
+  const [splitSelected, setSplitSelected] = useState<Set<string>>(new Set())
+  const [splitting, setSplitting] = useState(false)
   const [showFullComment, setShowFullComment] = useState(false)
   const [images, setImages] = useState<TradeImage[]>(trade.images)
   const [scenarioOpen, setScenarioOpen] = useState(false)
@@ -325,6 +328,38 @@ export default function TradeCard({ trade, account, marketType, priceMap = {}, o
     await apiFetch(`/api/trade-scenarios/${trade.id}`, { method: 'DELETE' })
   }
 
+  function toggleSplitSelect(id: string) {
+    setSplitSelected(ids => {
+      const next = new Set(ids)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+  async function splitSelectedEntries() {
+    const buyEntryIds = trade.buyEntries.filter(e => splitSelected.has(e.id)).map(e => e.id)
+    const sellEntryIds = trade.sellEntries.filter(e => splitSelected.has(e.id)).map(e => e.id)
+    if (buyEntryIds.length + sellEntryIds.length === 0) return
+    if (!confirm(`선택한 ${buyEntryIds.length + sellEntryIds.length}건을 새 거래로 분리하시겠습니까?`)) return
+    setSplitting(true)
+    try {
+      const res = await apiFetch(`/api/trades/${trade.id}/split`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ buyEntryIds, sellEntryIds }),
+      })
+      if (res.ok) {
+        setSplitSelected(new Set())
+        onSplit?.()
+      } else {
+        const d = await res.json().catch(() => null)
+        alert(d?.error ?? '분리 실패')
+      }
+    } finally {
+      setSplitting(false)
+    }
+  }
+
   const holdingColor =
     trade.holdingDays <= 7  ? 'bg-green-100 text-green-700' :
     trade.holdingDays <= 30 ? 'bg-blue-100 text-blue-700' :
@@ -421,26 +456,62 @@ export default function TradeCard({ trade, account, marketType, priceMap = {}, o
         {showEntries ? '▲ 내역 접기' : `▼ 매수 ${trade.buyEntries.length}건${trade.sellEntries.length > 0 ? ` / 매도 ${trade.sellEntries.length}건` : ''}`}
       </button>
 
-      {showEntries && (
-        <div className="space-y-1 text-xs text-gray-500 bg-gray-50 rounded p-2">
-          {trade.buyEntries.length > 0 && (
-            <div>
-              <p className="font-medium text-gray-600 mb-0.5">매수</p>
-              {trade.buyEntries.map(e => (
-                <p key={e.id}>{e.date.slice(0, 10)} · {formatKRW(e.price)} × {e.quantity}주 = {formatKRW(e.price * e.quantity)}</p>
-              ))}
-            </div>
-          )}
-          {trade.sellEntries.length > 0 && (
-            <div className="mt-1">
-              <p className="font-medium text-gray-600 mb-0.5">매도</p>
-              {trade.sellEntries.map(e => (
-                <p key={e.id}>{e.date.slice(0, 10)} · {formatKRW(e.price)} × {e.quantity}주 = {formatKRW(e.price * e.quantity)}</p>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      {showEntries && (() => {
+        const totalEntries = trade.buyEntries.length + trade.sellEntries.length
+        const canSplit = totalEntries >= 2
+        return (
+          <div className="space-y-1 text-xs text-gray-500 bg-gray-50 rounded p-2">
+            {trade.buyEntries.length > 0 && (
+              <div>
+                <p className="font-medium text-gray-600 mb-0.5">매수</p>
+                {trade.buyEntries.map(e => (
+                  <label key={e.id} className="flex items-center gap-1.5">
+                    {canSplit && (
+                      <input
+                        type="checkbox"
+                        checked={splitSelected.has(e.id)}
+                        onChange={() => toggleSplitSelect(e.id)}
+                      />
+                    )}
+                    <span>{e.date.slice(0, 10)} · {formatKRW(e.price)} × {e.quantity}주 = {formatKRW(e.price * e.quantity)}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+            {trade.sellEntries.length > 0 && (
+              <div className="mt-1">
+                <p className="font-medium text-gray-600 mb-0.5">매도</p>
+                {trade.sellEntries.map(e => (
+                  <label key={e.id} className="flex items-center gap-1.5">
+                    {canSplit && (
+                      <input
+                        type="checkbox"
+                        checked={splitSelected.has(e.id)}
+                        onChange={() => toggleSplitSelect(e.id)}
+                      />
+                    )}
+                    <span>{e.date.slice(0, 10)} · {formatKRW(e.price)} × {e.quantity}주 = {formatKRW(e.price * e.quantity)}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+            {canSplit && splitSelected.size > 0 && (
+              <div className="pt-1.5 mt-1 border-t flex items-center gap-2">
+                {splitSelected.size >= totalEntries ? (
+                  <span className="text-orange-500">원래 거래에 최소 1건은 남겨두세요</span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={splitSelectedEntries}
+                    disabled={splitting}
+                    className="text-purple-600 hover:text-purple-800 px-2 py-1 border border-purple-200 rounded bg-purple-50 disabled:opacity-50"
+                  >{splitting ? '분리 중...' : `선택 ${splitSelected.size}건 새 거래로 분리`}</button>
+                )}
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {comment && (
         <div className="text-xs text-gray-500 bg-gray-50 rounded p-2">
