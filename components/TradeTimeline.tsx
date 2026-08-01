@@ -26,6 +26,20 @@ const MARKET_TYPES = ['코스피', '코스닥', 'ETF'] as const
 const NO_PLAN = '계획 없음'
 const PLAN_OPTIONS = [...HOLDING_PLAN_OPTIONS, NO_PLAN] as const
 
+// 실제 보유일 구간
+const HOLDING_DAYS_TIERS = [
+  { id: 'hd-1',   label: '1일 이내',   test: (d: number) => d <= 1 },
+  { id: 'hd-7',   label: '1주일 이내', test: (d: number) => d <= 7 },
+  { id: 'hd-30',  label: '1달 이내',   test: (d: number) => d <= 30 },
+  { id: 'hd-90',  label: '3개월 이내', test: (d: number) => d <= 90 },
+  { id: 'hd-180', label: '6개월 이내', test: (d: number) => d <= 180 },
+  { id: 'hd-180+', label: '6개월 이상', test: (_d: number) => true },
+] as const
+
+function holdingDaysTier(days: number) {
+  return HOLDING_DAYS_TIERS.find(t => t.test(days))!
+}
+
 function getWeekStart(d: Date) {
   const day = (d.getDay() + 6) % 7 // 월=0 ... 일=6
   return new Date(d.getFullYear(), d.getMonth(), d.getDate() - day)
@@ -60,6 +74,7 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
   const [marketFilters, setMarketFilters] = useState<string[]>([])
   const [tierFilters, setTierFilters] = useState<string[]>([])
   const [planFilters, setPlanFilters] = useState<string[]>([])
+  const [holdingFilters, setHoldingFilters] = useState<string[]>([])
   const [groupMode, setGroupMode] = useState<GroupMode>('week')
   const [offset, setOffset] = useState(0) // 0 = 이번 주/달이 가장 오른쪽
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
@@ -80,6 +95,10 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
 
   function togglePlan(plan: string) {
     setPlanFilters(prev => prev.includes(plan) ? prev.filter(p => p !== plan) : [...prev, plan])
+  }
+
+  function toggleHolding(id: string) {
+    setHoldingFilters(prev => prev.includes(id) ? prev.filter(h => h !== id) : [...prev, id])
   }
 
   function toggleExpand(tradeId: string) {
@@ -109,7 +128,8 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
       .filter(r => marketFilters.length === 0 || marketFilters.includes(symbolTypeMap[r.trade.symbol] ?? ''))
       .filter(r => tierFilters.length === 0 || tierFilters.includes(rateTier(r.trade.profitRate).id))
       .filter(r => planFilters.length === 0 || planFilters.includes(r.trade.plannedHoldingPeriod || NO_PLAN))
-  }, [trades, winFilter, marketFilters, tierFilters, planFilters, symbolTypeMap])
+      .filter(r => holdingFilters.length === 0 || holdingFilters.includes(holdingDaysTier(r.trade.holdingDays).id))
+  }, [trades, winFilter, marketFilters, tierFilters, planFilters, holdingFilters, symbolTypeMap])
 
   // 거래 없는 최근 주/달이 오른쪽에 비어 보이지 않도록, 가장 최근 거래가 있는 시점을 기준으로 삼음
   const anchorDate = useMemo(() => {
@@ -154,23 +174,15 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
     <div className="max-w-[1600px] mx-auto grid grid-cols-[160px_1fr] gap-4 items-start">
       {/* 좌측 필터 */}
       <div className="sticky top-16 space-y-3">
-        <div className="bg-white rounded-lg border overflow-hidden">
-          {([
-            ['all', '전체'],
-            ['win', '익절'],
-            ['loss', '손절'],
-          ] as const).map(([v, label]) => (
-            <button
-              key={v}
-              onClick={() => setWinFilter(v)}
-              className={`w-full text-left px-3 py-2 text-sm border-b last:border-b-0 transition-colors ${
-                winFilter === v ? 'bg-gray-100 text-gray-800 font-medium' : 'text-gray-400 hover:bg-gray-50'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <select
+          value={winFilter}
+          onChange={e => setWinFilter(e.target.value as WinFilter)}
+          className="w-full bg-white border rounded-lg px-3 py-2 text-sm text-gray-700"
+        >
+          <option value="all">전체</option>
+          <option value="win">익절</option>
+          <option value="loss">손절</option>
+        </select>
 
         <div className="bg-white rounded-lg border p-2 space-y-1">
           {MARKET_TYPES.map(type => (
@@ -211,6 +223,20 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
                 className="accent-blue-600"
               />
               <span className="text-sm text-gray-700">{plan}</span>
+            </label>
+          ))}
+        </div>
+
+        <div className="bg-white rounded-lg border p-2 space-y-1">
+          {HOLDING_DAYS_TIERS.map(tier => (
+            <label key={tier.id} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-gray-50 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={holdingFilters.includes(tier.id)}
+                onChange={() => toggleHolding(tier.id)}
+                className="accent-blue-600"
+              />
+              <span className="text-sm text-gray-700">{tier.label}</span>
             </label>
           ))}
         </div>
@@ -349,6 +375,14 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
                             targetPrice={trade.targetPrice}
                             stopLossPrice={trade.stopLossPrice}
                           />
+                          {trade.symbolCode && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={`https://ssl.pstatic.net/imgfinance/chart/item/candle/day/${trade.symbolCode}.png`}
+                              alt={`${trade.symbol} 캔들 차트`}
+                              className="w-full border-t"
+                            />
+                          )}
                           <table className="w-full text-xs border-t">
                             <thead>
                               <tr className="text-[10px] text-gray-400 border-b bg-gray-50">
