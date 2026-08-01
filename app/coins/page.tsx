@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import type { CoinTrade } from '@/lib/types'
 import { apiFetch } from '@/lib/api'
-import { formatKRW, formatQty } from '@/lib/utils'
+import { formatKRW, formatQty, formatRate } from '@/lib/utils'
 import CoinHistory from '@/components/CoinHistory'
 import CoinCalendar from '@/components/CoinCalendar'
 import CoinTimeline from '@/components/CoinTimeline'
@@ -26,6 +26,8 @@ export default function CoinsPage() {
   const [holdingOpen, setHoldingOpen] = useState(false)
   const [simRows, setSimRows] = useState<Record<string, { price: string; qty: string }[]>>({})
   const [savedSims, setSavedSims] = useState<Record<string, { id: string; price: number; quantity: number }[]>>({})
+  const [priceMap, setPriceMap] = useState<Record<string, number>>({})
+  const [pricesLoading, setPricesLoading] = useState(false)
 
   function addSimRow(tradeId: string) {
     setSimRows(prev => ({ ...prev, [tradeId]: [...(prev[tradeId] ?? []), { price: '', qty: '' }] }))
@@ -124,6 +126,23 @@ export default function CoinsPage() {
   const completed = displayTrades.filter(t => t.isCompleted)
   const totalProfit = completed.reduce((s, t) => s + t.profitAmount, 0)
 
+  async function loadPrices() {
+    const symbols = [...new Set(holding.map(t => t.symbol))]
+    if (symbols.length === 0) return
+    setPricesLoading(true)
+    try {
+      const res = await apiFetch(`/api/coin-price?symbols=${symbols.join(',')}`)
+      const json = await res.json()
+      if (Array.isArray(json?.data)) {
+        const map: Record<string, number> = {}
+        for (const item of json.data) map[item.symbol] = Number(item.price)
+        setPriceMap(prev => ({ ...prev, ...map }))
+      }
+    } finally {
+      setPricesLoading(false)
+    }
+  }
+
   return (
     <div className="min-h-screen">
       <header className="bg-white border-b px-4 py-3 flex justify-between items-center sticky top-0 z-10">
@@ -202,18 +221,27 @@ export default function CoinsPage() {
         {/* 보유 종목 요약 — 평균매수가 · 추가매수 시뮬 */}
         {viewMode !== 'calendar' && holding.length > 0 && (
           <div className="rounded-lg border bg-white overflow-hidden">
-            <button
-              onClick={() => setHoldingOpen(v => !v)}
-              className="w-full flex items-center justify-between px-3 py-1.5 bg-gray-50 border-b hover:bg-gray-100 transition-colors"
-            >
-              <span className="text-xs text-gray-500 font-medium">보유 종목 <span className="text-gray-400">{holding.length}</span></span>
-              <span className="text-xs text-gray-400">{holdingOpen ? '▲' : '▼'}</span>
-            </button>
+            <div className="w-full flex items-center justify-between px-3 py-1.5 bg-gray-50 border-b hover:bg-gray-100 transition-colors">
+              <button onClick={() => setHoldingOpen(v => !v)} className="flex-1 text-left">
+                <span className="text-xs text-gray-500 font-medium">보유 종목 <span className="text-gray-400">{holding.length}</span></span>
+              </button>
+              <span className="flex items-center gap-2">
+                <button
+                  onClick={() => loadPrices()}
+                  disabled={pricesLoading}
+                  className="text-xs px-2 py-0.5 rounded border text-blue-600 border-blue-200 hover:bg-blue-50 disabled:opacity-50"
+                >
+                  {pricesLoading ? '조회중...' : '현재가 새로고침'}
+                </button>
+                <button onClick={() => setHoldingOpen(v => !v)} className="text-xs text-gray-400">{holdingOpen ? '▲' : '▼'}</button>
+              </span>
+            </div>
             {holdingOpen && (
               <>
-                <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] text-xs text-gray-400 bg-gray-50 border-b px-3 py-1.5 gap-3">
+                <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto] text-xs text-gray-400 bg-gray-50 border-b px-3 py-1.5 gap-3">
                   <span>종목</span>
                   <span className="text-right">평균매수가</span>
+                  <span className="text-right">평가손익</span>
                   <span className="text-right">잔여</span>
                   <span className="text-right">보유일</span>
                   <span />
@@ -223,11 +251,26 @@ export default function CoinsPage() {
                   const rows = simRows[trade.id] ?? []
                   const saved = savedSims[trade.id] ?? []
                   const newAvg = calcNewAvg(trade, rows, saved)
+                  const currentPrice = priceMap[trade.symbol]
+                  const evalProfit = currentPrice != null ? (currentPrice - trade.avgBuyPrice) * trade.remainingQuantity : null
+                  const evalRate = currentPrice != null && trade.avgBuyPrice > 0 ? (currentPrice / trade.avgBuyPrice - 1) * 100 : null
                   return (
                     <div key={trade.id} className="border-b last:border-b-0">
-                      <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] items-center px-3 py-2 gap-3 hover:bg-gray-50">
+                      <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto] items-center px-3 py-2 gap-3 hover:bg-gray-50">
                         <span className="font-medium text-sm text-gray-700">{trade.symbol}</span>
                         <span className="text-xs text-gray-600 text-right tabular-nums">{formatKRW(Math.round(trade.avgBuyPrice))}</span>
+                        <div className="text-right">
+                          {evalProfit != null ? (
+                            <>
+                              <span className={`text-xs font-medium tabular-nums ${evalProfit >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                                {(evalProfit >= 0 ? '+' : '') + formatKRW(Math.round(evalProfit))}
+                              </span>
+                              <div className={`text-[10px] ${evalProfit >= 0 ? 'text-red-400' : 'text-blue-400'}`}>{formatRate(evalRate)}</div>
+                            </>
+                          ) : (
+                            <span className="text-xs text-gray-300">-</span>
+                          )}
+                        </div>
                         <span className="text-xs text-gray-400 text-right">{formatQty(trade.remainingQuantity)}</span>
                         <span className="text-xs text-gray-400 text-right">{trade.holdingDays}일</span>
                         <button
