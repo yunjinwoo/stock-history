@@ -10,6 +10,7 @@ const PLAN_TONE_STYLE: Record<"neutral" | "good" | "bad", string> = {
   bad: "border-orange-200 text-orange-600 bg-orange-50",
 };
 import TradeChart from "./TradeChart";
+import TradingViewChart from "./TradingViewChart";
 
 interface Props {
   trades: CoinTrade[];
@@ -101,14 +102,26 @@ export default function CoinHistory({ trades, onEdit, onDelete }: Props) {
               onClick={() => toggle(trade.id)}
             >
               <div className="flex items-center gap-2">
+                <span className="font-medium">{trade.symbol}</span>
                 <a
                   href={`https://upbit.com/exchange?code=CRIX.UPBIT.KRW-${trade.symbol}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
-                  className="font-medium hover:underline"
+                  className="text-blue-500 hover:text-blue-700 text-xs font-bold"
+                  title="업비트 차트 열기"
                 >
-                  {trade.symbol}
+                  U
+                </a>
+                <a
+                  href={`https://www.tradingview.com/chart/?symbol=UPBIT%3A${trade.symbol}KRW`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-blue-400 hover:text-blue-600 text-xs"
+                  title="트레이딩뷰 차트 열기"
+                >
+                  📈
                 </a>
                 <span className="text-xs text-gray-400">
                   매수 {trade.buyEntries.length}건
@@ -216,6 +229,11 @@ export default function CoinHistory({ trades, onEdit, onDelete }: Props) {
                 avgBuyPrice={trade.avgBuyPrice}
                 isCompleted={trade.isCompleted}
               />
+            )}
+
+            {/* 트레이딩뷰 차트 */}
+            {isExpanded && (
+              <TradingViewChart symbol={`UPBIT:${trade.symbol}KRW`} height={360} />
             )}
 
             {/* 거래 내역 */}
