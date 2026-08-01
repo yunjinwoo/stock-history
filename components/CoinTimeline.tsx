@@ -238,6 +238,22 @@ export default function CoinTimeline({ trades, onEdit }: Props) {
                         <div className="flex justify-between items-start gap-1">
                           <div className="min-w-0">
                             <span className="font-semibold text-sm">{trade.symbol}</span>
+                            <a
+                              href={`https://upbit.com/exchange?code=CRIX.UPBIT.KRW-${trade.symbol}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={e => e.stopPropagation()}
+                              className="text-blue-500 hover:text-blue-700 text-xs font-bold ml-1"
+                              title="업비트 차트 열기"
+                            >U</a>
+                            <a
+                              href={`https://www.tradingview.com/chart/?symbol=UPBIT%3A${trade.symbol}KRW`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={e => e.stopPropagation()}
+                              className="text-blue-400 hover:text-blue-600 text-xs ml-1"
+                              title="트레이딩뷰 차트 열기"
+                            >📈</a>
                             <p className="text-[11px] text-gray-400">
                               <span className="tabular-nums">{exitDate.slice(5, 10)}</span>
                               {' · 보유 '}{trade.holdingDays}일{' · '}
