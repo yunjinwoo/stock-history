@@ -284,6 +284,28 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
                                 </span>
                               )}
                               <span className="font-semibold text-sm">{trade.symbol}</span>
+                            <a
+                              href={
+                                trade.symbolCode
+                                  ? `https://finance.naver.com/item/fchart.naver?code=${trade.symbolCode}`
+                                  : `https://finance.naver.com/search/search.naver?query=${encodeURIComponent(trade.symbol)}&endUrl=&encoding=UTF-8`
+                              }
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={e => e.stopPropagation()}
+                              className="text-green-500 hover:text-green-700 text-xs font-bold ml-1"
+                              title="네이버 금융 차트 열기"
+                            >N</a>
+                            {trade.symbolCode && (
+                              <a
+                                href={`https://www.tradingview.com/chart/?symbol=KRX%3A${trade.symbolCode}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={e => e.stopPropagation()}
+                                className="text-blue-400 hover:text-blue-600 text-xs ml-1"
+                                title="트레이딩뷰 차트 열기"
+                              >📈</a>
+                            )}
                             </div>
                             <p className="text-[11px] text-gray-400">
                               {accountLabel && <>{accountLabel} · </>}
