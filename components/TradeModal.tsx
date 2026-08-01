@@ -279,13 +279,13 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center px-5 py-4 border-b">
+      <div className="bg-white rounded-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+        <div className="flex justify-between items-center px-5 py-4 border-b shrink-0">
           <h2 className="font-semibold">{trade ? '거래 수정' : mergeTarget ? `${mergeTarget.symbol} 포지션에 추가` : '새 거래 입력'}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
         </div>
 
-        <div className="flex border-b">
+        <div className="flex border-b shrink-0">
           {(['direct', 'kakao'] as const).map(t => (
             <button
               key={t}
@@ -297,11 +297,11 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
           ))}
         </div>
 
-        <div className="p-5">
+        <div className="p-5 overflow-y-auto flex-1">
           {tab === 'kakao' && <KakaoParser onParsed={handleParsed} />}
 
           {tab === 'direct' && (
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form id="trade-form" onSubmit={handleSubmit} className="space-y-4">
               {existingHolding && (
                 <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 flex items-center justify-between gap-3">
                   <p className="text-xs text-amber-700">
@@ -461,16 +461,18 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
               </div>
 
               {error && <p className="text-red-500 text-sm">{error}</p>}
-
-              <div className="flex gap-2 justify-end pt-1">
-                <button type="button" onClick={onClose} className="px-4 py-2 text-sm border rounded text-gray-500 hover:bg-gray-50">취소</button>
-                <button type="submit" disabled={saving} className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
-                  {saving ? '저장 중...' : '저장'}
-                </button>
-              </div>
             </form>
           )}
         </div>
+
+        {tab === 'direct' && (
+          <div className="flex gap-2 justify-end px-5 py-4 border-t shrink-0">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm border rounded text-gray-500 hover:bg-gray-50">취소</button>
+            <button type="submit" form="trade-form" disabled={saving} className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
+              {saving ? '저장 중...' : '저장'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
