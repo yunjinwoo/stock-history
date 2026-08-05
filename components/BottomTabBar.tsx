@@ -8,7 +8,7 @@ export default function BottomTabBar() {
   const pathname = usePathname()
   const [showMore, setShowMore] = useState(false)
 
-  const isMore = pathname === '/accounts' || pathname === '/stock-master'
+  const isMore = pathname === '/accounts' || pathname === '/stock-master' || pathname === '/first-entries'
 
   return (
     <>
@@ -27,9 +27,16 @@ export default function BottomTabBar() {
           <Link
             href="/accounts"
             onClick={() => setShowMore(false)}
-            className="block px-5 py-3 text-sm text-gray-700 hover:bg-gray-50"
+            className="block px-5 py-3 text-sm text-gray-700 hover:bg-gray-50 border-b"
           >
             계좌관리
+          </Link>
+          <Link
+            href="/first-entries"
+            onClick={() => setShowMore(false)}
+            className="block px-5 py-3 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            최초진입
           </Link>
         </div>
       )}
