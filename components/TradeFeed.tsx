@@ -6,8 +6,12 @@ import {
   createColumnHelper,
   flexRender,
   getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
+  type Column,
+  type ColumnFiltersState,
   type SortingState,
 } from '@tanstack/react-table'
 import type { Trade, Account } from '@/lib/types'
@@ -18,6 +22,8 @@ const TYPE_STYLE: Record<string, string> = {
   코스닥: 'bg-green-50 text-green-600 border-green-200',
   ETF: 'bg-purple-50 text-purple-600 border-purple-200',
 }
+
+const PAGE_SIZE_OPTIONS = [50, 100, 300] as const
 
 interface Props {
   trades: Trade[]
@@ -38,9 +44,125 @@ interface FeedRow {
   createdAt: string
 }
 
+type NumRange = [number | undefined, number | undefined]
+type DateRange = [string | undefined, string | undefined]
+
 const RIGHT_ALIGN_COLS = new Set(['price', 'quantity', 'amount'])
 
 const columnHelper = createColumnHelper<FeedRow>()
+
+function exactFilter<T>(row: { getValue: (id: string) => unknown }, columnId: string, filterValue: T) {
+  return filterValue == null ? true : row.getValue(columnId) === filterValue
+}
+
+// 거래일(YYYY-MM-DD) 기준 범위 필터 — 문자열 사전순 비교로 충분
+function dateRangeFilter(row: { original: FeedRow }, _columnId: string, filterValue: DateRange | undefined) {
+  if (!filterValue) return true
+  const [from, to] = filterValue
+  const d = row.original.date.slice(0, 10)
+  if (from && d < from) return false
+  if (to && d > to) return false
+  return true
+}
+
+function updateRange<T>(old: [T | undefined, T | undefined] | undefined, index: 0 | 1, value: T | undefined): [T | undefined, T | undefined] | undefined {
+  const next: [T | undefined, T | undefined] = index === 0 ? [value, old?.[1]] : [old?.[0], value]
+  return next[0] == null && next[1] == null ? undefined : next
+}
+
+function NumberRangeFilter({ column, unit }: { column: Column<FeedRow, unknown> | undefined; unit: string }) {
+  const value = (column?.getFilterValue() as NumRange | undefined) ?? [undefined, undefined]
+  const inputCls = 'border rounded px-1.5 py-1 text-xs w-20 focus:outline-none focus:ring-1 focus:ring-blue-400'
+  return (
+    <div className="flex items-center gap-1">
+      <input
+        type="number"
+        value={value[0] ?? ''}
+        onChange={e => column?.setFilterValue((old: NumRange | undefined) => updateRange(old, 0, e.target.value === '' ? undefined : Number(e.target.value)))}
+        placeholder="최소"
+        className={inputCls}
+      />
+      <span className="text-gray-300 text-xs">~</span>
+      <input
+        type="number"
+        value={value[1] ?? ''}
+        onChange={e => column?.setFilterValue((old: NumRange | undefined) => updateRange(old, 1, e.target.value === '' ? undefined : Number(e.target.value)))}
+        placeholder="최대"
+        className={inputCls}
+      />
+      <span className="text-[10px] text-gray-400">{unit}</span>
+    </div>
+  )
+}
+
+interface PaginationBarProps {
+  table: ReturnType<typeof useReactTable<FeedRow>>
+  pageIndex: number
+  pageSize: number
+  rangeStart: number
+  rangeEnd: number
+  filteredCount: number
+}
+
+function PaginationBar({ table, pageIndex, pageSize, rangeStart, rangeEnd, filteredCount }: PaginationBarProps) {
+  return (
+    <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
+      <span className="tabular-nums">{rangeStart}–{rangeEnd} / {filteredCount}건</span>
+      <select
+        value={pageSize}
+        onChange={e => table.setPageSize(Number(e.target.value))}
+        className="border rounded px-1.5 py-1 bg-white focus:outline-none"
+      >
+        {PAGE_SIZE_OPTIONS.map(n => <option key={n} value={n}>{n}개씩</option>)}
+      </select>
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => table.setPageIndex(0)}
+          disabled={!table.getCanPreviousPage()}
+          className="w-6 h-6 flex items-center justify-center rounded border disabled:opacity-30 hover:bg-white"
+        >«</button>
+        <button
+          onClick={() => table.previousPage()}
+          disabled={!table.getCanPreviousPage()}
+          className="w-6 h-6 flex items-center justify-center rounded border disabled:opacity-30 hover:bg-white"
+        >‹</button>
+        <span className="px-1.5 tabular-nums">{pageIndex + 1} / {Math.max(1, table.getPageCount())}</span>
+        <button
+          onClick={() => table.nextPage()}
+          disabled={!table.getCanNextPage()}
+          className="w-6 h-6 flex items-center justify-center rounded border disabled:opacity-30 hover:bg-white"
+        >›</button>
+        <button
+          onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+          disabled={!table.getCanNextPage()}
+          className="w-6 h-6 flex items-center justify-center rounded border disabled:opacity-30 hover:bg-white"
+        >»</button>
+      </div>
+    </div>
+  )
+}
+
+function DateRangeFilter({ column }: { column: Column<FeedRow, unknown> | undefined }) {
+  const value = (column?.getFilterValue() as DateRange | undefined) ?? [undefined, undefined]
+  const inputCls = 'border rounded px-1.5 py-1 text-xs w-32 focus:outline-none focus:ring-1 focus:ring-blue-400'
+  return (
+    <div className="flex items-center gap-1">
+      <input
+        type="date"
+        value={value[0] ?? ''}
+        onChange={e => column?.setFilterValue((old: DateRange | undefined) => updateRange(old, 0, e.target.value || undefined))}
+        className={inputCls}
+      />
+      <span className="text-gray-300 text-xs">~</span>
+      <input
+        type="date"
+        value={value[1] ?? ''}
+        onChange={e => column?.setFilterValue((old: DateRange | undefined) => updateRange(old, 1, e.target.value || undefined))}
+        className={inputCls}
+      />
+    </div>
+  )
+}
 
 export default function TradeFeed({ trades, accounts, symbolTypeMap = {}, onEdit, onDelete }: Props) {
   const accountMap = useMemo(() => {
@@ -66,10 +188,13 @@ export default function TradeFeed({ trades, accounts, symbolTypeMap = {}, onEdit
   }
 
   const [sorting, setSorting] = useState<SortingState>([{ id: 'createdAt', desc: true }])
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [globalFilter, setGlobalFilter] = useState('')
 
   const columns = useMemo(() => [
     columnHelper.accessor('type', {
       header: '구분',
+      filterFn: exactFilter,
       cell: info => (
         <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${info.getValue() === '매수' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-500'}`}>
           {info.getValue()}
@@ -93,6 +218,35 @@ export default function TradeFeed({ trades, accounts, symbolTypeMap = {}, onEdit
               </span>
             )}
             <span className="font-medium break-words">{row.trade.symbol}</span>
+            <a
+              href={
+                row.trade.symbolCode
+                  ? `https://finance.naver.com/item/fchart.naver?code=${row.trade.symbolCode}`
+                  : `https://finance.naver.com/search/search.naver?query=${encodeURIComponent(row.trade.symbol)}&endUrl=&encoding=UTF-8`
+              }
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-green-500 hover:text-green-700 text-xs font-bold shrink-0"
+              title="네이버 금융 차트 열기"
+            >N</a>
+            {row.trade.symbolCode && (
+              <>
+                <a
+                  href={`https://www.tradingview.com/chart/?symbol=KRX%3A${row.trade.symbolCode}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-400 hover:text-blue-600 text-xs shrink-0"
+                  title="트레이딩뷰 차트 열기"
+                >📈</a>
+                <a
+                  href={`https://tossinvest.com/stocks/A${row.trade.symbolCode}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#3182F6] hover:opacity-70 text-xs font-bold shrink-0"
+                  title="토스증권 열기"
+                >T</a>
+              </>
+            )}
           </div>
         )
       },
@@ -105,6 +259,7 @@ export default function TradeFeed({ trades, accounts, symbolTypeMap = {}, onEdit
     columnHelper.accessor(row => row.trade.isCompleted, {
       id: 'status',
       header: '상태',
+      filterFn: exactFilter,
       cell: info => (
         !info.getValue() ? (
           <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 whitespace-nowrap">보유중</span>
@@ -115,6 +270,7 @@ export default function TradeFeed({ trades, accounts, symbolTypeMap = {}, onEdit
     }),
     columnHelper.accessor('createdAt', {
       header: '일시',
+      filterFn: dateRangeFilter,
       cell: info => (
         <>
           <div className="text-gray-500 text-xs">{info.row.original.date.slice(0, 10)}</div>
@@ -124,14 +280,17 @@ export default function TradeFeed({ trades, accounts, symbolTypeMap = {}, onEdit
     }),
     columnHelper.accessor('price', {
       header: '단가',
+      filterFn: 'inNumberRange',
       cell: info => <span className="break-words">{formatKRW(info.getValue())}</span>,
     }),
     columnHelper.accessor('quantity', {
       header: '수량',
+      filterFn: 'inNumberRange',
       cell: info => <span className="whitespace-nowrap">{info.getValue()}주</span>,
     }),
     columnHelper.accessor('amount', {
       header: '금액',
+      filterFn: 'inNumberRange',
       cell: info => <span className="break-words">{formatKRW(info.getValue())}</span>,
     }),
     columnHelper.display({
@@ -162,11 +321,52 @@ export default function TradeFeed({ trades, accounts, symbolTypeMap = {}, onEdit
   const table = useReactTable({
     data,
     columns,
-    state: { sorting },
+    state: { sorting, columnFilters, globalFilter },
     onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn: (row, _columnId, filterValue) => {
+      const original = row.original
+      const haystack = `${original.trade.symbol} ${accountLabel(original.trade)}`.toLowerCase()
+      return haystack.includes(String(filterValue).toLowerCase())
+    },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 50 } },
   })
+
+  const [isExporting, setIsExporting] = useState(false)
+
+  async function exportExcel() {
+    setIsExporting(true)
+    try {
+      const XLSX = await import('xlsx')
+      // 현재 정렬·필터가 적용된 전체(페이지 무관) 결과를 내보냄
+      const rows = table.getSortedRowModel().rows.map((row, i) => {
+        const r = row.original
+        return {
+          No: i + 1,
+          구분: r.type,
+          종목: r.trade.symbol,
+          계좌: accountLabel(r.trade),
+          상태: r.trade.isCompleted ? '완료' : '보유중',
+          거래일: r.date.slice(0, 10),
+          입력시각: dayjs(r.createdAt).format('YYYY-MM-DD HH:mm'),
+          단가: r.price,
+          수량: r.quantity,
+          금액: r.amount,
+        }
+      })
+      const ws = XLSX.utils.json_to_sheet(rows)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, '거래내역')
+      XLSX.writeFile(wb, `trade-feed-${dayjs().format('YYYYMMDD-HHmm')}.xlsx`)
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   if (data.length === 0) {
     return (
@@ -176,59 +376,157 @@ export default function TradeFeed({ trades, accounts, symbolTypeMap = {}, onEdit
     )
   }
 
+  const typeFilter = (table.getColumn('type')?.getFilterValue() as string | undefined) ?? null
+  const statusFilter = (table.getColumn('status')?.getFilterValue() as boolean | undefined) ?? null
+  const hasActiveFilter = !!globalFilter || columnFilters.length > 0
+
+  const filteredCount = table.getFilteredRowModel().rows.length
+  const { pageIndex, pageSize } = table.getState().pagination
+  const rangeStart = filteredCount === 0 ? 0 : pageIndex * pageSize + 1
+  const rangeEnd = Math.min((pageIndex + 1) * pageSize, filteredCount)
+
   return (
     <div className="w-full rounded-lg border bg-white overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm table-fixed">
-          <colgroup>
-            <col className="w-16" />
-            <col />
-            <col className="w-32" />
-            <col className="w-20" />
-            <col className="w-32" />
-            <col className="w-28" />
-            <col className="w-20" />
-            <col className="w-32" />
-            <col className="w-28" />
-          </colgroup>
-          <thead>
-            {table.getHeaderGroups().map(headerGroup => (
-              <tr key={headerGroup.id} className="text-xs text-gray-400 border-b bg-gray-50">
-                {headerGroup.headers.map(header => {
-                  const sortDir = header.column.getIsSorted()
-                  return (
-                    <th
-                      key={header.id}
-                      className={`px-3 py-2 font-normal ${RIGHT_ALIGN_COLS.has(header.id) ? 'text-right' : 'text-left'} ${header.id === 'type' || header.id === 'status' ? 'text-center' : ''} ${header.column.getCanSort() ? 'cursor-pointer select-none hover:text-gray-600' : ''}`}
-                      onClick={header.column.getToggleSortingHandler()}
-                    >
-                      {flexRender(header.column.columnDef.header, header.getContext())}
-                      {sortDir === 'asc' ? ' ▲' : sortDir === 'desc' ? ' ▼' : ''}
-                    </th>
-                  )
-                })}
-              </tr>
-            ))}
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {table.getRowModel().rows.map(row => {
-              const isLatest = row.original.createdAt === latestCreatedAt
-              return (
-                <tr key={row.id} className={`hover:bg-gray-50 align-top ${isLatest ? 'bg-blue-50/50' : ''}`}>
-                  {row.getVisibleCells().map(cell => (
-                    <td
-                      key={cell.id}
-                      className={`px-3 py-2.5 ${RIGHT_ALIGN_COLS.has(cell.column.id) ? 'text-right' : ''} ${cell.column.id === 'status' ? 'text-center' : ''} ${cell.column.id === 'symbol' ? 'min-w-0' : ''}`}
-                    >
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
-                  ))}
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+      {/* 필터 툴바 — 구분/상태/검색 */}
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2.5 border-b bg-gray-50/60">
+        <input
+          type="text"
+          value={globalFilter}
+          onChange={e => setGlobalFilter(e.target.value)}
+          placeholder="종목·계좌 검색"
+          className="border rounded px-2.5 py-1 text-sm w-40 focus:outline-none focus:ring-1 focus:ring-blue-400"
+        />
+        <div className="flex border rounded overflow-hidden text-xs">
+          {(['all', '매수', '매도'] as const).map(v => (
+            <button
+              key={v}
+              onClick={() => table.getColumn('type')?.setFilterValue(v === 'all' ? undefined : v)}
+              className={`px-2.5 py-1.5 ${(v === 'all' ? typeFilter == null : typeFilter === v) ? 'bg-gray-200 text-gray-800 font-medium' : 'bg-white text-gray-400 hover:text-gray-600'}`}
+            >
+              {v === 'all' ? '전체' : v}
+            </button>
+          ))}
+        </div>
+        <div className="flex border rounded overflow-hidden text-xs">
+          {([{ label: '전체', value: null }, { label: '보유중', value: false }, { label: '완료', value: true }] as const).map(v => (
+            <button
+              key={v.label}
+              onClick={() => table.getColumn('status')?.setFilterValue(v.value === null ? undefined : v.value)}
+              className={`px-2.5 py-1.5 ${statusFilter === v.value ? 'bg-gray-200 text-gray-800 font-medium' : 'bg-white text-gray-400 hover:text-gray-600'}`}
+            >
+              {v.label}
+            </button>
+          ))}
+        </div>
+        {hasActiveFilter && (
+          <button
+            onClick={() => { setGlobalFilter(''); setColumnFilters([]) }}
+            className="text-xs text-gray-400 hover:text-red-400"
+          >필터 초기화</button>
+        )}
+        <span className="text-xs text-gray-400 ml-auto">
+          {hasActiveFilter ? `${filteredCount}건 (전체 ${data.length}건)` : `${data.length}건`}
+        </span>
       </div>
+
+      {/* 범위 필터 — 일시/단가/수량/금액 */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 px-3 py-2.5 border-b bg-white">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] text-gray-400 w-7 shrink-0">일시</span>
+          <DateRangeFilter column={table.getColumn('createdAt')} />
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] text-gray-400 w-7 shrink-0">단가</span>
+          <NumberRangeFilter column={table.getColumn('price')} unit="원" />
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] text-gray-400 w-7 shrink-0">수량</span>
+          <NumberRangeFilter column={table.getColumn('quantity')} unit="주" />
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] text-gray-400 w-7 shrink-0">금액</span>
+          <NumberRangeFilter column={table.getColumn('amount')} unit="원" />
+        </div>
+      </div>
+
+      {/* 상단 페이지 정보 + 엑셀 다운로드 */}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-b bg-gray-50/60">
+        <PaginationBar table={table} pageIndex={pageIndex} pageSize={pageSize} rangeStart={rangeStart} rangeEnd={rangeEnd} filteredCount={filteredCount} />
+        <button
+          onClick={exportExcel}
+          disabled={isExporting || filteredCount === 0}
+          className="text-xs px-2.5 py-1.5 rounded border text-green-600 border-green-200 hover:bg-green-50 disabled:opacity-50 whitespace-nowrap"
+        >
+          {isExporting ? '내보내는 중...' : '📊 엑셀 다운로드'}
+        </button>
+      </div>
+
+      {filteredCount === 0 ? (
+        <p className="text-center text-gray-400 py-12 text-sm">조건에 맞는 내역이 없습니다</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm table-fixed">
+            <colgroup>
+              <col className="w-12" />
+              <col className="w-16" />
+              <col />
+              <col className="w-32" />
+              <col className="w-20" />
+              <col className="w-32" />
+              <col className="w-28" />
+              <col className="w-20" />
+              <col className="w-32" />
+              <col className="w-28" />
+            </colgroup>
+            <thead>
+              {table.getHeaderGroups().map(headerGroup => (
+                <tr key={headerGroup.id} className="text-xs text-gray-400 border-b bg-gray-50">
+                  <th className="px-3 py-2 font-normal text-center">No</th>
+                  {headerGroup.headers.map(header => {
+                    const sortDir = header.column.getIsSorted()
+                    return (
+                      <th
+                        key={header.id}
+                        className={`px-3 py-2 font-normal ${RIGHT_ALIGN_COLS.has(header.id) ? 'text-right' : 'text-left'} ${header.id === 'type' || header.id === 'status' ? 'text-center' : ''} ${header.column.getCanSort() ? 'cursor-pointer select-none hover:text-gray-600' : ''}`}
+                        onClick={header.column.getToggleSortingHandler()}
+                      >
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                        {sortDir === 'asc' ? ' ▲' : sortDir === 'desc' ? ' ▼' : ''}
+                      </th>
+                    )
+                  })}
+                </tr>
+              ))}
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {table.getRowModel().rows.map((row, i) => {
+                const isLatest = row.original.createdAt === latestCreatedAt
+                const rowNo = pageIndex * pageSize + i + 1
+                return (
+                  <tr key={row.id} className={`hover:bg-gray-50 align-top ${isLatest ? 'bg-blue-50/50' : ''}`}>
+                    <td className="px-3 py-2.5 text-center text-xs text-gray-400 tabular-nums">{rowNo}</td>
+                    {row.getVisibleCells().map(cell => (
+                      <td
+                        key={cell.id}
+                        className={`px-3 py-2.5 ${RIGHT_ALIGN_COLS.has(cell.column.id) ? 'text-right' : ''} ${cell.column.id === 'status' ? 'text-center' : ''} ${cell.column.id === 'symbol' ? 'min-w-0' : ''}`}
+                      >
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    ))}
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* 하단 페이지네이션 */}
+      {filteredCount > 0 && (
+        <div className="px-3 py-2 border-t bg-gray-50/60">
+          <PaginationBar table={table} pageIndex={pageIndex} pageSize={pageSize} rangeStart={rangeStart} rangeEnd={rangeEnd} filteredCount={filteredCount} />
+        </div>
+      )}
     </div>
   )
 }
