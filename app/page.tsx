@@ -10,6 +10,7 @@ interface StockMasterItem { symbol: string; symbolCode: string; tags: string | n
 import TradeCard from '@/components/TradeCard'
 import TradeHistory from '@/components/TradeHistory'
 import SymbolHistory from '@/components/SymbolHistory'
+import TradeFeed from '@/components/TradeFeed'
 import TradeTimeline from '@/components/TradeTimeline'
 import TradeCalendar from '@/components/TradeCalendar'
 import MemoStrip from '@/components/MemoStrip'
@@ -96,7 +97,7 @@ export default function HomePage() {
   const [tagSearch, setTagSearch] = useState('')
   const [symbolFilter, setSymbolFilter] = useState<string | null>(null)
   const [noPlanFilter, setNoPlanFilter] = useState(false)
-  const [viewMode, setViewMode] = useState<'card' | 'table' | 'calendar' | 'symbol' | 'timeline'>('table')
+  const [viewMode, setViewMode] = useState<'card' | 'table' | 'calendar' | 'symbol' | 'timeline' | 'feed'>('table')
 
   const loadAccounts = useCallback(async () => {
     const data = await apiFetch('/api/accounts').then(r => r.json())
@@ -211,6 +212,7 @@ export default function HomePage() {
           <div className="flex border rounded overflow-hidden">
             <button onClick={() => setViewMode('table')} className={`text-xs px-2 py-1.5 ${viewMode === 'table' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>≡</button>
             <button onClick={() => setViewMode('symbol')} className={`text-xs px-2 py-1.5 ${viewMode === 'symbol' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>종목</button>
+            <button onClick={() => setViewMode('feed')} className={`text-xs px-2 py-1.5 ${viewMode === 'feed' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>입력순</button>
             <button onClick={() => setViewMode('card')} className={`text-xs px-2 py-1.5 ${viewMode === 'card' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>▦</button>
             <button onClick={() => setViewMode('calendar')} className={`text-xs px-2 py-1.5 ${viewMode === 'calendar' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>📅</button>
             <button onClick={() => setViewMode('timeline')} className={`text-xs px-2 py-1.5 ${viewMode === 'timeline' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>복기</button>
@@ -500,6 +502,14 @@ export default function HomePage() {
           />
         ) : viewMode === 'symbol' ? (
           <SymbolHistory
+            trades={displayTrades}
+            accounts={accounts}
+            symbolTypeMap={symbolTypeMap}
+            onEdit={trade => { setEditTrade(trade); setShowModal(true) }}
+            onDelete={async trade => { await apiFetch(`/api/trades/${trade.id}`, { method: 'DELETE' }); load() }}
+          />
+        ) : viewMode === 'feed' ? (
+          <TradeFeed
             trades={displayTrades}
             accounts={accounts}
             symbolTypeMap={symbolTypeMap}
