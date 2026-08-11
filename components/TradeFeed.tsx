@@ -182,6 +182,15 @@ export default function TradeFeed({ trades, accounts, symbolTypeMap = {}, onEdit
     [data],
   )
 
+  // 거래(포지션) 단위 번호 — 매수/매도 내역이 같은 거래로 묶여있는지 한눈에 보기 위함
+  // 거래 생성 순서(오래된 순)로 번호를 매겨서 필터·정렬을 바꿔도 번호가 흔들리지 않게 함
+  const tradeNoMap = useMemo(() => {
+    const sorted = [...trades].sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    const map: Record<string, number> = {}
+    sorted.forEach((t, i) => { map[t.id] = i + 1 })
+    return map
+  }, [trades])
+
   function accountLabel(trade: Trade): string {
     const account = accountMap[trade.accountId]
     return account ? (account.nickname || `${account.broker} ${account.accountNumber}`) : '알 수 없는 계좌'
@@ -191,7 +200,43 @@ export default function TradeFeed({ trades, accounts, symbolTypeMap = {}, onEdit
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = useState('')
 
+  const activeTradeNo = columnFilters.find(f => f.id === 'tradeNo')?.value as number | undefined
+  const activeSymbol = columnFilters.find(f => f.id === 'symbol')?.value as string | undefined
+
+  function toggleTradeNoFilter(no: number) {
+    setColumnFilters(prev => {
+      const isActive = prev.find(f => f.id === 'tradeNo')?.value === no
+      const rest = prev.filter(f => f.id !== 'tradeNo')
+      return isActive ? rest : [...rest, { id: 'tradeNo', value: no }]
+    })
+  }
+
+  function toggleSymbolFilter(symbol: string) {
+    setColumnFilters(prev => {
+      const isActive = prev.find(f => f.id === 'symbol')?.value === symbol
+      const rest = prev.filter(f => f.id !== 'symbol')
+      return isActive ? rest : [...rest, { id: 'symbol', value: symbol }]
+    })
+  }
+
   const columns = useMemo(() => [
+    columnHelper.accessor(row => tradeNoMap[row.trade.id] ?? 0, {
+      id: 'tradeNo',
+      header: '거래#',
+      filterFn: exactFilter,
+      cell: info => {
+        const value = info.getValue()
+        const isActive = activeTradeNo === value
+        return (
+          <button
+            type="button"
+            onClick={() => toggleTradeNoFilter(value)}
+            className={`text-xs tabular-nums px-1.5 py-0.5 rounded transition-colors ${isActive ? 'bg-blue-500 text-white font-medium' : 'text-gray-400 hover:bg-gray-200'}`}
+            title="클릭하면 같은 거래(포지션)의 내역만 필터링합니다"
+          >#{value}</button>
+        )
+      },
+    }),
     columnHelper.accessor('type', {
       header: '구분',
       filterFn: exactFilter,
@@ -204,9 +249,11 @@ export default function TradeFeed({ trades, accounts, symbolTypeMap = {}, onEdit
     columnHelper.accessor(row => row.trade.symbol, {
       id: 'symbol',
       header: '종목',
+      filterFn: exactFilter,
       cell: info => {
         const row = info.row.original
         const isLatest = row.createdAt === latestCreatedAt
+        const isActiveSymbol = activeSymbol === row.trade.symbol
         return (
           <div className="flex items-center gap-1 flex-wrap">
             {isLatest && (
@@ -217,7 +264,12 @@ export default function TradeFeed({ trades, accounts, symbolTypeMap = {}, onEdit
                 {symbolTypeMap[row.trade.symbol]}
               </span>
             )}
-            <span className="font-medium break-words">{row.trade.symbol}</span>
+            <button
+              type="button"
+              onClick={() => toggleSymbolFilter(row.trade.symbol)}
+              className={`font-medium break-words text-left rounded px-0.5 -mx-0.5 transition-colors ${isActiveSymbol ? 'text-blue-600 bg-blue-50 underline' : 'hover:text-blue-600 hover:bg-gray-100'}`}
+              title="클릭하면 이 종목의 내역만 필터링합니다"
+            >{row.trade.symbol}</button>
             <a
               href={
                 row.trade.symbolCode
@@ -316,7 +368,7 @@ export default function TradeFeed({ trades, accounts, symbolTypeMap = {}, onEdit
       enableSorting: false,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [accountMap, symbolTypeMap, latestCreatedAt, onEdit, onDelete])
+  ], [accountMap, symbolTypeMap, latestCreatedAt, tradeNoMap, activeTradeNo, activeSymbol, onEdit, onDelete])
 
   const table = useReactTable({
     data,
@@ -418,6 +470,24 @@ export default function TradeFeed({ trades, accounts, symbolTypeMap = {}, onEdit
             </button>
           ))}
         </div>
+        {activeSymbol != null && (
+          <span className="flex items-center gap-1 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-full pl-2.5 pr-1.5 py-1">
+            종목 {activeSymbol}만 보는 중
+            <button
+              onClick={() => setColumnFilters(prev => prev.filter(f => f.id !== 'symbol'))}
+              className="hover:text-blue-900 px-1"
+            >✕</button>
+          </span>
+        )}
+        {activeTradeNo != null && (
+          <span className="flex items-center gap-1 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-full pl-2.5 pr-1.5 py-1">
+            거래 #{activeTradeNo}만 보는 중
+            <button
+              onClick={() => setColumnFilters(prev => prev.filter(f => f.id !== 'tradeNo'))}
+              className="hover:text-blue-900 px-1"
+            >✕</button>
+          </span>
+        )}
         {hasActiveFilter && (
           <button
             onClick={() => { setGlobalFilter(''); setColumnFilters([]) }}
@@ -468,6 +538,7 @@ export default function TradeFeed({ trades, accounts, symbolTypeMap = {}, onEdit
           <table className="w-full text-sm table-fixed">
             <colgroup>
               <col className="w-12" />
+              <col className="w-14" />
               <col className="w-16" />
               <col />
               <col className="w-32" />
@@ -487,7 +558,7 @@ export default function TradeFeed({ trades, accounts, symbolTypeMap = {}, onEdit
                     return (
                       <th
                         key={header.id}
-                        className={`px-3 py-2 font-normal ${RIGHT_ALIGN_COLS.has(header.id) ? 'text-right' : 'text-left'} ${header.id === 'type' || header.id === 'status' ? 'text-center' : ''} ${header.column.getCanSort() ? 'cursor-pointer select-none hover:text-gray-600' : ''}`}
+                        className={`px-3 py-2 font-normal ${RIGHT_ALIGN_COLS.has(header.id) ? 'text-right' : 'text-left'} ${header.id === 'type' || header.id === 'status' || header.id === 'tradeNo' ? 'text-center' : ''} ${header.column.getCanSort() ? 'cursor-pointer select-none hover:text-gray-600' : ''}`}
                         onClick={header.column.getToggleSortingHandler()}
                       >
                         {flexRender(header.column.columnDef.header, header.getContext())}
@@ -501,14 +572,17 @@ export default function TradeFeed({ trades, accounts, symbolTypeMap = {}, onEdit
             <tbody className="divide-y divide-gray-50">
               {table.getRowModel().rows.map((row, i) => {
                 const isLatest = row.original.createdAt === latestCreatedAt
+                const isCompleted = row.original.trade.isCompleted
                 const rowNo = pageIndex * pageSize + i + 1
+                const statusBg = isCompleted ? 'bg-gray-50 hover:bg-gray-100' : 'bg-green-50/50 hover:bg-green-50'
+                const latestRing = isLatest ? 'ring-1 ring-inset ring-blue-300' : ''
                 return (
-                  <tr key={row.id} className={`hover:bg-gray-50 align-top ${isLatest ? 'bg-blue-50/50' : ''}`}>
+                  <tr key={row.id} className={`align-top ${statusBg} ${latestRing}`}>
                     <td className="px-3 py-2.5 text-center text-xs text-gray-400 tabular-nums">{rowNo}</td>
                     {row.getVisibleCells().map(cell => (
                       <td
                         key={cell.id}
-                        className={`px-3 py-2.5 ${RIGHT_ALIGN_COLS.has(cell.column.id) ? 'text-right' : ''} ${cell.column.id === 'status' ? 'text-center' : ''} ${cell.column.id === 'symbol' ? 'min-w-0' : ''}`}
+                        className={`px-3 py-2.5 ${RIGHT_ALIGN_COLS.has(cell.column.id) ? 'text-right' : ''} ${cell.column.id === 'status' || cell.column.id === 'tradeNo' ? 'text-center' : ''} ${cell.column.id === 'symbol' ? 'min-w-0' : ''}`}
                       >
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </td>
