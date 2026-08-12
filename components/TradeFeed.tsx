@@ -202,6 +202,7 @@ export default function TradeFeed({ trades, accounts, symbolTypeMap = {}, onEdit
 
   const activeTradeNo = columnFilters.find(f => f.id === 'tradeNo')?.value as number | undefined
   const activeSymbol = columnFilters.find(f => f.id === 'symbol')?.value as string | undefined
+  const activeAccount = columnFilters.find(f => f.id === 'account')?.value as string | undefined
 
   function toggleTradeNoFilter(no: number) {
     setColumnFilters(prev => {
@@ -219,7 +220,68 @@ export default function TradeFeed({ trades, accounts, symbolTypeMap = {}, onEdit
     })
   }
 
+  function toggleAccountFilter(account: string) {
+    setColumnFilters(prev => {
+      const isActive = prev.find(f => f.id === 'account')?.value === account
+      const rest = prev.filter(f => f.id !== 'account')
+      return isActive ? rest : [...rest, { id: 'account', value: account }]
+    })
+  }
+
   const columns = useMemo(() => [
+    columnHelper.accessor(row => accountLabel(row.trade), {
+      id: 'account',
+      header: '계좌',
+      filterFn: exactFilter,
+      cell: info => {
+        const value = info.getValue()
+        const isActive = activeAccount === value
+        return (
+          <button
+            type="button"
+            onClick={() => toggleAccountFilter(value)}
+            className={`text-sm text-left break-words rounded px-0.5 -mx-0.5 transition-colors ${isActive ? 'text-blue-600 bg-blue-50 underline' : 'text-gray-600 hover:text-blue-600 hover:bg-gray-100'}`}
+            title="클릭하면 이 계좌의 내역만 필터링합니다"
+          >{value}</button>
+        )
+      },
+    }),
+    columnHelper.accessor('type', {
+      header: '구분',
+      filterFn: exactFilter,
+      cell: info => (
+        <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${info.getValue() === '매수' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-500'}`}>
+          {info.getValue()}
+        </span>
+      ),
+    }),
+    columnHelper.accessor('quantity', {
+      header: '수량',
+      filterFn: 'inNumberRange',
+      cell: info => <span className="whitespace-nowrap">{info.getValue()}주</span>,
+    }),
+    columnHelper.accessor('price', {
+      header: '단가',
+      filterFn: 'inNumberRange',
+      cell: info => <span className="break-words">{formatKRW(info.getValue())}</span>,
+    }),
+    columnHelper.accessor('amount', {
+      header: '금액',
+      filterFn: 'inNumberRange',
+      cell: info => <span className="break-words">{formatKRW(info.getValue())}</span>,
+    }),
+    columnHelper.accessor(row => row.trade.isCompleted, {
+      id: 'status',
+      header: '상태',
+      filterFn: exactFilter,
+      cell: info => (
+        !info.getValue() ? (
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 whitespace-nowrap">보유중</span>
+        ) : (
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 whitespace-nowrap">완료</span>
+        )
+      ),
+    }),
     columnHelper.accessor(row => tradeNoMap[row.trade.id] ?? 0, {
       id: 'tradeNo',
       header: '거래#',
@@ -236,15 +298,6 @@ export default function TradeFeed({ trades, accounts, symbolTypeMap = {}, onEdit
           >#{value}</button>
         )
       },
-    }),
-    columnHelper.accessor('type', {
-      header: '구분',
-      filterFn: exactFilter,
-      cell: info => (
-        <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${info.getValue() === '매수' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-500'}`}>
-          {info.getValue()}
-        </span>
-      ),
     }),
     columnHelper.accessor(row => row.trade.symbol, {
       id: 'symbol',
@@ -303,23 +356,6 @@ export default function TradeFeed({ trades, accounts, symbolTypeMap = {}, onEdit
         )
       },
     }),
-    columnHelper.accessor(row => accountLabel(row.trade), {
-      id: 'account',
-      header: '계좌',
-      cell: info => <span className="text-sm text-gray-600">{info.getValue()}</span>,
-    }),
-    columnHelper.accessor(row => row.trade.isCompleted, {
-      id: 'status',
-      header: '상태',
-      filterFn: exactFilter,
-      cell: info => (
-        !info.getValue() ? (
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 whitespace-nowrap">보유중</span>
-        ) : (
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 whitespace-nowrap">완료</span>
-        )
-      ),
-    }),
     columnHelper.accessor('createdAt', {
       header: '일시',
       filterFn: dateRangeFilter,
@@ -329,21 +365,6 @@ export default function TradeFeed({ trades, accounts, symbolTypeMap = {}, onEdit
           <div className="text-gray-400 text-xs mt-0.5">입력 {dayjs(info.getValue()).format('MM/DD HH:mm')}</div>
         </>
       ),
-    }),
-    columnHelper.accessor('price', {
-      header: '단가',
-      filterFn: 'inNumberRange',
-      cell: info => <span className="break-words">{formatKRW(info.getValue())}</span>,
-    }),
-    columnHelper.accessor('quantity', {
-      header: '수량',
-      filterFn: 'inNumberRange',
-      cell: info => <span className="whitespace-nowrap">{info.getValue()}주</span>,
-    }),
-    columnHelper.accessor('amount', {
-      header: '금액',
-      filterFn: 'inNumberRange',
-      cell: info => <span className="break-words">{formatKRW(info.getValue())}</span>,
     }),
     columnHelper.display({
       id: 'actions',
@@ -368,7 +389,7 @@ export default function TradeFeed({ trades, accounts, symbolTypeMap = {}, onEdit
       enableSorting: false,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [accountMap, symbolTypeMap, latestCreatedAt, tradeNoMap, activeTradeNo, activeSymbol, onEdit, onDelete])
+  ], [accountMap, symbolTypeMap, latestCreatedAt, tradeNoMap, activeTradeNo, activeSymbol, activeAccount, onEdit, onDelete])
 
   const table = useReactTable({
     data,
@@ -470,6 +491,15 @@ export default function TradeFeed({ trades, accounts, symbolTypeMap = {}, onEdit
             </button>
           ))}
         </div>
+        {activeAccount != null && (
+          <span className="flex items-center gap-1 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-full pl-2.5 pr-1.5 py-1">
+            계좌 {activeAccount}만 보는 중
+            <button
+              onClick={() => setColumnFilters(prev => prev.filter(f => f.id !== 'account'))}
+              className="hover:text-blue-900 px-1"
+            >✕</button>
+          </span>
+        )}
         {activeSymbol != null && (
           <span className="flex items-center gap-1 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-full pl-2.5 pr-1.5 py-1">
             종목 {activeSymbol}만 보는 중
@@ -538,14 +568,14 @@ export default function TradeFeed({ trades, accounts, symbolTypeMap = {}, onEdit
           <table className="w-full text-sm table-fixed">
             <colgroup>
               <col className="w-12" />
-              <col className="w-14" />
               <col className="w-16" />
-              <col />
-              <col className="w-32" />
+              <col className="w-16" />
               <col className="w-20" />
-              <col className="w-32" />
               <col className="w-28" />
+              <col className="w-32" />
               <col className="w-20" />
+              <col className="w-14" />
+              <col />
               <col className="w-32" />
               <col className="w-28" />
             </colgroup>
@@ -574,7 +604,8 @@ export default function TradeFeed({ trades, accounts, symbolTypeMap = {}, onEdit
                 const isLatest = row.original.createdAt === latestCreatedAt
                 const isCompleted = row.original.trade.isCompleted
                 const rowNo = pageIndex * pageSize + i + 1
-                const statusBg = isCompleted ? 'bg-gray-50 hover:bg-gray-100' : 'bg-green-50/50 hover:bg-green-50'
+                // 완료(흰 배경, 눈에 덜 띔) vs 보유중(회색 배경, 뚜렷하게 구분)
+                const statusBg = isCompleted ? 'hover:bg-gray-50' : 'bg-gray-100 hover:bg-gray-200'
                 const latestRing = isLatest ? 'ring-1 ring-inset ring-blue-300' : ''
                 return (
                   <tr key={row.id} className={`align-top ${statusBg} ${latestRing}`}>
