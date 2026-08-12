@@ -5,7 +5,7 @@ import { HOLDING_PLAN_OPTIONS, HOLDING_PLAN_STOP_LOSS_PCT, HOLDING_PLAN_TARGET_P
 import type { ParsedTrade } from '@/lib/kakaoParser'
 import KakaoParser from './KakaoParser'
 import { apiFetch } from '@/lib/api'
-import { uuid, today, splitDateTime, toDateTimeStr, formatKRW, calcAutoTradeScore } from '@/lib/utils'
+import { uuid, today, splitDateTime, toDateTimeStr, formatKRW, formatQty, calcAutoTradeScore } from '@/lib/utils'
 
 interface Props {
   trade: Trade | null
@@ -351,11 +351,15 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
                 <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-1">
                   <div className="flex justify-between text-gray-500">
                     <span>매수총액</span>
-                    <span>{formatKRW(buyTotal)}</span>
+                    <span>{formatKRW(buyTotal)} <span className="text-gray-400">({formatQty(buyQty)}주)</span></span>
                   </div>
                   <div className="flex justify-between text-gray-500">
                     <span>매도총액</span>
-                    <span>{formatKRW(sellTotal)}</span>
+                    <span>{formatKRW(sellTotal)} <span className="text-gray-400">({formatQty(sellQty)}주)</span></span>
+                  </div>
+                  <div className="flex justify-between text-gray-500">
+                    <span>잔여수량</span>
+                    <span>{formatQty(buyQty - sellQty)}주</span>
                   </div>
                   <div className={`flex justify-between font-medium pt-1 border-t ${sellTotal - buyTotal >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
                     <span>합산</span>
