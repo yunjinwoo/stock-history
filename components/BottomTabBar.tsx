@@ -8,7 +8,7 @@ export default function BottomTabBar() {
   const pathname = usePathname()
   const [showMore, setShowMore] = useState(false)
 
-  const isMore = pathname === '/accounts' || pathname === '/stock-master' || pathname === '/first-entries'
+  const isMore = pathname === '/accounts' || pathname === '/stock-master' || pathname === '/first-entries' || pathname === '/coin-first-entries'
 
   return (
     <>
@@ -34,9 +34,16 @@ export default function BottomTabBar() {
           <Link
             href="/first-entries"
             onClick={() => setShowMore(false)}
+            className="block px-5 py-3 text-sm text-gray-700 hover:bg-gray-50 border-b"
+          >
+            최초진입(주식)
+          </Link>
+          <Link
+            href="/coin-first-entries"
+            onClick={() => setShowMore(false)}
             className="block px-5 py-3 text-sm text-gray-700 hover:bg-gray-50"
           >
-            최초진입
+            최초진입(코인)
           </Link>
         </div>
       )}
