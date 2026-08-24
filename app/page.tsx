@@ -511,6 +511,7 @@ export default function HomePage() {
         ) : viewMode === 'feed' ? (
           <TradeFeed
             trades={displayTrades}
+            allTrades={trades}
             accounts={accounts}
             symbolTypeMap={symbolTypeMap}
             onEdit={trade => { setEditTrade(trade); setShowModal(true) }}
