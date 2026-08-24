@@ -27,6 +27,9 @@ const PAGE_SIZE_OPTIONS = [50, 100, 300] as const
 
 interface Props {
   trades: Trade[]
+  // 거래# 번호 매기기 전용 — 종목/태그/계획 등 화면 필터가 적용되기 전의 전체 목록.
+  // 생략 시 trades로 대체되며, 이 경우 화면 필터를 바꾸면 번호가 흔들릴 수 있음.
+  allTrades?: Trade[]
   accounts: Account[]
   symbolTypeMap?: Record<string, string>
   onEdit: (trade: Trade) => void
@@ -164,7 +167,7 @@ function DateRangeFilter({ column }: { column: Column<FeedRow, unknown> | undefi
   )
 }
 
-export default function TradeFeed({ trades, accounts, symbolTypeMap = {}, onEdit, onDelete }: Props) {
+export default function TradeFeed({ trades, allTrades, accounts, symbolTypeMap = {}, onEdit, onDelete }: Props) {
   const accountMap = useMemo(() => {
     const map: Record<string, Account> = {}
     accounts.forEach(a => { map[a.id] = a })
@@ -183,13 +186,14 @@ export default function TradeFeed({ trades, accounts, symbolTypeMap = {}, onEdit
   )
 
   // 거래(포지션) 단위 번호 — 매수/매도 내역이 같은 거래로 묶여있는지 한눈에 보기 위함
-  // 거래 생성 순서(오래된 순)로 번호를 매겨서 필터·정렬을 바꿔도 번호가 흔들리지 않게 함
+  // 거래 생성 순서(오래된 순)로 번호를 매겨서 테이블 정렬·화면 필터를 바꿔도 번호가 흔들리지 않게 함
+  // → allTrades(필터 적용 전 전체 목록) 기준으로 계산해야 하며, 필터링된 trades로 계산하면 안 됨
   const tradeNoMap = useMemo(() => {
-    const sorted = [...trades].sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    const sorted = [...(allTrades ?? trades)].sort((a, b) => a.createdAt.localeCompare(b.createdAt))
     const map: Record<string, number> = {}
     sorted.forEach((t, i) => { map[t.id] = i + 1 })
     return map
-  }, [trades])
+  }, [allTrades, trades])
 
   function accountLabel(trade: Trade): string {
     const account = accountMap[trade.accountId]
@@ -204,27 +208,12 @@ export default function TradeFeed({ trades, accounts, symbolTypeMap = {}, onEdit
   const activeSymbol = columnFilters.find(f => f.id === 'symbol')?.value as string | undefined
   const activeAccount = columnFilters.find(f => f.id === 'account')?.value as string | undefined
 
-  function toggleTradeNoFilter(no: number) {
+  // 컬럼 셀 클릭으로 같은 값만 필터링 — 다시 클릭하면 해제(토글)
+  function toggleColumnFilter(id: string, value: unknown) {
     setColumnFilters(prev => {
-      const isActive = prev.find(f => f.id === 'tradeNo')?.value === no
-      const rest = prev.filter(f => f.id !== 'tradeNo')
-      return isActive ? rest : [...rest, { id: 'tradeNo', value: no }]
-    })
-  }
-
-  function toggleSymbolFilter(symbol: string) {
-    setColumnFilters(prev => {
-      const isActive = prev.find(f => f.id === 'symbol')?.value === symbol
-      const rest = prev.filter(f => f.id !== 'symbol')
-      return isActive ? rest : [...rest, { id: 'symbol', value: symbol }]
-    })
-  }
-
-  function toggleAccountFilter(account: string) {
-    setColumnFilters(prev => {
-      const isActive = prev.find(f => f.id === 'account')?.value === account
-      const rest = prev.filter(f => f.id !== 'account')
-      return isActive ? rest : [...rest, { id: 'account', value: account }]
+      const isActive = prev.find(f => f.id === id)?.value === value
+      const rest = prev.filter(f => f.id !== id)
+      return isActive ? rest : [...rest, { id, value }]
     })
   }
 
@@ -239,7 +228,7 @@ export default function TradeFeed({ trades, accounts, symbolTypeMap = {}, onEdit
         return (
           <button
             type="button"
-            onClick={() => toggleAccountFilter(value)}
+            onClick={() => toggleColumnFilter('account', value)}
             className={`text-sm text-left break-words rounded px-0.5 -mx-0.5 transition-colors ${isActive ? 'text-blue-600 bg-blue-50 underline' : 'text-gray-600 hover:text-blue-600 hover:bg-gray-100'}`}
             title="클릭하면 이 계좌의 내역만 필터링합니다"
           >{value}</button>
@@ -292,7 +281,7 @@ export default function TradeFeed({ trades, accounts, symbolTypeMap = {}, onEdit
         return (
           <button
             type="button"
-            onClick={() => toggleTradeNoFilter(value)}
+            onClick={() => toggleColumnFilter('tradeNo', value)}
             className={`text-xs tabular-nums px-1.5 py-0.5 rounded transition-colors ${isActive ? 'bg-blue-500 text-white font-medium' : 'text-gray-400 hover:bg-gray-200'}`}
             title="클릭하면 같은 거래(포지션)의 내역만 필터링합니다"
           >#{value}</button>
@@ -319,7 +308,7 @@ export default function TradeFeed({ trades, accounts, symbolTypeMap = {}, onEdit
             )}
             <button
               type="button"
-              onClick={() => toggleSymbolFilter(row.trade.symbol)}
+              onClick={() => toggleColumnFilter('symbol', row.trade.symbol)}
               className={`font-medium break-words text-left rounded px-0.5 -mx-0.5 transition-colors ${isActiveSymbol ? 'text-blue-600 bg-blue-50 underline' : 'hover:text-blue-600 hover:bg-gray-100'}`}
               title="클릭하면 이 종목의 내역만 필터링합니다"
             >{row.trade.symbol}</button>
