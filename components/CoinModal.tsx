@@ -37,10 +37,10 @@ function EntrySection({ type, label, entries, onUpdate, onAdd, onRemove }: Entry
       <legend className="text-xs font-medium px-1 text-gray-500">{label}</legend>
       {entries.length === 0 && <p className="text-xs text-gray-400 text-center py-1">내역 없음</p>}
       {entries.map((row, idx) => (
-        <div key={row.key} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end">
+        <div key={row.key} className="grid grid-cols-[1.5fr_1fr_1fr_auto] gap-2 items-end">
           <div>
-            {idx === 0 && <label className={labelCls}>날짜</label>}
-            <input type="date" value={row.date} onChange={e => onUpdate(type, row.key, 'date', e.target.value)} className={inputCls} />
+            {idx === 0 && <label className={labelCls}>날짜 · 시각</label>}
+            <input type="datetime-local" value={row.date} onChange={e => onUpdate(type, row.key, 'date', e.target.value)} className={inputCls} />
           </div>
           <div>
             {idx === 0 && <label className={labelCls}>단가 (원)</label>}
@@ -68,10 +68,19 @@ function EntrySection({ type, label, entries, onUpdate, onAdd, onRemove }: Entry
   )
 }
 
-function newRow(): EntryRow { return { key: uuid(), date: today(), price: '', quantity: '' } }
+// 행의 날짜는 datetime-local 값('YYYY-MM-DDTHH:MM')으로 들고 있다 — 예전엔 날짜만 두고 저장할 때
+// 'T00:00:00'을 붙여서, 붙여넣기로 들어온 체결 시각이 수정 한 번에 지워졌다(앱 기록과 짝 맞추기에 시각이 필요).
+function toRowDate(date: string): string {
+  return date.length >= 16 ? date.slice(0, 16) : `${date.slice(0, 10)}T00:00`
+}
+function toSavedDate(rowDate: string): string {
+  return rowDate.length === 16 ? `${rowDate}:00` : `${rowDate.slice(0, 10)}T00:00:00`
+}
+
+function newRow(): EntryRow { return { key: uuid(), date: toRowDate(today()), price: '', quantity: '' } }
 
 function toEntry(e: { date: string; price: number; quantity: number }): EntryRow {
-  return { key: uuid(), date: e.date.slice(0, 10), price: e.price.toString(), quantity: e.quantity.toString() }
+  return { key: uuid(), date: toRowDate(e.date), price: e.price.toString(), quantity: e.quantity.toString() }
 }
 
 export default function CoinModal({ trade, onClose, onSave, symbols = [] }: Props) {
@@ -178,8 +187,8 @@ export default function CoinModal({ trade, onClose, onSave, symbols = [] }: Prop
         comment: comment.trim() || null,
         plannedHoldingPeriod: plannedHoldingPeriod || null,
         tradeScore,
-        buyEntries: validBuy.map(r => ({ date: `${r.date}T00:00:00`, price: Number(r.price.replace(/,/g, '')), quantity: Number(r.quantity.replace(/,/g, '')) })),
-        sellEntries: validSell.map(r => ({ date: `${r.date}T00:00:00`, price: Number(r.price.replace(/,/g, '')), quantity: Number(r.quantity.replace(/,/g, '')) })),
+        buyEntries: validBuy.map(r => ({ date: toSavedDate(r.date), price: Number(r.price.replace(/,/g, '')), quantity: Number(r.quantity.replace(/,/g, '')) })),
+        sellEntries: validSell.map(r => ({ date: toSavedDate(r.date), price: Number(r.price.replace(/,/g, '')), quantity: Number(r.quantity.replace(/,/g, '')) })),
       }
       const res = await apiFetch(`/api/coins/${trade!.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
       if (!res.ok) {
@@ -228,8 +237,8 @@ export default function CoinModal({ trade, onClose, onSave, symbols = [] }: Prop
   function applySymbol(sym: string) {
     const entries = parsed.filter(e => e.symbol === sym)
     setSymbol(sym)
-    setBuyEntries(entries.filter(e => e.type === '매수').map(e => ({ key: uuid(), date: e.date.slice(0, 10), price: e.price.toString(), quantity: e.quantity.toString() })))
-    setSellEntries(entries.filter(e => e.type === '매도').map(e => ({ key: uuid(), date: e.date.slice(0, 10), price: e.price.toString(), quantity: e.quantity.toString() })))
+    setBuyEntries(entries.filter(e => e.type === '매수').map(e => ({ key: uuid(), date: toRowDate(e.date), price: e.price.toString(), quantity: e.quantity.toString() })))
+    setSellEntries(entries.filter(e => e.type === '매도').map(e => ({ key: uuid(), date: toRowDate(e.date), price: e.price.toString(), quantity: e.quantity.toString() })))
     setTab('direct')
   }
 
@@ -273,7 +282,7 @@ export default function CoinModal({ trade, onClose, onSave, symbols = [] }: Prop
                     </span>
                     <button
                       type="button"
-                      onClick={() => setBuyEntries(prev => [...prev, { key: uuid(), date: today(), price: avgBuyPrice > 0 ? String(avgBuyPrice) : '', quantity: diffStr }])}
+                      onClick={() => setBuyEntries(prev => [...prev, { key: uuid(), date: toRowDate(today()), price: avgBuyPrice > 0 ? String(avgBuyPrice) : '', quantity: diffStr }])}
                       className="text-xs bg-orange-500 text-white px-3 py-1 rounded hover:bg-orange-600"
                     >
                       매수 {diffStr}개 추가

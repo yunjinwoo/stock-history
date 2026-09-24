@@ -5,6 +5,7 @@ import { HOLDING_PLAN_OPTIONS, type CoinTrade } from '@/lib/types'
 import { formatKRW, formatQty, formatRate } from '@/lib/utils'
 import TradeChart from './TradeChart'
 import TradingViewChart from './TradingViewChart'
+import CoinBotNotes from './CoinBotNotes'
 
 interface Props {
   trades: CoinTrade[]
@@ -342,6 +343,7 @@ export default function CoinTimeline({ trades, onEdit }: Props) {
                               ))}
                             </tbody>
                           </table>
+                          <CoinBotNotes trade={trade} />
                         </div>
                       )}
                     </div>
