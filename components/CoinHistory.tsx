@@ -11,6 +11,7 @@ const PLAN_TONE_STYLE: Record<"neutral" | "good" | "bad", string> = {
 };
 import TradeChart from "./TradeChart";
 import TradingViewChart from "./TradingViewChart";
+import CoinBotNotes from "./CoinBotNotes";
 
 interface Props {
   trades: CoinTrade[];
@@ -287,6 +288,9 @@ export default function CoinHistory({ trades, onEdit, onDelete }: Props) {
                 </table>
               </div>
             )}
+
+            {/* 자동매매 앱 기록(사유·시장·최고/최저) */}
+            {isExpanded && <CoinBotNotes trade={trade} />}
 
             {isExpanded && trade.comment && (
               <div className="px-4 py-1.5 text-xs text-gray-400 border-t bg-gray-50">
