@@ -8,6 +8,7 @@ import { formatKRW, formatQty, formatRate } from '@/lib/utils'
 
 // 자동매매 앱(upbit-alert)이 지금 들고 있는 코인 — 일지 입력과 무관하게 실계좌 기준.
 // 앱에 연결하지 못하면(로컬 개발 등) 아무것도 그리지 않는다.
+// 순서는 upbit-alert가 정한 평가금액 큰 순(시세를 못 받은 종목은 원금으로 비교)을 그대로 따른다.
 
 const REGIME_CLS: Record<BotRegime['key'], string> = {
   good: 'bg-green-50 text-green-700',
@@ -40,6 +41,11 @@ function HoldingRow({ h }: { h: BotHolding }) {
           <span className={`text-sm font-semibold tabular-nums ${signCls(h.pnl_pct)}`}>{formatRate(h.pnl_pct)}</span>
           {h.pnl_krw != null && <span className={`ml-1.5 text-[11px] tabular-nums ${signCls(h.pnl_krw)}`}>{signedKRW(h.pnl_krw)}</span>}
         </div>
+      </div>
+      {/* 종목별 금액 — 평가금액(현재가×수량)과 원금(평단×수량). 시세를 못 받으면 원금만 */}
+      <div className="text-[11px] text-gray-500 tabular-nums">
+        {h.eval_krw != null && <>평가 <b className="font-medium text-gray-800">{formatKRW(Math.round(h.eval_krw))}</b> · </>}
+        원금 {formatKRW(Math.round(h.cost_krw))}
       </div>
       <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-gray-500">
         <span className="text-gray-400">{h.entry_at ? h.entry_at.slice(5, 16) : '진입 시각 모름'}</span>
