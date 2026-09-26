@@ -66,6 +66,7 @@ function HoldingRow({ h }: { h: BotHolding }) {
 export default function CoinBotHoldings() {
   const [data, setData] = useState<BotHoldingsResponse | null>(null)
   const [loading, setLoading] = useState(false)
+  const [open, setOpen] = useState(true)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -93,7 +94,12 @@ export default function CoinBotHoldings() {
   return (
     <div className="rounded-lg border bg-white overflow-hidden">
       <div className="flex items-center justify-between px-3 py-1.5 bg-gray-50 border-b gap-2">
-        <span className="text-xs text-gray-500 font-medium">
+        <button
+          type="button"
+          onClick={() => setOpen(v => !v)}
+          className="text-xs text-gray-500 font-medium text-left"
+        >
+          <span className="text-gray-400 mr-0.5">{open ? '▾' : '▸'}</span>
           🤖 자동매매 보유 <span className="text-gray-400">{holdings.length}</span>
           {holdings.length > 0 && (
             <span className="ml-2 font-normal tabular-nums">
@@ -101,16 +107,18 @@ export default function CoinBotHoldings() {
               {priced.length > 0 && <> · <span className={signCls(pnl)}>{signedKRW(pnl)} ({formatRate(pnlPct)})</span></>}
             </span>
           )}
-        </span>
+        </button>
         <span className="flex items-center gap-2 text-[11px] text-gray-400 whitespace-nowrap">
           {data.current_preset && <span>새 매수 {data.current_preset.emoji} {data.current_preset.label}</span>}
           <button onClick={load} disabled={loading} className="text-blue-600 disabled:opacity-50">{loading ? '조회중' : '↻'}</button>
         </span>
       </div>
-      {holdings.length === 0 ? (
-        <div className="px-3 py-2 text-xs text-gray-400">지금 자동매매로 들고 있는 코인이 없습니다.</div>
-      ) : (
-        holdings.map(h => <HoldingRow key={h.ticker} h={h} />)
+      {open && (
+        holdings.length === 0 ? (
+          <div className="px-3 py-2 text-xs text-gray-400">지금 자동매매로 들고 있는 코인이 없습니다.</div>
+        ) : (
+          holdings.map(h => <HoldingRow key={h.ticker} h={h} />)
+        )
       )}
     </div>
   )
