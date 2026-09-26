@@ -10,6 +10,7 @@ import CoinCalendar from '@/components/CoinCalendar'
 import CoinTimeline from '@/components/CoinTimeline'
 import CoinModal from '@/components/CoinModal'
 import MemoStrip from '@/components/MemoStrip'
+import CoinBotHoldings from '@/components/CoinBotHoldings'
 
 interface Memo { id: string; content: string; showOnMain: boolean; showOnCoin: boolean }
 
@@ -169,6 +170,8 @@ export default function CoinsPage() {
       <div className="px-4 py-4 space-y-3">
       <div className="max-w-4xl mx-auto space-y-3">
         <MemoStrip memos={memos} page="coin" />
+        {/* 자동매매 앱이 지금 들고 있는 코인 — 실계좌 기준(앱에 연결 못 하면 안 보임) */}
+        <CoinBotHoldings />
         {/* 요약 */}
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-white rounded-lg border px-4 py-3">
