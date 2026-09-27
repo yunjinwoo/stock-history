@@ -15,6 +15,9 @@ export function uuid(): string {
 
 type TradeWithEntries = PrismaTrade & { buyEntries: BuyEntry[]; sellEntries: SellEntry[]; images: TradeImage[] }
 
+// 코인 수량은 소수점이 많아 합산 시 부동소수점 오차가 남을 수 있음 — formatQty와 같은 정밀도로 완료 여부 판정
+const QUANTITY_EPSILON = 1e-8
+
 export function calcHoldingDays(from: string, to?: string | null): number {
   return Math.max(0, (to ? dayjs(to) : dayjs()).diff(dayjs(from), 'day'))
 }
@@ -34,7 +37,7 @@ export function enrichTrade(t: TradeWithEntries): Trade {
   const totalSellAmount = t.sellEntries.reduce((s, e) => s + e.price * e.quantity, 0)
 
   const remainingQuantity = totalBuyQuantity - totalSellQuantity
-  const isCompleted = totalBuyQuantity > 0 && remainingQuantity <= 0
+  const isCompleted = totalBuyQuantity > 0 && remainingQuantity <= QUANTITY_EPSILON
 
   const profitAmount = totalSellAmount - avgBuyPrice * totalSellQuantity
   const profitRate = totalSellQuantity > 0 && avgBuyPrice > 0
@@ -76,7 +79,7 @@ export function enrichCoinTrade(t: CoinTradeWithEntries): CoinTrade {
   const totalSellAmount = t.sellEntries.reduce((s, e) => s + e.price * e.quantity, 0)
 
   const remainingQuantity = totalBuyQuantity - totalSellQuantity
-  const isCompleted = totalBuyQuantity > 0 && remainingQuantity <= 0
+  const isCompleted = totalBuyQuantity > 0 && remainingQuantity <= QUANTITY_EPSILON
 
   const profitAmount = totalSellAmount - avgBuyPrice * totalSellQuantity
   const profitRate = totalSellQuantity > 0 && avgBuyPrice > 0
