@@ -29,7 +29,7 @@ export default function MemoStrip({ memos, page, symbolCodeMap = {} }: Props) {
       {visible.map(m => {
         const symbolCode = m.symbol ? symbolCodeMap[m.symbol] : null
         const naverUrl = symbolCode
-          ? `https://finance.naver.com/item/main.naver?code=${symbolCode}`
+          ? `https://stock.naver.com/domestic/stock/${symbolCode}/price`
           : m.symbol
             ? `https://search.naver.com/search.naver?query=${encodeURIComponent(m.symbol)}`
             : null

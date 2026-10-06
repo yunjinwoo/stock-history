@@ -313,7 +313,7 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
                             <a
                               href={
                                 trade.symbolCode
-                                  ? `https://finance.naver.com/item/fchart.naver?code=${trade.symbolCode}`
+                                  ? `https://stock.naver.com/domestic/stock/${trade.symbolCode}/price`
                                   : `https://finance.naver.com/search/search.naver?query=${encodeURIComponent(trade.symbol)}&endUrl=&encoding=UTF-8`
                               }
                               target="_blank"

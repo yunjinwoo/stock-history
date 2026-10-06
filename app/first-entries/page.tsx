@@ -192,7 +192,7 @@ export default function FirstEntriesPage() {
                 <button onClick={() => setChartSymbol(null)} className="text-xs text-gray-400 hover:text-gray-600 shrink-0">닫기 ×</button>
               </div>
               <a
-                href={`https://finance.naver.com/item/fchart.naver?code=${chartSymbol.symbolCode}`}
+                href={`https://stock.naver.com/domestic/stock/${chartSymbol.symbolCode}/price`}
                 target="_blank"
                 rel="noopener noreferrer"
                 title="네이버 금융에서 차트 크게 보기"

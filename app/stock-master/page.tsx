@@ -355,7 +355,7 @@ export default function StockMasterPage() {
                       )}
                       <span className="text-sm text-gray-400 font-mono">{item.symbolCode}</span>
                       <a
-                        href={`https://finance.naver.com/item/main.naver?code=${item.symbolCode}`}
+                        href={`https://stock.naver.com/domestic/stock/${item.symbolCode}/price`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-xs text-blue-400 hover:text-blue-600"
