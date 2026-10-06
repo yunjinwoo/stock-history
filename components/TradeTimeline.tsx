@@ -65,6 +65,19 @@ const RATE_TIERS = [
   { id: 'blue-700', label: '-20% 이하',   test: (_r: number) => true,   border: 'border-l-blue-700', text: 'text-blue-700', dot: 'bg-blue-700', width: 'border-l-8' },
 ] as const
 
+interface TimelineRow { trade: Trade; entryDate: string; exitDate: string; exitPrice: number; isWin: boolean }
+
+// 같은 칸 안에서 종목별로 묶음. 칸의 정렬(최근 매도순)을 유지하도록 각 종목이 처음 나온 위치 순서로 둔다
+function groupItems(items: TimelineRow[]): { symbol: string; items: TimelineRow[] }[] {
+  const map = new Map<string, TimelineRow[]>()
+  items.forEach(r => {
+    const list = map.get(r.trade.symbol)
+    if (list) list.push(r)
+    else map.set(r.trade.symbol, [r])
+  })
+  return [...map.entries()].map(([symbol, items]) => ({ symbol, items }))
+}
+
 function rateTier(rate: number) {
   return RATE_TIERS.find(t => t.test(rate))!
 }
@@ -78,6 +91,8 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
   const [groupMode, setGroupMode] = useState<GroupMode>('week')
   const [offset, setOffset] = useState(0) // 0 = 이번 주/달이 가장 오른쪽
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [groupBySymbol, setGroupBySymbol] = useState(false)
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set())
   const [imagesMap, setImagesMap] = useState<Record<string, TradeImage[]>>({})
 
   function changeGroupMode(mode: GroupMode) {
@@ -105,6 +120,14 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
     setExpanded(prev => {
       const next = new Set(prev)
       next.has(tradeId) ? next.delete(tradeId) : next.add(tradeId)
+      return next
+    })
+  }
+
+  function toggleGroup(key: string) {
+    setOpenGroups(prev => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
       return next
     })
   }
@@ -166,6 +189,138 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
       return { label: fmtYM(start), items, total }
     })
   }, [rows, offset, groupMode, anchorDate])
+
+  function renderCard({ trade, exitDate, isWin }: TimelineRow) {
+    const account = accountMap[trade.accountId]
+    const marketType = symbolTypeMap[trade.symbol]
+    const isExpanded = expanded.has(trade.id)
+    const color = rateTier(trade.profitRate)
+    const entries = [
+      ...trade.buyEntries.map(e => ({ ...e, type: '매수' as const })),
+      ...trade.sellEntries.map(e => ({ ...e, type: '매도' as const })),
+    ].sort((a, b) => a.date.localeCompare(b.date))
+    const accountLabel = account ? (account.nickname || `${account.broker} ${account.accountNumber}`) : null
+    return (
+      <div key={trade.id} className={`bg-white rounded-lg border overflow-hidden space-y-1.5 ${color.width} ${color.border}`}>
+        <div className="p-3 pb-0 space-y-1.5">
+          <div className="flex justify-between items-start gap-1">
+            <div className="min-w-0">
+              <div>
+                {marketType && (
+                  <span className={`text-[10px] px-1 py-0.5 rounded border font-medium mr-1 ${TYPE_STYLE[marketType] ?? 'bg-gray-50 text-gray-500 border-gray-200'}`}>
+                    {marketType}
+                  </span>
+                )}
+                <span className="font-semibold text-sm">{trade.symbol}</span>
+              <a
+                href={
+                  trade.symbolCode
+                    ? `https://stock.naver.com/domestic/stock/${trade.symbolCode}/price`
+                    : `https://finance.naver.com/search/search.naver?query=${encodeURIComponent(trade.symbol)}&endUrl=&encoding=UTF-8`
+                }
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={e => e.stopPropagation()}
+                className="text-green-500 hover:text-green-700 text-xs font-bold ml-1"
+                title="네이버 금융 차트 열기"
+              >N</a>
+              {trade.symbolCode && (
+                <a
+                  href={`https://www.tradingview.com/chart/?symbol=KRX%3A${trade.symbolCode}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={e => e.stopPropagation()}
+                  className="text-blue-400 hover:text-blue-600 text-xs ml-1"
+                  title="트레이딩뷰 차트 열기"
+                >📈</a>
+              )}
+              </div>
+              <p className="text-[11px] text-gray-400">
+                {accountLabel && <>{accountLabel} · </>}
+                <span className="tabular-nums">{exitDate.slice(5, 10)}</span>
+                {' · 보유 '}{trade.holdingDays}일{' · '}
+                <span className={`font-medium ${color.text}`}>{formatRate(trade.profitRate)}</span>
+              </p>
+            </div>
+            <span className={`text-xs font-semibold whitespace-nowrap ${color.text}`}>
+              {isWin ? '+' : ''}{formatKRW(Math.round(trade.profitAmount))}
+            </span>
+          </div>
+          {trade.comment && (
+            <p className="text-xs text-gray-700 bg-gray-50 rounded p-1.5 whitespace-pre-wrap">💬 {trade.comment}</p>
+          )}
+          {trade.exitComment && (
+            <p className="text-xs text-gray-700 bg-amber-50 rounded p-1.5 whitespace-pre-wrap">📝 {trade.exitComment}</p>
+          )}
+          <div className="flex gap-1.5 justify-end pb-3">
+            <button onClick={() => toggleExpand(trade.id)} className="text-[11px] text-gray-500 hover:text-gray-800 px-1.5 py-0.5 border rounded">
+              {isExpanded ? '▲ 접기' : '▼ 상세'}
+            </button>
+            <button
+              onClick={() => onEdit(trade)}
+              className={`text-[11px] px-1.5 py-0.5 border rounded ${
+                !trade.plannedHoldingPeriod
+                  ? 'bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100'
+                  : 'text-gray-500 hover:text-gray-800'
+              }`}
+            >수정</button>
+          </div>
+        </div>
+
+        {isExpanded && (
+          <div className="border-t">
+            <TradeChart
+              buyEntries={trade.buyEntries}
+              sellEntries={trade.sellEntries}
+              avgBuyPrice={trade.avgBuyPrice}
+              isCompleted={trade.isCompleted}
+              targetPrice={trade.targetPrice}
+              stopLossPrice={trade.stopLossPrice}
+            />
+            {trade.symbolCode && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={`https://ssl.pstatic.net/imgfinance/chart/item/candle/day/${trade.symbolCode}.png`}
+                alt={`${trade.symbol} 캔들 차트`}
+                className="w-full border-t"
+              />
+            )}
+            <table className="w-full text-xs border-t">
+              <thead>
+                <tr className="text-[10px] text-gray-400 border-b bg-gray-50">
+                  <th className="px-2 py-1 text-center font-normal">구분</th>
+                  <th className="px-2 py-1 text-left font-normal">날짜</th>
+                  <th className="px-2 py-1 text-right font-normal">단가</th>
+                  <th className="px-2 py-1 text-right font-normal">수량</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {entries.map((e, i) => (
+                  <tr key={i}>
+                    <td className="px-2 py-1 text-center">
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${e.type === '매수' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-500'}`}>
+                        {e.type}
+                      </span>
+                    </td>
+                    <td className="px-2 py-1 text-gray-500">{e.date.slice(5, 10)}</td>
+                    <td className="px-2 py-1 text-right">{formatKRW(e.price)}</td>
+                    <td className="px-2 py-1 text-right">{e.quantity}주</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="border-t">
+              <TradeImageZone
+                tradeId={trade.id}
+                images={imagesMap[trade.id] ?? trade.images}
+                onUpdate={imgs => setImagesMap(m => ({ ...m, [trade.id]: imgs }))}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   const totalCount = rows.length
   const winCount = rows.filter(r => r.isWin).length
@@ -259,6 +414,15 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
               className={`px-3 py-1.5 ${groupMode === 'month' ? 'bg-gray-100 text-gray-800 font-medium' : 'text-gray-400 hover:text-gray-600'}`}
             >월별</button>
           </div>
+          <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none mr-auto ml-3">
+            <input
+              type="checkbox"
+              checked={groupBySymbol}
+              onChange={e => setGroupBySymbol(e.target.checked)}
+              className="accent-blue-600"
+            />
+            종목 묶기
+          </label>
           <div className="flex gap-2">
             <button onClick={() => setOffset(o => o + 1)} className="px-3 py-1.5 text-gray-400 hover:text-gray-700 text-sm border rounded">
               {groupMode === 'week' ? '‹ 이전주' : '‹ 이전달'}
@@ -288,132 +452,41 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
               {w.items.length === 0 ? (
                 <p className="text-xs text-gray-300 text-center py-6">거래 없음</p>
               ) : (
-                w.items.map(({ trade, exitDate, isWin }) => {
-                  const account = accountMap[trade.accountId]
-                  const marketType = symbolTypeMap[trade.symbol]
-                  const isExpanded = expanded.has(trade.id)
-                  const color = rateTier(trade.profitRate)
-                  const entries = [
-                    ...trade.buyEntries.map(e => ({ ...e, type: '매수' as const })),
-                    ...trade.sellEntries.map(e => ({ ...e, type: '매도' as const })),
-                  ].sort((a, b) => a.date.localeCompare(b.date))
-                  const accountLabel = account ? (account.nickname || `${account.broker} ${account.accountNumber}`) : null
+                (groupBySymbol ? groupItems(w.items) : w.items.map(r => ({ symbol: r.trade.symbol, items: [r] }))).map(g => {
+                  if (g.items.length === 1) return renderCard(g.items[0])
+                  const key = `${w.label}|${g.symbol}`
+                  const isOpen = openGroups.has(key)
+                  const profit = g.items.reduce((s, r) => s + r.trade.profitAmount, 0)
+                  const cost = g.items.reduce((s, r) => s + r.trade.avgBuyPrice * r.trade.totalSellQuantity, 0)
+                  const rate = cost > 0 ? (profit / cost) * 100 : 0
+                  const color = rateTier(rate)
+                  const marketType = symbolTypeMap[g.symbol]
                   return (
-                    <div key={trade.id} className={`bg-white rounded-lg border overflow-hidden space-y-1.5 ${color.width} ${color.border}`}>
-                      <div className="p-3 pb-0 space-y-1.5">
-                        <div className="flex justify-between items-start gap-1">
-                          <div className="min-w-0">
-                            <div>
-                              {marketType && (
-                                <span className={`text-[10px] px-1 py-0.5 rounded border font-medium mr-1 ${TYPE_STYLE[marketType] ?? 'bg-gray-50 text-gray-500 border-gray-200'}`}>
-                                  {marketType}
-                                </span>
-                              )}
-                              <span className="font-semibold text-sm">{trade.symbol}</span>
-                            <a
-                              href={
-                                trade.symbolCode
-                                  ? `https://stock.naver.com/domestic/stock/${trade.symbolCode}/price`
-                                  : `https://finance.naver.com/search/search.naver?query=${encodeURIComponent(trade.symbol)}&endUrl=&encoding=UTF-8`
-                              }
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={e => e.stopPropagation()}
-                              className="text-green-500 hover:text-green-700 text-xs font-bold ml-1"
-                              title="네이버 금융 차트 열기"
-                            >N</a>
-                            {trade.symbolCode && (
-                              <a
-                                href={`https://www.tradingview.com/chart/?symbol=KRX%3A${trade.symbolCode}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={e => e.stopPropagation()}
-                                className="text-blue-400 hover:text-blue-600 text-xs ml-1"
-                                title="트레이딩뷰 차트 열기"
-                              >📈</a>
+                    <div key={key} className={`bg-white rounded-lg border overflow-hidden ${color.width} ${color.border}`}>
+                      <button onClick={() => toggleGroup(key)} className="w-full p-3 flex justify-between items-start gap-1 text-left hover:bg-gray-50">
+                        <div className="min-w-0">
+                          <div>
+                            {marketType && (
+                              <span className={`text-[10px] px-1 py-0.5 rounded border font-medium mr-1 ${TYPE_STYLE[marketType] ?? 'bg-gray-50 text-gray-500 border-gray-200'}`}>
+                                {marketType}
+                              </span>
                             )}
-                            </div>
-                            <p className="text-[11px] text-gray-400">
-                              {accountLabel && <>{accountLabel} · </>}
-                              <span className="tabular-nums">{exitDate.slice(5, 10)}</span>
-                              {' · 보유 '}{trade.holdingDays}일{' · '}
-                              <span className={`font-medium ${color.text}`}>{formatRate(trade.profitRate)}</span>
-                            </p>
+                            <span className="font-semibold text-sm">{g.symbol}</span>
+                            <span className="text-[11px] text-gray-500 ml-1.5 px-1.5 py-0.5 bg-gray-100 rounded-full">{g.items.length}건</span>
                           </div>
-                          <span className={`text-xs font-semibold whitespace-nowrap ${color.text}`}>
-                            {isWin ? '+' : ''}{formatKRW(Math.round(trade.profitAmount))}
-                          </span>
+                          <p className="text-[11px] text-gray-400">
+                            익절 {g.items.filter(r => r.isWin).length} / 손절 {g.items.filter(r => !r.isWin).length}{' · '}
+                            <span className={`font-medium ${color.text}`}>{formatRate(rate)}</span>
+                            {' · '}{isOpen ? '▲ 접기' : '▼ 펼치기'}
+                          </p>
                         </div>
-                        {trade.comment && (
-                          <p className="text-xs text-gray-700 bg-gray-50 rounded p-1.5 whitespace-pre-wrap">💬 {trade.comment}</p>
-                        )}
-                        {trade.exitComment && (
-                          <p className="text-xs text-gray-700 bg-amber-50 rounded p-1.5 whitespace-pre-wrap">📝 {trade.exitComment}</p>
-                        )}
-                        <div className="flex gap-1.5 justify-end pb-3">
-                          <button onClick={() => toggleExpand(trade.id)} className="text-[11px] text-gray-500 hover:text-gray-800 px-1.5 py-0.5 border rounded">
-                            {isExpanded ? '▲ 접기' : '▼ 상세'}
-                          </button>
-                          <button
-                            onClick={() => onEdit(trade)}
-                            className={`text-[11px] px-1.5 py-0.5 border rounded ${
-                              !trade.plannedHoldingPeriod
-                                ? 'bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100'
-                                : 'text-gray-500 hover:text-gray-800'
-                            }`}
-                          >수정</button>
-                        </div>
-                      </div>
-
-                      {isExpanded && (
-                        <div className="border-t">
-                          <TradeChart
-                            buyEntries={trade.buyEntries}
-                            sellEntries={trade.sellEntries}
-                            avgBuyPrice={trade.avgBuyPrice}
-                            isCompleted={trade.isCompleted}
-                            targetPrice={trade.targetPrice}
-                            stopLossPrice={trade.stopLossPrice}
-                          />
-                          {trade.symbolCode && (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={`https://ssl.pstatic.net/imgfinance/chart/item/candle/day/${trade.symbolCode}.png`}
-                              alt={`${trade.symbol} 캔들 차트`}
-                              className="w-full border-t"
-                            />
-                          )}
-                          <table className="w-full text-xs border-t">
-                            <thead>
-                              <tr className="text-[10px] text-gray-400 border-b bg-gray-50">
-                                <th className="px-2 py-1 text-center font-normal">구분</th>
-                                <th className="px-2 py-1 text-left font-normal">날짜</th>
-                                <th className="px-2 py-1 text-right font-normal">단가</th>
-                                <th className="px-2 py-1 text-right font-normal">수량</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-50">
-                              {entries.map((e, i) => (
-                                <tr key={i}>
-                                  <td className="px-2 py-1 text-center">
-                                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${e.type === '매수' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-500'}`}>
-                                      {e.type}
-                                    </span>
-                                  </td>
-                                  <td className="px-2 py-1 text-gray-500">{e.date.slice(5, 10)}</td>
-                                  <td className="px-2 py-1 text-right">{formatKRW(e.price)}</td>
-                                  <td className="px-2 py-1 text-right">{e.quantity}주</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                          <div className="border-t">
-                            <TradeImageZone
-                              tradeId={trade.id}
-                              images={imagesMap[trade.id] ?? trade.images}
-                              onUpdate={imgs => setImagesMap(m => ({ ...m, [trade.id]: imgs }))}
-                            />
-                          </div>
+                        <span className={`text-xs font-semibold whitespace-nowrap ${color.text}`}>
+                          {profit >= 0 ? '+' : ''}{formatKRW(Math.round(profit))}
+                        </span>
+                      </button>
+                      {isOpen && (
+                        <div className="border-t bg-gray-50 p-2 space-y-2">
+                          {g.items.map(renderCard)}
                         </div>
                       )}
                     </div>
