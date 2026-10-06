@@ -484,11 +484,59 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
                           {profit >= 0 ? '+' : ''}{formatKRW(Math.round(profit))}
                         </span>
                       </button>
-                      {isOpen && (
-                        <div className="border-t bg-gray-50 p-2 space-y-2">
-                          {g.items.map(renderCard)}
-                        </div>
-                      )}
+                      {isOpen && (() => {
+                        const buyEntries = g.items.flatMap(r => r.trade.buyEntries)
+                        const sellEntries = g.items.flatMap(r => r.trade.sellEntries)
+                        const buyQty = buyEntries.reduce((s, e) => s + e.quantity, 0)
+                        const avgBuy = buyQty > 0 ? buyEntries.reduce((s, e) => s + e.price * e.quantity, 0) / buyQty : 0
+                        const code = g.items.find(r => r.trade.symbolCode)?.trade.symbolCode
+                        const allEntries = [
+                          ...buyEntries.map(e => ({ ...e, type: '매수' as const })),
+                          ...sellEntries.map(e => ({ ...e, type: '매도' as const })),
+                        ].sort((a, b) => a.date.localeCompare(b.date))
+                        return (
+                          <div className="border-t">
+                            {/* 묶인 거래 전체를 한 차트·표로 */}
+                            <TradeChart buyEntries={buyEntries} sellEntries={sellEntries} avgBuyPrice={avgBuy} isCompleted />
+                            {code && (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={`https://ssl.pstatic.net/imgfinance/chart/item/candle/day/${code}.png`}
+                                alt={`${g.symbol} 캔들 차트`}
+                                className="w-full border-t"
+                              />
+                            )}
+                            <table className="w-full text-xs border-t">
+                              <thead>
+                                <tr className="text-[10px] text-gray-400 border-b bg-gray-50">
+                                  <th className="px-2 py-1 text-center font-normal">구분</th>
+                                  <th className="px-2 py-1 text-left font-normal">날짜</th>
+                                  <th className="px-2 py-1 text-right font-normal">단가</th>
+                                  <th className="px-2 py-1 text-right font-normal">수량</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-50">
+                                {allEntries.map((e, i) => (
+                                  <tr key={i}>
+                                    <td className="px-2 py-1 text-center">
+                                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${e.type === '매수' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-500'}`}>
+                                        {e.type}
+                                      </span>
+                                    </td>
+                                    <td className="px-2 py-1 text-gray-500">{e.date.slice(5, 10)}{e.date.slice(11, 16) !== '00:00' && ` ${e.date.slice(11, 16)}`}</td>
+                                    <td className="px-2 py-1 text-right">{formatKRW(e.price)}</td>
+                                    <td className="px-2 py-1 text-right">{e.quantity}주</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                            <div className="border-t bg-gray-50 p-2 space-y-2">
+                              <p className="text-[11px] text-gray-400 px-1">개별 거래</p>
+                              {g.items.map(renderCard)}
+                            </div>
+                          </div>
+                        )
+                      })()}
                     </div>
                   )
                 })
