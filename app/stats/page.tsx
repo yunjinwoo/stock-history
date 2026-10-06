@@ -299,7 +299,7 @@ export default function StatsPage() {
                   {symbolStats.top.map(s => {
                     const code = symbolCodeMap[s.symbol]
                     const naverUrl = code
-                      ? `https://finance.naver.com/item/main.naver?code=${code}`
+                      ? `https://stock.naver.com/domestic/stock/${code}/price`
                       : `https://finance.naver.com/search/search.naver?query=${encodeURIComponent(s.symbol)}`
                     return (
                       <button
@@ -334,7 +334,7 @@ export default function StatsPage() {
                   {symbolStats.bottom.map(s => {
                     const code = symbolCodeMap[s.symbol]
                     const naverUrl = code
-                      ? `https://finance.naver.com/item/main.naver?code=${code}`
+                      ? `https://stock.naver.com/domestic/stock/${code}/price`
                       : `https://finance.naver.com/search/search.naver?query=${encodeURIComponent(s.symbol)}`
                     return (
                       <button

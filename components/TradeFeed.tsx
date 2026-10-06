@@ -315,7 +315,7 @@ export default function TradeFeed({ trades, allTrades, accounts, symbolTypeMap =
             <a
               href={
                 row.trade.symbolCode
-                  ? `https://finance.naver.com/item/fchart.naver?code=${row.trade.symbolCode}`
+                  ? `https://stock.naver.com/domestic/stock/${row.trade.symbolCode}/price`
                   : `https://finance.naver.com/search/search.naver?query=${encodeURIComponent(row.trade.symbol)}&endUrl=&encoding=UTF-8`
               }
               target="_blank"
