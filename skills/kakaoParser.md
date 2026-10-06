@@ -170,3 +170,14 @@ function isValid(p: Partial<ParsedTrade>): p is ParsedTrade {
   return !!(p.symbol && p.quantity && p.price && p.type)
 }
 ```
+
+---
+
+## 여러 건 한 번에 붙여넣기
+
+`parseKakaoNotifications(text): ParsedTrade[]`
+- 증권사 헤더(`[한국투자증권 체결안내]`, `[KB증권]`, `[키움]체결통보`)와 083계열의 첫 줄(`계좌명 :`, 없으면 `계좌번호 :`) 위치에서 텍스트를 잘라 각 조각을 `parseKakaoNotification`으로 파싱
+- 인식 못한 조각은 건너뜀, 하나도 없으면 빈 배열 (throw 금지)
+- 새 증권사를 추가하면 `HEADER_PATTERNS`에도 헤더 정규식을 추가해야 여러 건 분리가 됨
+- UI: 1건이면 기존처럼 폼 채움, 2건 이상이면 미리보기 목록 → `POST /api/trades/batch`로 일괄 저장
+  (같은 계좌·종목의 보유중 거래가 있으면 그 거래에 항목 추가, 없으면 새 거래 생성)

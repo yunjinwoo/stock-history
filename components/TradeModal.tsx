@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { HOLDING_PLAN_OPTIONS, HOLDING_PLAN_STOP_LOSS_PCT, HOLDING_PLAN_TARGET_PCT, TRADE_SCORE_OPTIONS, TRADE_SCORE_LABELS, type HoldingPlan, type Trade, type Account } from '@/lib/types'
-import type { ParsedTrade } from '@/lib/kakaoParser'
+import { matchAccountId, type ParsedTrade } from '@/lib/kakaoParser'
 import KakaoParser from './KakaoParser'
 import { apiFetch } from '@/lib/api'
 import { uuid, today, splitDateTime, toDateTimeStr, formatKRW, formatQty, calcAutoTradeScore } from '@/lib/utils'
@@ -216,10 +216,8 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
       const next = { ...f, symbol: parsed.symbol, symbolCode: parsed.symbolCode ?? f.symbolCode }
       if (parsed.type === '매수') next.buyEntries = [...f.buyEntries, row]
       else next.sellEntries = [...f.sellEntries, row]
-      if (parsed.accountNumber) {
-        const matched = accounts.find(a => a.accountNumber.includes(parsed.accountNumber!.replace(/\*/g, '').slice(0, 4)))
-        if (matched) next.accountId = matched.id
-      }
+      const matchedId = matchAccountId(accounts, parsed)
+      if (matchedId) next.accountId = matchedId
       return next
     })
     setTab('direct')
@@ -298,7 +296,13 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
         </div>
 
         <div className="p-5 overflow-y-auto flex-1">
-          {tab === 'kakao' && <KakaoParser onParsed={handleParsed} />}
+          {tab === 'kakao' && (
+            <KakaoParser
+              onParsed={handleParsed}
+              accounts={accounts}
+              onBatchSaved={onSave}
+            />
+          )}
 
           {tab === 'direct' && (
             <form id="trade-form" onSubmit={handleSubmit} className="space-y-4">

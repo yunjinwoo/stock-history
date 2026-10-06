@@ -25,6 +25,7 @@ jobs:
           # 정적 파일을 standalone 디렉토리 안으로 복사 (서버 실행 시 필요)
           cp -r .next/static .next/standalone/.next/static
           cp -r prisma .next/standalone/prisma
+          cp -r scripts .next/standalone/scripts
 
       - name: 4. 빌드 결과물 서버로 전송 (SCP)
         uses: appleboy/scp-action@master
@@ -58,3 +59,13 @@ jobs:
             # 재부팅 시 자동 시작 설정 저장
             pm2 save
             pm2 list
+
+            # 매일 03:30 DB·이미지 자동 백업 cron 등록 (이미 있으면 교체 — 중복 등록 안 됨)
+            # cron에는 nvm 경로가 없으므로 지금 PATH를 그대로 넣어 prisma를 찾을 수 있게 함
+            mkdir -p ~/stock-history-backups
+            BACKUP_LINE="30 3 * * * PATH=$PATH bash $HOME/stock-history/.next/standalone/scripts/backup.sh >> $HOME/stock-history-backups/backup.log 2>&1 # stock-history-backup"
+            if command -v crontab >/dev/null 2>&1; then
+              ( crontab -l 2>/dev/null | grep -v '# stock-history-backup' ; echo "$BACKUP_LINE" ) | crontab -
+            else
+              echo "crontab 명령이 없어 자동 백업을 등록하지 못했습니다."
+            fi

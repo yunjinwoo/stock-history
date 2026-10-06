@@ -6,13 +6,37 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, ReferenceLine,
 } from 'recharts'
-import type { Trade, Account } from '@/lib/types'
+import { HOLDING_PLAN_OPTIONS, TRADE_SCORE_LABELS, type Trade, type Account, type TradeScore } from '@/lib/types'
 import { apiFetch } from '@/lib/api'
 import { formatKRW, formatRate } from '@/lib/utils'
 import ProfitHeatmap from '@/components/ProfitHeatmap'
 import SymbolHistory from '@/components/SymbolHistory'
 
 type ChartPeriod = 'daily' | 'weekly' | 'monthly'
+type GroupBy = 'account' | 'tag' | 'market' | 'score' | 'holding' | 'plan'
+
+const GROUP_LABELS: Record<GroupBy, string> = {
+  account: '계좌',
+  tag: '태그',
+  market: '시장',
+  score: '매매점수',
+  holding: '실제 보유기간',
+  plan: '계획 보유기간',
+}
+
+// 실제 보유일 구간 (정렬 순서 유지를 위해 배열로 관리)
+const HOLDING_BUCKETS: { label: string; max: number }[] = [
+  { label: '당일', max: 0 },
+  { label: '1~7일', max: 7 },
+  { label: '8~30일', max: 30 },
+  { label: '31~90일', max: 90 },
+  { label: '91~180일', max: 180 },
+  { label: '181일 이상', max: Infinity },
+]
+
+interface StockMasterRow { symbol: string; tags?: string | null; marketType?: string | null }
+
+interface GroupStat { name: string; count: number; wins: number; profit: number; rateSum: number; daysSum: number; order: number }
 
 function getWeekStart(dateStr: string): string {
   const d = new Date(dateStr.slice(0, 10))
@@ -26,10 +50,13 @@ export default function StatsPage() {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [chartPeriod, setChartPeriod] = useState<ChartPeriod>('monthly')
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null)
+  const [masters, setMasters] = useState<StockMasterRow[]>([])
+  const [groupBy, setGroupBy] = useState<GroupBy>('account')
 
   useEffect(() => {
     apiFetch('/api/trades').then(r => r.json()).then((d: unknown) => Array.isArray(d) && setTrades(d as Trade[]))
     apiFetch('/api/accounts').then(r => r.json()).then((d: unknown) => Array.isArray(d) && setAccounts(d as Account[]))
+    apiFetch('/api/stock-master').then(r => r.json()).then((d: unknown) => Array.isArray(d) && setMasters(d as StockMasterRow[]))
   }, [])
 
   const completed = useMemo(() => trades.filter(t => t.isCompleted), [trades])
@@ -122,25 +149,53 @@ export default function StatsPage() {
     return map
   }, [completed])
 
-  // Account breakdown
-  const accountStats = useMemo(() => {
-    const map: Record<string, { profit: number; wins: number; count: number }> = {}
+  // 그룹별 성과 (계좌·태그·시장·점수·보유기간). 태그는 종목마다 여러 개일 수 있어 각 태그에 중복 집계됨
+  const groupStats = useMemo(() => {
+    const masterMap = new Map(masters.map(m => [m.symbol, m]))
+    const keysOf = (t: Trade): { name: string; order: number }[] => {
+      switch (groupBy) {
+        case 'account': {
+          const account = accounts.find(a => a.id === t.accountId)
+          return [{ name: account ? (account.nickname || `${account.broker} ${account.accountNumber}`) : '알 수 없는 계좌', order: 0 }]
+        }
+        case 'tag': {
+          const tags = (masterMap.get(t.symbol)?.tags ?? '').split(',').map(s => s.trim()).filter(Boolean)
+          return tags.length > 0 ? tags.map(name => ({ name, order: 0 })) : [{ name: '태그 없음', order: 1 }]
+        }
+        case 'market':
+          return [{ name: masterMap.get(t.symbol)?.marketType || '미지정', order: masterMap.get(t.symbol)?.marketType ? 0 : 1 }]
+        case 'score':
+          return t.tradeScore != null
+            ? [{ name: `${t.tradeScore}점 · ${TRADE_SCORE_LABELS[t.tradeScore as TradeScore] ?? ''}`, order: -t.tradeScore }]
+            : [{ name: '점수 없음', order: 1 }]
+        case 'holding': {
+          const idx = HOLDING_BUCKETS.findIndex(b => t.holdingDays <= b.max)
+          return [{ name: HOLDING_BUCKETS[idx].label, order: idx }]
+        }
+        case 'plan': {
+          const idx = HOLDING_PLAN_OPTIONS.indexOf(t.plannedHoldingPeriod as typeof HOLDING_PLAN_OPTIONS[number])
+          return [{ name: idx >= 0 ? t.plannedHoldingPeriod! : '계획 없음', order: idx >= 0 ? idx : 99 }]
+        }
+      }
+    }
+    const map = new Map<string, GroupStat>()
     completed.forEach(t => {
-      if (!map[t.accountId]) map[t.accountId] = { profit: 0, wins: 0, count: 0 }
-      map[t.accountId].profit += t.profitAmount
-      map[t.accountId].count++
-      if (t.profitAmount > 0) map[t.accountId].wins++
-    })
-    return Object.entries(map)
-      .map(([accountId, stats]) => {
-        const account = accounts.find(a => a.id === accountId)
-        const name = account
-          ? (account.nickname || `${account.broker} ${account.accountNumber}`)
-          : '알 수 없는 계좌'
-        return { name, ...stats, winRate: stats.count > 0 ? (stats.wins / stats.count * 100) : 0 }
+      keysOf(t).forEach(({ name, order }) => {
+        const g = map.get(name) ?? { name, count: 0, wins: 0, profit: 0, rateSum: 0, daysSum: 0, order }
+        g.count++
+        g.profit += t.profitAmount
+        g.rateSum += t.profitRate
+        g.daysSum += t.holdingDays
+        if (t.profitAmount > 0) g.wins++
+        map.set(name, g)
       })
-      .sort((a, b) => b.profit - a.profit)
-  }, [completed, accounts])
+    })
+    // 순서가 의미 있는 그룹(점수·보유기간)은 고정 순서, 나머지는 손익 내림차순
+    const ordered = groupBy === 'score' || groupBy === 'holding' || groupBy === 'plan'
+    return [...map.values()]
+      .map(g => ({ ...g, winRate: g.wins / g.count * 100, avgRate: g.rateSum / g.count, avgDays: g.daysSum / g.count }))
+      .sort((a, b) => ordered ? a.order - b.order : (a.order - b.order) || (b.profit - a.profit))
+  }, [completed, accounts, masters, groupBy])
 
   // 종목코드 맵 (네이버 링크용)
   const symbolCodeMap = useMemo(() => {
@@ -266,21 +321,39 @@ export default function StatsPage() {
           <ProfitHeatmap dailyProfits={dailyProfits} />
         </div>
 
-        {/* Account breakdown */}
-        {accountStats.length > 0 && (
+        {/* Group breakdown */}
+        {completed.length > 0 && (
           <div className="bg-white rounded-xl border p-4">
-            <p className="text-sm font-medium text-gray-600 mb-3">계좌별 손익</p>
+            <p className="text-sm font-medium text-gray-600 mb-2">{GROUP_LABELS[groupBy]}별 성과</p>
+            <div className="overflow-x-auto -mx-1 px-1 mb-3">
+              <div className="inline-flex border rounded overflow-hidden whitespace-nowrap">
+                {(Object.keys(GROUP_LABELS) as GroupBy[]).map(g => (
+                  <button
+                    key={g}
+                    onClick={() => setGroupBy(g)}
+                    className={`text-xs px-2.5 py-1 ${groupBy === g ? 'bg-gray-100 text-gray-800 font-medium' : 'text-gray-400 hover:text-gray-600'}`}
+                  >
+                    {GROUP_LABELS[g]}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {groupBy === 'tag' && (
+              <p className="text-[11px] text-gray-400 mb-2">태그가 여러 개인 종목은 각 태그에 모두 집계됩니다. 태그는 종목관리에서 붙일 수 있어요.</p>
+            )}
             <div className="space-y-0">
-              {accountStats.map((a, idx) => {
-                const isP = a.profit >= 0
+              {groupStats.map(g => {
+                const isP = g.profit >= 0
                 return (
-                  <div key={idx} className="flex items-center justify-between py-2 border-b last:border-0">
+                  <div key={g.name} className="flex items-center justify-between py-2 border-b last:border-0">
                     <div className="min-w-0">
-                      <span className="text-sm text-gray-700 truncate block">{a.name}</span>
-                      <span className="text-xs text-gray-400">{a.count}건 · 승률 {a.winRate.toFixed(0)}%</span>
+                      <span className="text-sm text-gray-700 truncate block">{g.name}</span>
+                      <span className="text-xs text-gray-400">
+                        {g.count}건 · 승률 {g.winRate.toFixed(0)}% · 평균 {formatRate(g.avgRate)} · 평균 {Math.round(g.avgDays)}일
+                      </span>
                     </div>
                     <span className={`text-sm font-medium ml-4 shrink-0 ${isP ? 'text-red-500' : 'text-blue-500'}`}>
-                      {(isP ? '+' : '') + formatKRW(Math.round(a.profit))}
+                      {(isP ? '+' : '') + formatKRW(Math.round(g.profit))}
                     </span>
                   </div>
                 )
