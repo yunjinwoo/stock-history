@@ -194,3 +194,39 @@ describe('matchAccountId', () => {
     expect(matchAccountId(accounts, { broker: 'KB증권' })).toBeUndefined()
   })
 })
+
+describe('키움 체결알림 여러 건 (카톡 복사 형식)', () => {
+  const input = `[키움증권 체결알림] [오전 9:41] [키움]체결통보
+에코프로
+매수4주
+평균단가91,800원
+
+[키움증권 체결알림] [오전 9:45] [키움]체결통보
+현대차
+매수2주
+평균단가349,500원
+
+[키움증권 체결알림] [오전 10:57] [키움]체결통보
+에코프로
+매도4주
+평균단가95,900원
+
+[키움증권 체결알림] [오전 11:01] [키움]체결통보
+한선엔지니어링
+매수10주
+평균단가15,260원`
+
+  it('4건 모두 파싱하고 시간을 24시간 형식으로 추출', () => {
+    expect(parseKakaoNotifications(input)).toEqual([
+      { broker: '키움증권', type: '매수', symbol: '에코프로', quantity: 4, price: 91800, time: '09:41' },
+      { broker: '키움증권', type: '매수', symbol: '현대차', quantity: 2, price: 349500, time: '09:45' },
+      { broker: '키움증권', type: '매도', symbol: '에코프로', quantity: 4, price: 95900, time: '10:57' },
+      { broker: '키움증권', type: '매수', symbol: '한선엔지니어링', quantity: 10, price: 15260, time: '11:01' },
+    ])
+  })
+
+  it('오후 시간은 12시간을 더함', () => {
+    const one = '[키움증권 체결알림] [오후 1:05] [키움]체결통보\n현대차\n매도2주\n평균단가350,000원'
+    expect(parseKakaoNotification(one)?.time).toBe('13:05')
+  })
+})

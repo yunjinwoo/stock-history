@@ -74,9 +74,19 @@ function parseUnknown083(text: string): ParsedTrade | null {
   }
 }
 
+// 카톡에서 복사하면 '[키움증권 체결알림] [오전 9:41] [키움]체결통보'처럼 시간이 앞에 붙음 → 24시간 'HH:mm'
+function parseKakaoTime(text: string): string | undefined {
+  const m = text.match(/\[(오전|오후)\s*(\d{1,2}):(\d{2})\]/)
+  if (!m) return undefined
+  let hour = Number(m[2]) % 12
+  if (m[1] === '오후') hour += 12
+  return `${String(hour).padStart(2, '0')}:${m[3]}`
+}
+
 function parseKiwoom(text: string): ParsedTrade | null {
   const lines = text.trim().split('\n').map(l => l.trim()).filter(Boolean)
   if (lines.length < 3) return null
+  const time = parseKakaoTime(lines[0])
 
   const symbol = lines[1]
   const tradeMatch = lines[2]?.match(/(매수|매도)([\d,]+)주/)
@@ -90,6 +100,7 @@ function parseKiwoom(text: string): ParsedTrade | null {
     symbol,
     quantity: toNum(tradeMatch[2]),
     price: toNum(priceMatch[1]),
+    ...(time && { time }),
   }
 }
 
@@ -105,7 +116,7 @@ export function parseKakaoNotification(text: string): ParsedTrade | null {
 }
 
 // 여러 알림이 한 번에 붙여넣어졌을 때 각 알림의 시작 위치를 찾는 헤더 패턴
-const HEADER_PATTERNS = [/\[한국투자증권 체결안내\]/g, /\[KB증권\]/g, /\[키움\]체결통보/g]
+const HEADER_PATTERNS = [/\[한국투자증권 체결안내\]/g, /\[KB증권\]/g, /(?:\[키움증권 체결알림\]\s*\[(?:오전|오후)\s*\d{1,2}:\d{2}\]\s*)?\[키움\]체결통보/g]
 
 function splitNotifications(text: string): string[] {
   const starts = new Set<number>()
