@@ -103,3 +103,42 @@ export function parseKakaoNotification(text: string): ParsedTrade | null {
 
   return null
 }
+
+// 여러 알림이 한 번에 붙여넣어졌을 때 각 알림의 시작 위치를 찾는 헤더 패턴
+const HEADER_PATTERNS = [/\[한국투자증권 체결안내\]/g, /\[KB증권\]/g, /\[키움\]체결통보/g]
+
+function splitNotifications(text: string): string[] {
+  const starts = new Set<number>()
+  for (const re of HEADER_PATTERNS) {
+    for (const m of text.matchAll(re)) starts.add(m.index!)
+  }
+  // 083계열은 헤더가 없어 첫 줄(계좌명, 없으면 계좌번호)을 시작점으로 사용
+  const unknownStart = /^계좌명\s*:/m.test(text) ? /^계좌명\s*:/gm : /^계좌번호\s*:/gm
+  for (const m of text.matchAll(unknownStart)) starts.add(m.index!)
+
+  const sorted = [...starts].sort((a, b) => a - b)
+  if (sorted.length === 0) return [text]
+  return sorted.map((start, i) => text.slice(start, sorted[i + 1] ?? text.length))
+}
+
+/** 여러 건의 알림을 한 번에 파싱. 인식 못한 조각은 건너뜀 (실패 시 빈 배열) */
+export function parseKakaoNotifications(text: string): ParsedTrade[] {
+  if (!text?.trim()) return []
+  return splitNotifications(text)
+    .map(chunk => parseKakaoNotification(chunk))
+    .filter((r): r is ParsedTrade => r !== null)
+}
+
+/** 파싱된 계좌번호(마스킹 포함)·증권사로 등록된 계좌를 찾음. 못 찾으면 undefined */
+export function matchAccountId(
+  accounts: { id: string; broker: string; accountNumber: string }[],
+  parsed: Pick<ParsedTrade, 'broker' | 'accountNumber'>,
+): string | undefined {
+  if (parsed.accountNumber) {
+    const head = parsed.accountNumber.replace(/\*/g, '').slice(0, 4)
+    const matched = head.length >= 2 ? accounts.find(a => a.accountNumber.includes(head)) : undefined
+    if (matched) return matched.id
+  }
+  const sameBroker = accounts.filter(a => a.broker.replace(/\s/g, '').includes(parsed.broker.replace(/증권$/, '')))
+  return sameBroker.length === 1 ? sameBroker[0].id : undefined
+}

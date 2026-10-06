@@ -94,6 +94,26 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ---
 
+## 자동 백업
+
+배포할 때마다 `deploy.yml`이 서버 crontab에 아래 작업을 등록합니다 (주석 `# stock-history-backup`으로 식별, 중복 등록 안 됨).
+
+| 항목 | 값 |
+|------|-----|
+| 실행 시각 | 매일 03:30 (서버 시간) |
+| 스크립트 | `~/stock-history/.next/standalone/scripts/backup.sh` (원본: `scripts/backup.sh`) |
+| DB 스냅샷 | `~/stock-history-backups/db/stock-history-YYYYMMDD-HHMM.db.gz` (30일 보관) |
+| 이미지 | `~/stock-history-backups/images/` (누적 복사) |
+| 로그 | `~/stock-history-backups/backup.log` |
+
+- DB는 `sqlite3 .backup` → `prisma db execute "VACUUM INTO"` → 단순 복사 순으로 시도해 쓰기 중에도 일관된 스냅샷을 만듭니다.
+- 보관 기간·경로는 환경변수(`KEEP_DAYS`, `BACKUP_DIR`, `DB_PATH`, `IMAGES_DIR`)로 바꿀 수 있습니다.
+- 즉시 실행: `bash ~/stock-history/.next/standalone/scripts/backup.sh`
+- 복원: `gunzip -c <백업파일>.db.gz > ~/stock-history/.next/standalone/data/stock-history.db && pm2 restart stock-history`
+- 백업이 같은 서버 디스크에 있으므로, 서버 장애까지 대비하려면 주기적으로 PC로 내려받아 두세요 (`scp -r $SERVER_USER@$SERVER_IP:~/stock-history-backups .`).
+
+---
+
 ## 수동 배포 (긴급 시)
 
 ```bash
