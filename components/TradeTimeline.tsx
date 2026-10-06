@@ -82,10 +82,26 @@ function rateTier(rate: number) {
   return RATE_TIERS.find(t => t.test(rate))!
 }
 
+// 손익 금액 구간 (수익률 구간과 같은 색 체계)
+const AMOUNT_TIERS = [
+  { id: 'amt-p100', label: '+100만 이상',     test: (a: number) => a >= 1_000_000, dot: 'bg-red-700' },
+  { id: 'amt-p10',  label: '+10만 ~ 100만',   test: (a: number) => a >= 100_000,   dot: 'bg-red-500' },
+  { id: 'amt-p0',   label: '0 ~ +10만',       test: (a: number) => a > 0,          dot: 'bg-red-300' },
+  { id: 'amt-0',    label: '0원',             test: (a: number) => a === 0,        dot: 'bg-gray-300' },
+  { id: 'amt-m0',   label: '0 ~ -10만',       test: (a: number) => a > -100_000,   dot: 'bg-blue-300' },
+  { id: 'amt-m10',  label: '-10만 ~ -100만',  test: (a: number) => a > -1_000_000, dot: 'bg-blue-500' },
+  { id: 'amt-m100', label: '-100만 이하',     test: (_a: number) => true,          dot: 'bg-blue-700' },
+] as const
+
+function amountTier(amount: number) {
+  return AMOUNT_TIERS.find(t => t.test(Math.round(amount)))!
+}
+
 export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, onEdit }: Props) {
   const [winFilter, setWinFilter] = useState<WinFilter>('all')
   const [marketFilters, setMarketFilters] = useState<string[]>([])
   const [tierFilters, setTierFilters] = useState<string[]>([])
+  const [amountFilters, setAmountFilters] = useState<string[]>([])
   const [planFilters, setPlanFilters] = useState<string[]>([])
   const [holdingFilters, setHoldingFilters] = useState<string[]>([])
   const [groupMode, setGroupMode] = useState<GroupMode>('week')
@@ -106,6 +122,10 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
 
   function toggleTier(id: string) {
     setTierFilters(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id])
+  }
+
+  function toggleAmount(id: string) {
+    setAmountFilters(prev => prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id])
   }
 
   function togglePlan(plan: string) {
@@ -150,9 +170,10 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
       .filter(r => winFilter === 'all' || (winFilter === 'win' ? r.isWin : !r.isWin))
       .filter(r => marketFilters.length === 0 || marketFilters.includes(symbolTypeMap[r.trade.symbol] ?? ''))
       .filter(r => tierFilters.length === 0 || tierFilters.includes(rateTier(r.trade.profitRate).id))
+      .filter(r => amountFilters.length === 0 || amountFilters.includes(amountTier(r.trade.profitAmount).id))
       .filter(r => planFilters.length === 0 || planFilters.includes(r.trade.plannedHoldingPeriod || NO_PLAN))
       .filter(r => holdingFilters.length === 0 || holdingFilters.includes(holdingDaysTier(r.trade.holdingDays).id))
-  }, [trades, winFilter, marketFilters, tierFilters, planFilters, holdingFilters, symbolTypeMap])
+  }, [trades, winFilter, marketFilters, tierFilters, amountFilters, planFilters, holdingFilters, symbolTypeMap])
 
   // 거래 없는 최근 주/달이 오른쪽에 비어 보이지 않도록, 가장 최근 거래가 있는 시점을 기준으로 삼음
   const anchorDate = useMemo(() => {
@@ -360,6 +381,21 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
                 type="checkbox"
                 checked={tierFilters.includes(tier.id)}
                 onChange={() => toggleTier(tier.id)}
+                className="accent-blue-600"
+              />
+              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${tier.dot}`} />
+              <span className="text-sm text-gray-700">{tier.label}</span>
+            </label>
+          ))}
+        </div>
+
+        <div className="bg-white rounded-lg border p-2 space-y-1">
+          {AMOUNT_TIERS.map(tier => (
+            <label key={tier.id} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-gray-50 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={amountFilters.includes(tier.id)}
+                onChange={() => toggleAmount(tier.id)}
                 className="accent-blue-600"
               />
               <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${tier.dot}`} />
