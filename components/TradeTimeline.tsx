@@ -1,8 +1,9 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { HOLDING_PLAN_OPTIONS, type Trade, type Account, type TradeImage } from '@/lib/types'
 import { formatKRW, formatRate } from '@/lib/utils'
+import { apiFetch } from '@/lib/api'
 import TradeChart from './TradeChart'
 import TradeImageZone from './TradeImageZone'
 
@@ -82,6 +83,18 @@ function rateTier(rate: number) {
   return RATE_TIERS.find(t => t.test(rate))!
 }
 
+// 매도 후 현재가 비교 — 왼쪽 테두리(수익률 빨강/파랑)와 겹치지 않도록 다른 색 계열의 옅은 배경
+const AFTER_SELL_STYLE = {
+  up:   { bg: 'bg-amber-50',   text: 'text-amber-600',   dot: 'bg-amber-50 border border-amber-300',   label: '매도 후 상승' },
+  down: { bg: 'bg-emerald-50', text: 'text-emerald-600', dot: 'bg-emerald-50 border border-emerald-300', label: '매도 후 하락' },
+} as const
+
+function afterSell(currentPrice: number | undefined, sellPrice: number) {
+  if (currentPrice == null || !(sellPrice > 0) || currentPrice === sellPrice) return null
+  const diffRate = (currentPrice / sellPrice - 1) * 100
+  return { currentPrice, diffRate, style: AFTER_SELL_STYLE[currentPrice > sellPrice ? 'up' : 'down'] }
+}
+
 export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, onEdit }: Props) {
   const [winFilter, setWinFilter] = useState<WinFilter>('all')
   const [marketFilters, setMarketFilters] = useState<string[]>([])
@@ -94,6 +107,9 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
   const [groupBySymbol, setGroupBySymbol] = useState(false)
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set())
   const [imagesMap, setImagesMap] = useState<Record<string, TradeImage[]>>({})
+  const [priceMap, setPriceMap] = useState<Record<string, number>>({})
+  const [pricesLoading, setPricesLoading] = useState(false)
+  const requestedCodes = useRef<Set<string>>(new Set())
 
   function changeGroupMode(mode: GroupMode) {
     setGroupMode(mode)
@@ -190,7 +206,41 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
     })
   }, [rows, offset, groupMode, anchorDate])
 
-  function renderCard({ trade, exitDate, isWin }: TimelineRow) {
+  // 화면에 보이는 칸의 종목만 현재가 조회 (이미 조회한 종목은 건너뜀)
+  const visibleCodes = useMemo(() => {
+    const codes = new Set<string>()
+    columns.forEach(c => c.items.forEach(r => { if (r.trade.symbolCode) codes.add(r.trade.symbolCode) }))
+    return [...codes].sort()
+  }, [columns])
+
+  async function loadPrices(codes: string[]) {
+    if (codes.length === 0) return
+    codes.forEach(c => requestedCodes.current.add(c))
+    setPricesLoading(true)
+    try {
+      const res = await apiFetch(`/api/stock-price?codes=${codes.join(',')}`)
+      const json = await res.json()
+      if (Array.isArray(json?.data)) {
+        const map: Record<string, number> = {}
+        for (const item of json.data) {
+          const price = Number(item.price)
+          if (Number.isFinite(price) && price > 0) map[item.code] = price
+        }
+        setPriceMap(prev => ({ ...prev, ...map }))
+      }
+    } catch {
+      // 현재가 서버 연결 실패 시 배경색 없이 그대로 표시
+    } finally {
+      setPricesLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadPrices(visibleCodes.filter(c => !requestedCodes.current.has(c)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleCodes.join(',')])
+
+  function renderCard({ trade, exitDate, exitPrice, isWin }: TimelineRow) {
     const account = accountMap[trade.accountId]
     const marketType = symbolTypeMap[trade.symbol]
     const isExpanded = expanded.has(trade.id)
@@ -200,8 +250,9 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
       ...trade.sellEntries.map(e => ({ ...e, type: '매도' as const })),
     ].sort((a, b) => a.date.localeCompare(b.date))
     const accountLabel = account ? (account.nickname || `${account.broker} ${account.accountNumber}`) : null
+    const after = afterSell(trade.symbolCode ? priceMap[trade.symbolCode] : undefined, exitPrice)
     return (
-      <div key={trade.id} className={`bg-white rounded-lg border overflow-hidden space-y-1.5 ${color.width} ${color.border}`}>
+      <div key={trade.id} className={`${after?.style.bg ?? 'bg-white'} rounded-lg border overflow-hidden space-y-1.5 ${color.width} ${color.border}`}>
         <div className="p-3 pb-0 space-y-1.5">
           <div className="flex justify-between items-start gap-1">
             <div className="min-w-0">
@@ -241,6 +292,12 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
                 {' · 보유 '}{trade.holdingDays}일{' · '}
                 <span className={`font-medium ${color.text}`}>{formatRate(trade.profitRate)}</span>
               </p>
+              {after && (
+                <p className="text-[11px] text-gray-400">
+                  매도 {formatKRW(Math.round(exitPrice))} → 현재 {formatKRW(after.currentPrice)}{' '}
+                  <span className={`font-medium ${after.style.text}`}>{formatRate(after.diffRate)}</span>
+                </p>
+              )}
             </div>
             <span className={`text-xs font-semibold whitespace-nowrap ${color.text}`}>
               {isWin ? '+' : ''}{formatKRW(Math.round(trade.profitAmount))}
@@ -396,6 +453,22 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
           ))}
         </div>
 
+        <div className="bg-white rounded-lg border p-2 space-y-1">
+          {Object.values(AFTER_SELL_STYLE).map(s => (
+            <div key={s.label} className="flex items-center gap-2 px-1 py-0.5">
+              <span className={`w-2.5 h-2.5 rounded-sm shrink-0 ${s.dot}`} />
+              <span className="text-xs text-gray-600">{s.label}</span>
+            </div>
+          ))}
+          <button
+            onClick={() => loadPrices(visibleCodes)}
+            disabled={pricesLoading || visibleCodes.length === 0}
+            className="w-full text-xs text-gray-500 hover:text-gray-800 border rounded px-2 py-1 disabled:opacity-50"
+          >
+            {pricesLoading ? '조회중...' : '현재가 새로고침'}
+          </button>
+        </div>
+
         <p className="text-xs text-gray-400 px-1 leading-relaxed">
           {totalCount}건<br />익절 {winCount} / 손절 {totalCount - winCount}
         </p>
@@ -461,9 +534,13 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
                   const rate = cost > 0 ? (profit / cost) * 100 : 0
                   const color = rateTier(rate)
                   const marketType = symbolTypeMap[g.symbol]
+                  const sellQty = g.items.reduce((s, r) => s + r.trade.totalSellQuantity, 0)
+                  const groupSellPrice = sellQty > 0 ? g.items.reduce((s, r) => s + r.trade.totalSellAmount, 0) / sellQty : 0
+                  const groupCode = g.items.find(r => r.trade.symbolCode)?.trade.symbolCode
+                  const after = afterSell(groupCode ? priceMap[groupCode] : undefined, groupSellPrice)
                   return (
-                    <div key={key} className={`bg-white rounded-lg border overflow-hidden ${color.width} ${color.border}`}>
-                      <button onClick={() => toggleGroup(key)} className="w-full p-3 flex justify-between items-start gap-1 text-left hover:bg-gray-50">
+                    <div key={key} className={`${after?.style.bg ?? 'bg-white'} rounded-lg border overflow-hidden ${color.width} ${color.border}`}>
+                      <button onClick={() => toggleGroup(key)} className="w-full p-3 flex justify-between items-start gap-1 text-left hover:bg-black/[0.03]">
                         <div className="min-w-0">
                           <div>
                             {marketType && (
@@ -479,6 +556,12 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
                             <span className={`font-medium ${color.text}`}>{formatRate(rate)}</span>
                             {' · '}{isOpen ? '▲ 접기' : '▼ 펼치기'}
                           </p>
+                          {after && (
+                            <p className="text-[11px] text-gray-400">
+                              평균 매도 {formatKRW(Math.round(groupSellPrice))} → 현재 {formatKRW(after.currentPrice)}{' '}
+                              <span className={`font-medium ${after.style.text}`}>{formatRate(after.diffRate)}</span>
+                            </p>
+                          )}
                         </div>
                         <span className={`text-xs font-semibold whitespace-nowrap ${color.text}`}>
                           {profit >= 0 ? '+' : ''}{formatKRW(Math.round(profit))}
