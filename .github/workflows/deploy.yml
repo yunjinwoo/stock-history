@@ -41,12 +41,21 @@ jobs:
 
       - name: 5. 서버에서 DB 동기화 및 PM2 재시작
         uses: appleboy/ssh-action@master
+        env:
+          RESTORE_PASSWORD: ${{ secrets.RESTORE_PASSWORD }}
         with:
+          envs: RESTORE_PASSWORD
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
+            # 복원 비밀번호 (GitHub Secret RESTORE_PASSWORD). 앱이 ~/stock-history/.restore-password 를 읽음
+            # Secret이 비어 있으면 기존 파일을 그대로 둠 → 파일도 없으면 복원 기능이 막혀 있음
+            if [ -n "$RESTORE_PASSWORD" ]; then
+              ( umask 077; printf '%s' "$RESTORE_PASSWORD" > ~/stock-history/.restore-password )
+            fi
+
             cd ~/stock-history/.next/standalone
 
             # DB 스키마 동기화 (prisma v6 전역 설치 필요 — 최초 서버 세팅 시 sudo npm install -g prisma@6)

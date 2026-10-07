@@ -11,6 +11,7 @@ export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [restoring, setRestoring] = useState(false)
   const [restoreMsg, setRestoreMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [restorePassword, setRestorePassword] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
 
   async function load() {
@@ -42,10 +43,12 @@ export default function AccountsPage() {
     try {
       const form = new FormData()
       form.append('file', file)
+      form.append('password', restorePassword)
       const base = process.env.NEXT_PUBLIC_BASE_PATH ?? ''
       const res = await fetch(`${base}/api/restore`, { method: 'POST', body: form })
       if (res.ok) {
         setRestoreMsg({ ok: true, text: '복원 완료. 페이지를 새로고침해주세요.' })
+        setRestorePassword('')
       } else {
         const { error } = await res.json()
         setRestoreMsg({ ok: false, text: `복원 실패: ${error ?? '알 수 없는 오류'}` })
@@ -89,9 +92,19 @@ export default function AccountsPage() {
             >
               메모 엑셀
             </button>
+          </div>
+          <div className="flex flex-wrap gap-2 items-center">
+            <input
+              type="password"
+              value={restorePassword}
+              onChange={e => setRestorePassword(e.target.value)}
+              placeholder="복원 비밀번호"
+              autoComplete="current-password"
+              className="text-sm px-3 py-2 rounded border border-gray-300 w-40 focus:outline-none focus:ring-1 focus:ring-orange-300"
+            />
             <button
               onClick={() => fileRef.current?.click()}
-              disabled={restoring}
+              disabled={restoring || !restorePassword}
               className="text-sm px-4 py-2 rounded border border-orange-300 text-orange-600 hover:bg-orange-50 disabled:opacity-50"
             >
               {restoring ? '복원 중...' : '백업 파일로 복원'}
@@ -110,7 +123,7 @@ export default function AccountsPage() {
             </p>
           )}
           <p className="text-xs text-gray-400">
-            복원 후 스키마가 자동으로 동기화됩니다. 복원 완료 시 페이지를 새로고침하세요.
+            복원하려면 서버에 설정한 복원 비밀번호를 먼저 입력하세요. 복원 후 스키마가 자동으로 동기화됩니다. 복원 완료 시 페이지를 새로고침하세요.
           </p>
         </div>
 
