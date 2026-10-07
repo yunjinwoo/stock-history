@@ -23,7 +23,7 @@
 | `SERVER_IP` | VPS IP 주소 |
 | `SERVER_USER` | SSH 접속 계정명 |
 | `SSH_PRIVATE_KEY` | SSH 개인키 (PEM 형식) |
-| `RESTORE_PASSWORD` | 계좌관리 '백업 파일로 복원'에 필요한 비밀번호. 배포 시 서버 `~/stock-history/.restore-password`(권한 600)로 저장됨. 없으면 복원이 막힘 |
+| `SLACK_WEBHOOK_URL` | 슬랙 Incoming Webhook URL. 계좌관리 '백업 파일로 복원' 시 5분짜리 1회용 인증번호를 이 채널로 보냄. 배포 시 서버 `~/stock-history/.slack-webhook-url`(권한 600)로 저장됨. 없으면 복원이 막힘 |
 
 ### 배포 흐름
 ```

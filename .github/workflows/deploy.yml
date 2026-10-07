@@ -42,18 +42,18 @@ jobs:
       - name: 5. 서버에서 DB 동기화 및 PM2 재시작
         uses: appleboy/ssh-action@master
         env:
-          RESTORE_PASSWORD: ${{ secrets.RESTORE_PASSWORD }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         with:
-          envs: RESTORE_PASSWORD
+          envs: SLACK_WEBHOOK_URL
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
-            # 복원 비밀번호 (GitHub Secret RESTORE_PASSWORD). 앱이 ~/stock-history/.restore-password 를 읽음
+            # DB 복원 인증번호를 보낼 슬랙 웹훅 (GitHub Secret SLACK_WEBHOOK_URL). 앱이 ~/stock-history/.slack-webhook-url 을 읽음
             # Secret이 비어 있으면 기존 파일을 그대로 둠 → 파일도 없으면 복원 기능이 막혀 있음
-            if [ -n "$RESTORE_PASSWORD" ]; then
-              ( umask 077; printf '%s' "$RESTORE_PASSWORD" > ~/stock-history/.restore-password )
+            if [ -n "$SLACK_WEBHOOK_URL" ]; then
+              ( umask 077; printf '%s' "$SLACK_WEBHOOK_URL" > ~/stock-history/.slack-webhook-url )
             fi
 
             cd ~/stock-history/.next/standalone
