@@ -169,7 +169,8 @@ function parseTossHistory(text: string, now = new Date()): ParsedTrade[] {
       type: typeMatch[2] === '구매' ? '매수' : '매도',
       symbol: symbolMatch[1].trim(),
       quantity,
-      price: Math.round((amount / quantity) * 100) / 100,
+      // 총액에 수수료가 섞여 있어 10원 단위로 반올림
+      price: Math.round(amount / quantity / 10) * 10,
       ...(typeMatch[1] && { time: typeMatch[1].padStart(5, '0') }),
       ...(date && { date }),
     })
