@@ -305,14 +305,14 @@ JW신약 30주
     ])
   })
 
-  it('총액 ÷ 수량으로 단가 계산, 시간은 있을 때만', () => {
+  it('총액 ÷ 수량을 10원 단위로 반올림해 단가 계산, 시간은 있을 때만', () => {
     const results = parseKakaoNotifications(input, now)
     expect(results[9]).toEqual({
       broker: '토스증권',
       type: '매수',
       symbol: '삼미금속',
       quantity: 12,
-      price: 13592,
+      price: 13590,
       date: '2026-10-12',
     })
     expect(results[0]).toEqual({
@@ -320,7 +320,7 @@ JW신약 30주
       type: '매수',
       symbol: 'JW신약',
       quantity: 30,
-      price: 3285.47,
+      price: 3290,
       time: '00:06',
       date: '2026-09-30',
     })
