@@ -108,6 +108,7 @@ sudo nginx -t && sudo systemctl reload nginx
 
 - DB는 `sqlite3 .backup` → `prisma db execute "VACUUM INTO"` → 단순 복사 순으로 시도해 쓰기 중에도 일관된 스냅샷을 만듭니다.
 - 보관 기간·경로는 환경변수(`KEEP_DAYS`, `BACKUP_DIR`, `DB_PATH`, `IMAGES_DIR`)로 바꿀 수 있습니다.
+- 계좌관리 화면 하단 '서버 자동 백업'에서 목록 확인, 다운로드(압축 푼 .db), 삭제 가능 (`/api/backups`)
 - 즉시 실행: `bash ~/stock-history/.next/standalone/scripts/backup.sh`
 - 복원: `gunzip -c <백업파일>.db.gz > ~/stock-history/.next/standalone/data/stock-history.db && pm2 restart stock-history`
 - 백업이 같은 서버 디스크에 있으므로, 서버 장애까지 대비하려면 주기적으로 PC로 내려받아 두세요 (`scp -r $SERVER_USER@$SERVER_IP:~/stock-history-backups .`).
