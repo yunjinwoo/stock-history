@@ -207,7 +207,7 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
   function handleParsed(parsed: ParsedTrade) {
     const row: EntryRow = {
       key: uuid(),
-      date: today(),
+      date: parsed.date ?? today(),
       time: parsed.time ?? '',
       price: parsed.price.toString(),
       quantity: parsed.quantity.toString(),
