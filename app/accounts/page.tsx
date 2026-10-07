@@ -5,6 +5,7 @@ import Link from 'next/link'
 import type { Account } from '@/lib/types'
 import { apiFetch } from '@/lib/api'
 import AccountList from '@/components/AccountList'
+import BackupList from '@/components/BackupList'
 
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([])
@@ -112,6 +113,8 @@ export default function AccountsPage() {
             복원 후 스키마가 자동으로 동기화됩니다. 복원 완료 시 페이지를 새로고침하세요.
           </p>
         </div>
+
+        <BackupList />
       </div>
     </div>
   )
