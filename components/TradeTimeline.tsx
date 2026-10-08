@@ -93,7 +93,29 @@ const AFTER_SELL_STYLE = {
 function afterSell(currentPrice: number | undefined, sellPrice: number) {
   if (currentPrice == null || !(sellPrice > 0) || currentPrice === sellPrice) return null
   const diffRate = (currentPrice / sellPrice - 1) * 100
-  return { currentPrice, diffRate, style: AFTER_SELL_STYLE[currentPrice > sellPrice ? 'up' : 'down'] }
+  const dir = currentPrice > sellPrice ? 'up' : 'down'
+  return { currentPrice, diffRate, dir, style: AFTER_SELL_STYLE[dir] }
+}
+
+// 매도 결과(익절/손절) × 매도 후 흐름(상승/하락)
+const OUTCOMES = [
+  { id: 'win-down',  label: '익절 후 하락', note: '잘 팜' },
+  { id: 'win-up',    label: '익절 후 상승', note: '일찍 팜' },
+  { id: 'loss-down', label: '손절 후 하락', note: '잘 끊음' },
+  { id: 'loss-up',   label: '손절 후 상승', note: '아쉬운 손절' },
+] as const
+
+function outcomeOf(isWin: boolean, after: ReturnType<typeof afterSell>) {
+  if (!after) return null
+  return OUTCOMES.find(o => o.id === `${isWin ? 'win' : 'loss'}-${after.dir}`)!
+}
+
+function OutcomeBadge({ outcome, after }: { outcome: (typeof OUTCOMES)[number]; after: NonNullable<ReturnType<typeof afterSell>> }) {
+  return (
+    <span className={`ml-1 px-1.5 py-0.5 rounded-full border border-current text-[10px] font-medium whitespace-nowrap ${after.style.text}`}>
+      {outcome.label} · {outcome.note}
+    </span>
+  )
 }
 
 // 손익 금액 구간 (수익률 구간과 같은 색 체계)
@@ -118,6 +140,7 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
   const [amountFilters, setAmountFilters] = useState<string[]>([])
   const [planFilters, setPlanFilters] = useState<string[]>([])
   const [holdingFilters, setHoldingFilters] = useState<string[]>([])
+  const [outcomeFilters, setOutcomeFilters] = useState<string[]>([])
   const [groupMode, setGroupMode] = useState<GroupMode>('week')
   const [offset, setOffset] = useState(0) // 0 = 이번 주/달이 가장 오른쪽
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
@@ -148,6 +171,10 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
 
   function togglePlan(plan: string) {
     setPlanFilters(prev => prev.includes(plan) ? prev.filter(p => p !== plan) : [...prev, plan])
+  }
+
+  function toggleOutcome(id: string) {
+    setOutcomeFilters(prev => prev.includes(id) ? prev.filter(o => o !== id) : [...prev, id])
   }
 
   function toggleHolding(id: string) {
@@ -200,7 +227,7 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
     return new Date(maxExit.slice(0, 10))
   }, [rows])
 
-  const columns = useMemo(() => {
+  const baseColumns = useMemo(() => {
     if (groupMode === 'week') {
       const thisWeekStart = getWeekStart(anchorDate)
       return Array.from({ length: COLUMNS_SHOWN }, (_, i) => {
@@ -230,11 +257,23 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
   }, [rows, offset, groupMode, anchorDate])
 
   // 화면에 보이는 칸의 종목만 현재가 조회 (이미 조회한 종목은 건너뜀)
+  // 매도 후 흐름 필터는 현재가가 있어야 걸러지므로, 필터 적용 전 칸 기준으로 조회한다
   const visibleCodes = useMemo(() => {
     const codes = new Set<string>()
-    columns.forEach(c => c.items.forEach(r => { if (r.trade.symbolCode) codes.add(r.trade.symbolCode) }))
+    baseColumns.forEach(c => c.items.forEach(r => { if (r.trade.symbolCode) codes.add(r.trade.symbolCode) }))
     return [...codes].sort()
-  }, [columns])
+  }, [baseColumns])
+
+  const columns = useMemo(() => {
+    if (outcomeFilters.length === 0) return baseColumns
+    return baseColumns.map(c => {
+      const items = c.items.filter(r => {
+        const o = outcomeOf(r.isWin, afterSell(r.trade.symbolCode ? priceMap[r.trade.symbolCode] : undefined, r.exitPrice))
+        return o != null && outcomeFilters.includes(o.id)
+      })
+      return { ...c, items, total: items.reduce((s, r) => s + r.trade.profitAmount, 0) }
+    })
+  }, [baseColumns, outcomeFilters, priceMap])
 
   async function loadPrices(codes: string[]) {
     if (codes.length === 0) return
@@ -287,6 +326,7 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
     ].sort((a, b) => a.date.localeCompare(b.date))
     const accountLabel = account ? (account.nickname || `${account.broker} ${account.accountNumber}`) : null
     const after = afterSell(trade.symbolCode ? priceMap[trade.symbolCode] : undefined, exitPrice)
+    const outcome = outcomeOf(isWin, after)
     return (
       <div key={trade.id} className={`${after?.style.bg ?? 'bg-white'} rounded-lg border overflow-hidden space-y-1.5 ${color.width} ${color.border}`}>
         <div className="p-3 pb-0 space-y-1.5">
@@ -332,6 +372,7 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
                 <p className="text-[11px] text-gray-400">
                   매도 {formatKRW(Math.round(exitPrice))} → 현재 {formatKRW(after.currentPrice)}{' '}
                   <span className={`font-medium ${after.style.text}`}>{formatRate(after.diffRate)}</span>
+                  {outcome && <OutcomeBadge outcome={outcome} after={after} />}
                 </p>
               )}
             </div>
@@ -504,6 +545,21 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
           ))}
         </div>
 
+        <div className="bg-white rounded-lg border p-2 space-y-1">
+          {OUTCOMES.map(o => (
+            <label key={o.id} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-gray-50 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={outcomeFilters.includes(o.id)}
+                onChange={() => toggleOutcome(o.id)}
+                className="accent-blue-600"
+              />
+              <span className={`w-2.5 h-2.5 rounded-sm shrink-0 ${AFTER_SELL_STYLE[o.id.endsWith('up') ? 'up' : 'down'].dot}`} />
+              <span className="text-sm text-gray-700">{o.label}</span>
+            </label>
+          ))}
+        </div>
+
         <p className="text-xs text-gray-400 px-1 leading-relaxed">
           {totalCount}건<br />익절 {winCount} / 손절 {totalCount - winCount}
         </p>
@@ -594,6 +650,7 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
                   const groupSellPrice = sellQty > 0 ? g.items.reduce((s, r) => s + r.trade.totalSellAmount, 0) / sellQty : 0
                   const groupCode = g.items.find(r => r.trade.symbolCode)?.trade.symbolCode
                   const after = afterSell(groupCode ? priceMap[groupCode] : undefined, groupSellPrice)
+                  const outcome = outcomeOf(profit >= 0, after)
                   return (
                     <div key={key} className={`${after?.style.bg ?? 'bg-white'} rounded-lg border overflow-hidden ${color.width} ${color.border}`}>
                       <button onClick={() => toggleGroup(key)} className="w-full p-3 flex justify-between items-start gap-1 text-left hover:bg-black/[0.03]">
@@ -616,6 +673,7 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
                             <p className="text-[11px] text-gray-400">
                               평균 매도 {formatKRW(Math.round(groupSellPrice))} → 현재 {formatKRW(after.currentPrice)}{' '}
                               <span className={`font-medium ${after.style.text}`}>{formatRate(after.diffRate)}</span>
+                              {outcome && <OutcomeBadge outcome={outcome} after={after} />}
                             </p>
                           )}
                         </div>
