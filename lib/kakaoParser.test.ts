@@ -230,3 +230,109 @@ describe('키움 체결알림 여러 건 (카톡 복사 형식)', () => {
     expect(parseKakaoNotification(one)?.time).toBe('13:05')
   })
 })
+
+describe('토스증권 거래내역', () => {
+  const input = `10.12
+
+삼미금속 12주
+구매
+-163,104원
+
+한국화장품제조 9주
+구매
+-152,392원
+
+지어소프트 11주
+판매
+152,024원
+
+한국화장품제조 9주
+판매
+155,905원
+
+10.8
+
+지어소프트 11주
+구매
+-147,972원
+
+HLB 3주
+판매
+142,047원
+
+10.7
+
+HLB 1주
+00:06 ㅣ 구매
+-40,056원
+14,753원
+
+10.2
+
+HLB 2주
+00:06 ㅣ 구매
+-84,011원
+14,809원
+
+JW신약 30주
+00:06 ㅣ 판매
+89,807원
+98,820원
+
+9.30
+
+JW신약 30주
+00:06 ㅣ 구매
+-98,564원
+8,975원`
+
+  const now = new Date(2026, 9, 12, 15, 0)
+
+  it('전체 건수를 오래된 순으로 파싱', () => {
+    const results = parseKakaoNotifications(input, now)
+    expect(results).toHaveLength(10)
+    expect(results.map(r => `${r.date} ${r.symbol} ${r.type}`)).toEqual([
+      '2026-09-30 JW신약 매수',
+      '2026-10-02 JW신약 매도',
+      '2026-10-02 HLB 매수',
+      '2026-10-07 HLB 매수',
+      '2026-10-08 HLB 매도',
+      '2026-10-08 지어소프트 매수',
+      '2026-10-12 한국화장품제조 매도',
+      '2026-10-12 지어소프트 매도',
+      '2026-10-12 한국화장품제조 매수',
+      '2026-10-12 삼미금속 매수',
+    ])
+  })
+
+  it('총액 ÷ 수량을 10원 단위로 반올림해 단가 계산, 시간은 있을 때만', () => {
+    const results = parseKakaoNotifications(input, now)
+    expect(results[9]).toEqual({
+      broker: '토스증권',
+      type: '매수',
+      symbol: '삼미금속',
+      quantity: 12,
+      price: 13590,
+      date: '2026-10-12',
+    })
+    expect(results[0]).toEqual({
+      broker: '토스증권',
+      type: '매수',
+      symbol: 'JW신약',
+      quantity: 30,
+      price: 3290,
+      time: '00:06',
+      date: '2026-09-30',
+    })
+  })
+
+  it('오늘보다 미래 날짜는 작년으로', () => {
+    const results = parseKakaoNotifications(input, new Date(2026, 9, 7, 12, 0))
+    expect(results.find(r => r.symbol === '삼미금속')?.date).toBe('2025-10-12')
+    expect(results.find(r => r.symbol === 'JW신약')?.date).toBe('2026-09-30')
+  })
+
+  it('토스 형식이 아니면 빈 배열', () => {
+    expect(parseKakaoNotifications('10.12\n\n안녕하세요')).toEqual([])
+  })
+})

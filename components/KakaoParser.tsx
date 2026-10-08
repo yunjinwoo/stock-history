@@ -44,7 +44,7 @@ export default function KakaoParser({ onParsed, accounts, onBatchSaved }: Props)
       key: i,
       parsed,
       accountId: matchAccountId(accounts, parsed) ?? fallback,
-      date: today(),
+      date: parsed.date ?? today(),
       checked: true,
     })))
   }
@@ -148,11 +148,11 @@ export default function KakaoParser({ onParsed, accounts, onBatchSaved }: Props)
 
   return (
     <div className="space-y-2">
-      <p className="text-xs text-gray-400">지원: 한국투자증권, KB증권, 키움증권, 미확인(083계열) · 여러 건을 한 번에 붙여넣을 수 있어요</p>
+      <p className="text-xs text-gray-400">지원: 한국투자증권, KB증권, 키움증권, 미확인(083계열), 토스증권 거래내역 · 여러 건을 한 번에 붙여넣을 수 있어요</p>
       <textarea
         value={text}
         onChange={e => setText(e.target.value)}
-        placeholder="카카오톡 알림을 여기에 붙여넣기 하세요"
+        placeholder="카카오톡 알림이나 토스 거래내역을 여기에 붙여넣기 하세요"
         className="w-full border rounded p-2 text-sm h-40 resize-none focus:outline-none focus:ring-1 focus:ring-blue-400"
       />
       {error && <p className="text-red-500 text-xs">{error}</p>}

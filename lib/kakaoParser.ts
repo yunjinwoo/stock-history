@@ -6,6 +6,8 @@ export interface ParsedTrade {
   quantity: number
   price: number
   time?: string
+  /** 'YYYY-MM-DD'. 알림에 날짜가 있을 때만 (토스 거래내역) */
+  date?: string
   accountNumber?: string
 }
 
@@ -132,9 +134,61 @@ function splitNotifications(text: string): string[] {
   return sorted.map((start, i) => text.slice(start, sorted[i + 1] ?? text.length))
 }
 
+// 토스증권 앱 거래내역 복사본: 날짜 줄(10.12) 아래에 '종목 N주' / '[HH:mm ㅣ ]구매|판매' / '-163,104원' 블록이 반복됨.
+// 금액은 총액이라 단가 = 금액 / 수량. 뒤따르는 두 번째 금액 줄(실현손익 등)은 무시.
+// 연도가 없어 올해로 보고, 오늘보다 미래면 작년으로. 토스는 최신순이라 오래된 순으로 뒤집어 반환.
+const TOSS_TYPE_LINE = /^(?:(\d{1,2}:\d{2})\s*\S?\s*)?(구매|판매)$/
+
+function parseTossHistory(text: string, now = new Date()): ParsedTrade[] {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
+  const results: ParsedTrade[] = []
+  let date: string | undefined
+
+  for (let i = 0; i < lines.length; i++) {
+    const dateMatch = lines[i].match(/^(\d{1,2})\.(\d{1,2})$/)
+    if (dateMatch) {
+      const month = Number(dateMatch[1])
+      const day = Number(dateMatch[2])
+      let year = now.getFullYear()
+      if (new Date(year, month - 1, day) > now) year -= 1
+      date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+      continue
+    }
+
+    const symbolMatch = lines[i].match(/^(.+?)\s+([\d,]+)주$/)
+    const typeMatch = lines[i + 1]?.match(TOSS_TYPE_LINE)
+    const amountMatch = lines[i + 2]?.match(/^-?([\d,]+)원$/)
+    if (!symbolMatch || !typeMatch || !amountMatch) continue
+
+    const quantity = toNum(symbolMatch[2])
+    const amount = toNum(amountMatch[1])
+    if (!quantity || !amount) continue
+
+    results.push({
+      broker: '토스증권',
+      type: typeMatch[2] === '구매' ? '매수' : '매도',
+      symbol: symbolMatch[1].trim(),
+      quantity,
+      // 총액에 수수료가 섞여 있어 10원 단위로 반올림
+      price: Math.round(amount / quantity / 10) * 10,
+      ...(typeMatch[1] && { time: typeMatch[1].padStart(5, '0') }),
+      ...(date && { date }),
+    })
+    i += 2
+  }
+
+  return results.reverse()
+}
+
+function isTossHistory(text: string): boolean {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
+  return lines.some((l, i) => /\s[\d,]+주$/.test(l) && TOSS_TYPE_LINE.test(lines[i + 1] ?? ''))
+}
+
 /** 여러 건의 알림을 한 번에 파싱. 인식 못한 조각은 건너뜀 (실패 시 빈 배열) */
-export function parseKakaoNotifications(text: string): ParsedTrade[] {
+export function parseKakaoNotifications(text: string, now = new Date()): ParsedTrade[] {
   if (!text?.trim()) return []
+  if (isTossHistory(text)) return parseTossHistory(text, now)
   return splitNotifications(text)
     .map(chunk => parseKakaoNotification(chunk))
     .filter((r): r is ParsedTrade => r !== null)
