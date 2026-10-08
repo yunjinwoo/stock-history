@@ -84,35 +84,31 @@ function rateTier(rate: number) {
   return RATE_TIERS.find(t => t.test(rate))!
 }
 
-// 매도 후 현재가 비교 — 왼쪽 테두리(수익률 빨강/파랑)와 겹치지 않도록 다른 색 계열의 옅은 배경
-const AFTER_SELL_STYLE = {
-  up:   { bg: 'bg-amber-50',   text: 'text-amber-600',   dot: 'bg-amber-50 border border-amber-300',   label: '매도 후 상승' },
-  down: { bg: 'bg-emerald-50', text: 'text-emerald-600', dot: 'bg-emerald-50 border border-emerald-300', label: '매도 후 하락' },
-} as const
-
 function afterSell(currentPrice: number | undefined, sellPrice: number) {
   if (currentPrice == null || !(sellPrice > 0) || currentPrice === sellPrice) return null
   const diffRate = (currentPrice / sellPrice - 1) * 100
-  const dir = currentPrice > sellPrice ? 'up' : 'down'
-  return { currentPrice, diffRate, dir, style: AFTER_SELL_STYLE[dir] }
+  return { currentPrice, diffRate, dir: currentPrice > sellPrice ? 'up' as const : 'down' as const }
 }
 
-// 매도 결과(익절/손절) × 매도 후 흐름(상승/하락)
+// 매도 결과(익절/손절) × 매도 후 흐름(상승/하락) — 카드 배경색.
+// 왼쪽 테두리(수익률 빨강/파랑)와 겹치지 않도록 빨강/파랑 계열은 피함
 const OUTCOMES = [
-  { id: 'win-down',  label: '익절 후 하락', note: '잘 팜' },
-  { id: 'win-up',    label: '익절 후 상승', note: '일찍 팜' },
-  { id: 'loss-down', label: '손절 후 하락', note: '잘 끊음' },
-  { id: 'loss-up',   label: '손절 후 상승', note: '아쉬운 손절' },
+  { id: 'win-down',  label: '익절 후 하락', note: '잘 팜',       bg: 'bg-emerald-50', text: 'text-emerald-600', dot: 'bg-emerald-100 border border-emerald-400' },
+  { id: 'win-up',    label: '익절 후 상승', note: '일찍 팜',     bg: 'bg-amber-50',   text: 'text-amber-600',   dot: 'bg-amber-100 border border-amber-400' },
+  { id: 'loss-down', label: '손절 후 하락', note: '잘 끊음',     bg: 'bg-violet-50',  text: 'text-violet-600',  dot: 'bg-violet-100 border border-violet-400' },
+  { id: 'loss-up',   label: '손절 후 상승', note: '아쉬운 손절', bg: 'bg-pink-50',    text: 'text-pink-600',    dot: 'bg-pink-100 border border-pink-400' },
 ] as const
+
+type Outcome = (typeof OUTCOMES)[number]
 
 function outcomeOf(isWin: boolean, after: ReturnType<typeof afterSell>) {
   if (!after) return null
   return OUTCOMES.find(o => o.id === `${isWin ? 'win' : 'loss'}-${after.dir}`)!
 }
 
-function OutcomeBadge({ outcome, after }: { outcome: (typeof OUTCOMES)[number]; after: NonNullable<ReturnType<typeof afterSell>> }) {
+function OutcomeBadge({ outcome }: { outcome: Outcome }) {
   return (
-    <span className={`ml-1 px-1.5 py-0.5 rounded-full border border-current text-[10px] font-medium whitespace-nowrap ${after.style.text}`}>
+    <span className={`ml-1 px-1.5 py-0.5 rounded-full border border-current text-[10px] font-medium whitespace-nowrap ${outcome.text}`}>
       {outcome.label} · {outcome.note}
     </span>
   )
@@ -328,7 +324,7 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
     const after = afterSell(trade.symbolCode ? priceMap[trade.symbolCode] : undefined, exitPrice)
     const outcome = outcomeOf(isWin, after)
     return (
-      <div key={trade.id} className={`${after?.style.bg ?? 'bg-white'} rounded-lg border overflow-hidden space-y-1.5 ${color.width} ${color.border}`}>
+      <div key={trade.id} className={`${outcome?.bg ?? 'bg-white'} rounded-lg border overflow-hidden space-y-1.5 ${color.width} ${color.border}`}>
         <div className="p-3 pb-0 space-y-1.5">
           <div className="flex justify-between items-start gap-1">
             <div className="min-w-0">
@@ -371,8 +367,8 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
               {after && (
                 <p className="text-[11px] text-gray-400">
                   매도 {formatKRW(Math.round(exitPrice))} → 현재 {formatKRW(after.currentPrice)}{' '}
-                  <span className={`font-medium ${after.style.text}`}>{formatRate(after.diffRate)}</span>
-                  {outcome && <OutcomeBadge outcome={outcome} after={after} />}
+                  <span className={`font-medium ${outcome?.text ?? ''}`}>{formatRate(after.diffRate)}</span>
+                  {outcome && <OutcomeBadge outcome={outcome} />}
                 </p>
               )}
             </div>
@@ -554,7 +550,7 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
                 onChange={() => toggleOutcome(o.id)}
                 className="accent-blue-600"
               />
-              <span className={`w-2.5 h-2.5 rounded-sm shrink-0 ${AFTER_SELL_STYLE[o.id.endsWith('up') ? 'up' : 'down'].dot}`} />
+              <span className={`w-2.5 h-2.5 rounded-sm shrink-0 ${o.dot}`} />
               <span className="text-sm text-gray-700">{o.label}</span>
             </label>
           ))}
@@ -588,10 +584,10 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
             종목 묶기
           </label>
           <div className="flex items-center gap-2 mr-3 text-xs text-gray-500">
-            {Object.values(AFTER_SELL_STYLE).map(s => (
-              <span key={s.label} className="flex items-center gap-1">
-                <span className={`w-2.5 h-2.5 rounded-sm shrink-0 ${s.dot}`} />
-                {s.label}
+            {OUTCOMES.map(o => (
+              <span key={o.id} className="flex items-center gap-1" title={o.label}>
+                <span className={`w-2.5 h-2.5 rounded-sm shrink-0 ${o.dot}`} />
+                {o.note}
               </span>
             ))}
             <button
@@ -652,7 +648,7 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
                   const after = afterSell(groupCode ? priceMap[groupCode] : undefined, groupSellPrice)
                   const outcome = outcomeOf(profit >= 0, after)
                   return (
-                    <div key={key} className={`${after?.style.bg ?? 'bg-white'} rounded-lg border overflow-hidden ${color.width} ${color.border}`}>
+                    <div key={key} className={`${outcome?.bg ?? 'bg-white'} rounded-lg border overflow-hidden ${color.width} ${color.border}`}>
                       <button onClick={() => toggleGroup(key)} className="w-full p-3 flex justify-between items-start gap-1 text-left hover:bg-black/[0.03]">
                         <div className="min-w-0">
                           <div>
@@ -672,8 +668,8 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
                           {after && (
                             <p className="text-[11px] text-gray-400">
                               평균 매도 {formatKRW(Math.round(groupSellPrice))} → 현재 {formatKRW(after.currentPrice)}{' '}
-                              <span className={`font-medium ${after.style.text}`}>{formatRate(after.diffRate)}</span>
-                              {outcome && <OutcomeBadge outcome={outcome} after={after} />}
+                              <span className={`font-medium ${outcome?.text ?? ''}`}>{formatRate(after.diffRate)}</span>
+                              {outcome && <OutcomeBadge outcome={outcome} />}
                             </p>
                           )}
                         </div>
