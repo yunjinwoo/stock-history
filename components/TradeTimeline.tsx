@@ -23,6 +23,7 @@ interface Props {
 type WinFilter = 'all' | 'win' | 'loss'
 type GroupMode = 'week' | 'month'
 const COLUMNS_SHOWN = 4
+const PRICE_CHUNK = 20
 const MARKET_TYPES = ['코스피', '코스닥', 'ETF'] as const
 const NO_PLAN = '계획 없음'
 const PLAN_OPTIONS = [...HOLDING_PLAN_OPTIONS, NO_PLAN] as const
@@ -125,6 +126,7 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
   const [imagesMap, setImagesMap] = useState<Record<string, TradeImage[]>>({})
   const [priceMap, setPriceMap] = useState<Record<string, number>>({})
   const [pricesLoading, setPricesLoading] = useState(false)
+  const [priceStatus, setPriceStatus] = useState<{ ok: number; total: number; error: string | null } | null>(null)
   const requestedCodes = useRef<Set<string>>(new Set())
 
   function changeGroupMode(mode: GroupMode) {
@@ -238,22 +240,35 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
     if (codes.length === 0) return
     codes.forEach(c => requestedCodes.current.add(c))
     setPricesLoading(true)
-    try {
-      const res = await apiFetch(`/api/stock-price?codes=${codes.join(',')}`)
-      const json = await res.json()
-      if (Array.isArray(json?.data)) {
-        const map: Record<string, number> = {}
-        for (const item of json.data) {
-          const price = Number(item.price)
-          if (Number.isFinite(price) && price > 0) map[item.code] = price
+    const map: Record<string, number> = {}
+    let error: string | null = null
+    // 한 번에 너무 많은 종목을 보내지 않도록 나눠서 조회
+    const chunks: string[][] = []
+    for (let i = 0; i < codes.length; i += PRICE_CHUNK) chunks.push(codes.slice(i, i + PRICE_CHUNK))
+    await Promise.all(chunks.map(async chunk => {
+      try {
+        const res = await apiFetch(`/api/stock-price?codes=${chunk.join(',')}`)
+        const json = await res.json().catch(() => null)
+        if (!res.ok || !Array.isArray(json?.data)) {
+          error = json?.error ?? `응답 오류 (${res.status})`
+          return
         }
-        setPriceMap(prev => ({ ...prev, ...map }))
+        for (const item of json.data) {
+          const code = String(item.code ?? '').replace(/^A/, '')
+          const price = Number(String(item.price ?? '').replace(/,/g, ''))
+          if (code && Number.isFinite(price) && price > 0) map[code] = price
+        }
+      } catch {
+        error = '현재가 서버에 연결할 수 없습니다.'
       }
-    } catch {
-      // 현재가 서버 연결 실패 시 배경색 없이 그대로 표시
-    } finally {
-      setPricesLoading(false)
-    }
+    }))
+    setPriceMap(prev => ({ ...prev, ...map }))
+    const ok = codes.filter(c => map[c] != null).length
+    if (ok < codes.length) console.warn('[복기 현재가] 조회 실패 종목', codes.filter(c => map[c] == null), error)
+    setPriceStatus({ ok, total: codes.length, error })
+    // 실패한 종목은 다음에 다시 조회할 수 있도록 남겨 두지 않음
+    codes.forEach(c => { if (map[c] == null) requestedCodes.current.delete(c) })
+    setPricesLoading(false)
   }
 
   useEffect(() => {
@@ -489,22 +504,6 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
           ))}
         </div>
 
-        <div className="bg-white rounded-lg border p-2 space-y-1">
-          {Object.values(AFTER_SELL_STYLE).map(s => (
-            <div key={s.label} className="flex items-center gap-2 px-1 py-0.5">
-              <span className={`w-2.5 h-2.5 rounded-sm shrink-0 ${s.dot}`} />
-              <span className="text-xs text-gray-600">{s.label}</span>
-            </div>
-          ))}
-          <button
-            onClick={() => loadPrices(visibleCodes)}
-            disabled={pricesLoading || visibleCodes.length === 0}
-            className="w-full text-xs text-gray-500 hover:text-gray-800 border rounded px-2 py-1 disabled:opacity-50"
-          >
-            {pricesLoading ? '조회중...' : '현재가 새로고침'}
-          </button>
-        </div>
-
         <p className="text-xs text-gray-400 px-1 leading-relaxed">
           {totalCount}건<br />익절 {winCount} / 손절 {totalCount - winCount}
         </p>
@@ -532,6 +531,27 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
             />
             종목 묶기
           </label>
+          <div className="flex items-center gap-2 mr-3 text-xs text-gray-500">
+            {Object.values(AFTER_SELL_STYLE).map(s => (
+              <span key={s.label} className="flex items-center gap-1">
+                <span className={`w-2.5 h-2.5 rounded-sm shrink-0 ${s.dot}`} />
+                {s.label}
+              </span>
+            ))}
+            <button
+              onClick={() => loadPrices(visibleCodes)}
+              disabled={pricesLoading || visibleCodes.length === 0}
+              className="text-gray-500 hover:text-gray-800 border rounded px-2 py-1 disabled:opacity-50"
+            >
+              {pricesLoading ? '조회중...' : '현재가 새로고침'}
+            </button>
+            {priceStatus && !pricesLoading && (
+              <span className={priceStatus.ok < priceStatus.total ? 'text-red-500' : 'text-gray-400'} title={priceStatus.error ?? undefined}>
+                현재가 {priceStatus.ok}/{priceStatus.total}종목
+                {priceStatus.error && ` · ${priceStatus.error}`}
+              </span>
+            )}
+          </div>
           <div className="flex gap-2">
             <button onClick={() => setOffset(o => o + 1)} className="px-3 py-1.5 text-gray-400 hover:text-gray-700 text-sm border rounded">
               {groupMode === 'week' ? '‹ 이전주' : '‹ 이전달'}
