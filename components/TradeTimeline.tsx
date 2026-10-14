@@ -129,6 +129,43 @@ function amountTier(amount: number) {
   return AMOUNT_TIERS.find(t => t.test(Math.round(amount)))!
 }
 
+interface FilterOption { id: string; label: string; dot?: string }
+interface FilterGroupDef { key: string; title: string; options: readonly FilterOption[]; selected: string[]; toggle: (id: string) => void; clear: () => void }
+
+const OPEN_GROUPS_KEY = 'timeline-filter-open-groups'
+
+// 필터 그룹 하나: 헤더(이름 + 선택 개수)를 눌러 접고 펼침
+function FilterGroup({ group, open, onToggleOpen }: { group: FilterGroupDef; open: boolean; onToggleOpen: () => void }) {
+  const count = group.selected.length
+  return (
+    <div className="bg-white rounded-lg border">
+      <button onClick={onToggleOpen} className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-gray-50 rounded-lg">
+        <span className="text-sm font-medium text-gray-700">{group.title}</span>
+        <span className="flex items-center gap-1.5">
+          {count > 0 && <span className="text-[11px] px-1.5 rounded-full bg-blue-600 text-white tabular-nums">{count}</span>}
+          <span className="text-[10px] text-gray-400">{open ? '▲' : '▼'}</span>
+        </span>
+      </button>
+      {open && (
+        <div className="px-2 pb-2 space-y-0.5 border-t pt-1">
+          {group.options.map(o => (
+            <label key={o.id} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-gray-50 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={group.selected.includes(o.id)}
+                onChange={() => group.toggle(o.id)}
+                className="accent-blue-600"
+              />
+              {o.dot && <span className={`w-2.5 h-2.5 shrink-0 ${o.dot}`} />}
+              <span className="text-sm text-gray-700">{o.label}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, onEdit }: Props) {
   const [winFilter, setWinFilter] = useState<WinFilter>('all')
   const [marketFilters, setMarketFilters] = useState<string[]>([])
@@ -147,6 +184,24 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
   const [pricesLoading, setPricesLoading] = useState(false)
   const [priceStatus, setPriceStatus] = useState<{ ok: number; total: number; error: string | null } | null>(null)
   const requestedCodes = useRef<Set<string>>(new Set())
+  const [openFilterGroups, setOpenFilterGroups] = useState<Set<string>>(new Set())
+
+  // 펼친 필터 그룹은 다음에 들어와도 그대로 유지
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(OPEN_GROUPS_KEY) ?? '[]')
+      if (Array.isArray(saved)) setOpenFilterGroups(new Set(saved))
+    } catch {}
+  }, [])
+
+  function toggleFilterGroupOpen(key: string) {
+    setOpenFilterGroups(prev => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      try { localStorage.setItem(OPEN_GROUPS_KEY, JSON.stringify([...next])) } catch {}
+      return next
+    })
+  }
 
   function changeGroupMode(mode: GroupMode) {
     setGroupMode(mode)
@@ -455,10 +510,32 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
   const totalCount = rows.length
   const winCount = rows.filter(r => r.isWin).length
 
+  const filterGroups: FilterGroupDef[] = [
+    { key: 'market', title: '시장', options: MARKET_TYPES.map(t => ({ id: t, label: t })), selected: marketFilters, toggle: toggleMarket, clear: () => setMarketFilters([]) },
+    { key: 'rate', title: '수익률', options: RATE_TIERS.map(t => ({ id: t.id, label: t.label, dot: `rounded-full ${t.dot}` })), selected: tierFilters, toggle: toggleTier, clear: () => setTierFilters([]) },
+    { key: 'amount', title: '손익 금액', options: AMOUNT_TIERS.map(t => ({ id: t.id, label: t.label, dot: `rounded-full ${t.dot}` })), selected: amountFilters, toggle: toggleAmount, clear: () => setAmountFilters([]) },
+    { key: 'plan', title: '보유 계획', options: PLAN_OPTIONS.map(p => ({ id: p, label: p })), selected: planFilters, toggle: togglePlan, clear: () => setPlanFilters([]) },
+    { key: 'holding', title: '실제 보유일', options: HOLDING_DAYS_TIERS.map(t => ({ id: t.id, label: t.label })), selected: holdingFilters, toggle: toggleHolding, clear: () => setHoldingFilters([]) },
+    { key: 'outcome', title: '매도 후 흐름', options: OUTCOMES.map(o => ({ id: o.id, label: o.label, dot: `rounded-sm ${o.dot}` })), selected: outcomeFilters, toggle: toggleOutcome, clear: () => setOutcomeFilters([]) },
+  ]
+
+  // 카드 위에 보여 줄 선택된 필터 칩
+  const activeChips = filterGroups.flatMap(g =>
+    g.selected.map(id => ({ key: `${g.key}:${id}`, group: g.title, label: g.options.find(o => o.id === id)?.label ?? id, remove: () => g.toggle(id) }))
+  )
+  if (winFilter !== 'all') {
+    activeChips.unshift({ key: 'win', group: '결과', label: winFilter === 'win' ? '익절' : '손절', remove: () => setWinFilter('all') })
+  }
+
+  function clearAllFilters() {
+    setWinFilter('all')
+    filterGroups.forEach(g => g.clear())
+  }
+
   return (
-    <div className="max-w-[1600px] mx-auto grid grid-cols-[160px_1fr] gap-4 items-start">
-      {/* 좌측 필터 */}
-      <div className="sticky top-16 space-y-3">
+    <div className="max-w-[1600px] mx-auto grid grid-cols-[180px_1fr] gap-4 items-start">
+      {/* 좌측 필터: 화면 높이 안에서 따로 스크롤 */}
+      <div className="sticky top-16 max-h-[calc(100vh-5rem)] overflow-y-auto space-y-2 pb-2 pr-1">
         <select
           value={winFilter}
           onChange={e => setWinFilter(e.target.value as WinFilter)}
@@ -469,96 +546,13 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
           <option value="loss">손절</option>
         </select>
 
-        <div className="bg-white rounded-lg border p-2 space-y-1">
-          {MARKET_TYPES.map(type => (
-            <label key={type} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-gray-50 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={marketFilters.includes(type)}
-                onChange={() => toggleMarket(type)}
-                className="accent-blue-600"
-              />
-              <span className="text-sm text-gray-700">{type}</span>
-            </label>
-          ))}
-        </div>
-
-        <div className="bg-white rounded-lg border p-2 space-y-1">
-          {RATE_TIERS.map(tier => (
-            <label key={tier.id} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-gray-50 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={tierFilters.includes(tier.id)}
-                onChange={() => toggleTier(tier.id)}
-                className="accent-blue-600"
-              />
-              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${tier.dot}`} />
-              <span className="text-sm text-gray-700">{tier.label}</span>
-            </label>
-          ))}
-        </div>
-
-        <div className="bg-white rounded-lg border p-2 space-y-1">
-          {AMOUNT_TIERS.map(tier => (
-            <label key={tier.id} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-gray-50 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={amountFilters.includes(tier.id)}
-                onChange={() => toggleAmount(tier.id)}
-                className="accent-blue-600"
-              />
-              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${tier.dot}`} />
-              <span className="text-sm text-gray-700">{tier.label}</span>
-            </label>
-          ))}
-        </div>
-
-        <div className="bg-white rounded-lg border p-2 space-y-1">
-          {PLAN_OPTIONS.map(plan => (
-            <label key={plan} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-gray-50 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={planFilters.includes(plan)}
-                onChange={() => togglePlan(plan)}
-                className="accent-blue-600"
-              />
-              <span className="text-sm text-gray-700">{plan}</span>
-            </label>
-          ))}
-        </div>
-
-        <div className="bg-white rounded-lg border p-2 space-y-1">
-          {HOLDING_DAYS_TIERS.map(tier => (
-            <label key={tier.id} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-gray-50 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={holdingFilters.includes(tier.id)}
-                onChange={() => toggleHolding(tier.id)}
-                className="accent-blue-600"
-              />
-              <span className="text-sm text-gray-700">{tier.label}</span>
-            </label>
-          ))}
-        </div>
-
-        <div className="bg-white rounded-lg border p-2 space-y-1">
-          {OUTCOMES.map(o => (
-            <label key={o.id} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-gray-50 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={outcomeFilters.includes(o.id)}
-                onChange={() => toggleOutcome(o.id)}
-                className="accent-blue-600"
-              />
-              <span className={`w-2.5 h-2.5 rounded-sm shrink-0 ${o.dot}`} />
-              <span className="text-sm text-gray-700">{o.label}</span>
-            </label>
-          ))}
-        </div>
-
-        <p className="text-xs text-gray-400 px-1 leading-relaxed">
-          {totalCount}건<br />익절 {winCount} / 손절 {totalCount - winCount}
+        <p className="text-xs text-gray-400 px-1">
+          {totalCount}건 · 익절 {winCount} / 손절 {totalCount - winCount}
         </p>
+
+        {filterGroups.map(g => (
+          <FilterGroup key={g.key} group={g} open={openFilterGroups.has(g.key)} onToggleOpen={() => toggleFilterGroupOpen(g.key)} />
+        ))}
       </div>
 
       {/* 우측 주/월별 히스토리 */}
@@ -617,6 +611,26 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
             </button>
           </div>
         </div>
+
+        {activeChips.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {activeChips.map(c => (
+              <button
+                key={c.key}
+                onClick={c.remove}
+                className="flex items-center gap-1 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-full pl-2 pr-1.5 py-0.5 hover:bg-blue-100"
+                title="필터 해제"
+              >
+                <span className="text-blue-400">{c.group}</span>
+                {c.label}
+                <span className="text-blue-400 ml-0.5">✕</span>
+              </button>
+            ))}
+            <button onClick={clearAllFilters} className="text-xs text-gray-500 hover:text-gray-800 underline ml-1">
+              전체 해제
+            </button>
+          </div>
+        )}
 
         <div className="grid grid-cols-4 gap-3">
           {columns.map((w, i) => (
