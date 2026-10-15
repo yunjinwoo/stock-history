@@ -135,7 +135,7 @@ interface FilterGroupDef { key: string; title: string; options: readonly FilterO
 const OPEN_GROUPS_KEY = 'timeline-filter-open-groups'
 
 // 필터 그룹 하나: 헤더(이름 + 선택 개수)를 눌러 접고 펼침
-function FilterGroup({ group, open, onToggleOpen }: { group: FilterGroupDef; open: boolean; onToggleOpen: () => void }) {
+function FilterGroup({ group, open, onToggleOpen, counts }: { group: FilterGroupDef; open: boolean; onToggleOpen: () => void; counts: Record<string, number> }) {
   const count = group.selected.length
   return (
     <div className="bg-white rounded-lg border">
@@ -157,7 +157,8 @@ function FilterGroup({ group, open, onToggleOpen }: { group: FilterGroupDef; ope
                 className="accent-blue-600"
               />
               {o.dot && <span className={`w-2.5 h-2.5 shrink-0 ${o.dot}`} />}
-              <span className="text-sm text-gray-700">{o.label}</span>
+              <span className={`text-sm ${counts[o.id] ? 'text-gray-700' : 'text-gray-400'}`}>{o.label}</span>
+              <span className="ml-auto text-[11px] text-gray-400 tabular-nums">{counts[o.id] ?? 0}</span>
             </label>
           ))}
         </div>
@@ -254,7 +255,7 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
     return m
   }, [accounts])
 
-  const rows = useMemo(() => {
+  const allRows = useMemo(() => {
     return trades
       .filter(t => t.isCompleted)
       .map(t => {
@@ -263,13 +264,17 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
         const exitPrice = t.totalSellQuantity > 0 ? t.totalSellAmount / t.totalSellQuantity : 0
         return { trade: t, entryDate, exitDate, exitPrice, isWin: t.profitAmount >= 0 }
       })
+  }, [trades])
+
+  const rows = useMemo(() => {
+    return allRows
       .filter(r => winFilter === 'all' || (winFilter === 'win' ? r.isWin : !r.isWin))
       .filter(r => marketFilters.length === 0 || marketFilters.includes(symbolTypeMap[r.trade.symbol] ?? ''))
       .filter(r => tierFilters.length === 0 || tierFilters.includes(rateTier(r.trade.profitRate).id))
       .filter(r => amountFilters.length === 0 || amountFilters.includes(amountTier(r.trade.profitAmount).id))
       .filter(r => planFilters.length === 0 || planFilters.includes(r.trade.plannedHoldingPeriod || NO_PLAN))
       .filter(r => holdingFilters.length === 0 || holdingFilters.includes(holdingDaysTier(r.trade.holdingDays).id))
-  }, [trades, winFilter, marketFilters, tierFilters, amountFilters, planFilters, holdingFilters, symbolTypeMap])
+  }, [allRows, winFilter, marketFilters, tierFilters, amountFilters, planFilters, holdingFilters, symbolTypeMap])
 
   // 거래 없는 최근 주/달이 오른쪽에 비어 보이지 않도록, 가장 최근 거래가 있는 시점을 기준으로 삼음
   const anchorDate = useMemo(() => {
@@ -291,7 +296,8 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
           .filter(r => { const k = r.exitDate.slice(0, 10); return k >= startKey && k <= endKey })
           .sort((a, b) => b.exitDate.localeCompare(a.exitDate))
         const total = items.reduce((s, r) => s + r.trade.profitAmount, 0)
-        return { label: `${fmtMD(start)} ~ ${fmtMD(end)}`, items, total }
+        const inRange = (exitDate: string) => { const k = exitDate.slice(0, 10); return k >= startKey && k <= endKey }
+        return { label: `${fmtMD(start)} ~ ${fmtMD(end)}`, items, total, inRange }
       })
     }
     const thisMonthStart = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), 1)
@@ -303,7 +309,8 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
         .filter(r => r.exitDate.slice(0, 7) === prefix)
         .sort((a, b) => b.exitDate.localeCompare(a.exitDate))
       const total = items.reduce((s, r) => s + r.trade.profitAmount, 0)
-      return { label: fmtYM(start), items, total }
+      const inRange = (exitDate: string) => exitDate.slice(0, 7) === prefix
+      return { label: fmtYM(start), items, total, inRange }
     })
   }, [rows, offset, groupMode, anchorDate])
 
@@ -325,6 +332,36 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
       return { ...c, items, total: items.reduce((s, r) => s + r.trade.profitAmount, 0) }
     })
   }, [baseColumns, outcomeFilters, priceMap])
+
+  // 필터 옵션별 건수: 화면에 보이는 기간 안에서, 해당 그룹을 뺀 나머지 필터를 적용했을 때의 건수
+  const facetCounts = useMemo(() => {
+    const valueOf: Record<string, (r: TimelineRow) => string | null> = {
+      win: r => r.isWin ? 'win' : 'loss',
+      market: r => symbolTypeMap[r.trade.symbol] ?? '',
+      rate: r => rateTier(r.trade.profitRate).id,
+      amount: r => amountTier(r.trade.profitAmount).id,
+      plan: r => r.trade.plannedHoldingPeriod || NO_PLAN,
+      holding: r => holdingDaysTier(r.trade.holdingDays).id,
+      outcome: r => outcomeOf(r.isWin, afterSell(r.trade.symbolCode ? priceMap[r.trade.symbolCode] : undefined, r.exitPrice))?.id ?? null,
+    }
+    const selected: Record<string, string[]> = {
+      win: winFilter === 'all' ? [] : [winFilter],
+      market: marketFilters, rate: tierFilters, amount: amountFilters, plan: planFilters, holding: holdingFilters, outcome: outcomeFilters,
+    }
+    const keys = Object.keys(valueOf)
+    const values = allRows
+      .filter(r => baseColumns.some(c => c.inRange(r.exitDate)))
+      .map(r => Object.fromEntries(keys.map(k => [k, valueOf[k](r)])) as Record<string, string | null>)
+    const counts: Record<string, Record<string, number>> = {}
+    keys.forEach(k => {
+      counts[k] = {}
+      values.forEach(v => {
+        const passes = keys.every(o => o === k || selected[o].length === 0 || (v[o] != null && selected[o].includes(v[o]!)))
+        if (passes && v[k] != null) counts[k][v[k]!] = (counts[k][v[k]!] ?? 0) + 1
+      })
+    })
+    return counts
+  }, [allRows, baseColumns, priceMap, symbolTypeMap, winFilter, marketFilters, tierFilters, amountFilters, planFilters, holdingFilters, outcomeFilters])
 
   async function loadPrices(codes: string[]) {
     if (codes.length === 0) return
@@ -510,6 +547,11 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
   const totalCount = rows.length
   const winCount = rows.filter(r => r.isWin).length
 
+  // 화면에 보이는 기간 안에서 모든 필터를 적용한 결과
+  const shownRows = columns.flatMap(c => c.items)
+  const shownWin = shownRows.filter(r => r.isWin).length
+  const shownTotal = shownRows.reduce((s, r) => s + r.trade.profitAmount, 0)
+
   const filterGroups: FilterGroupDef[] = [
     { key: 'market', title: '시장', options: MARKET_TYPES.map(t => ({ id: t, label: t })), selected: marketFilters, toggle: toggleMarket, clear: () => setMarketFilters([]) },
     { key: 'rate', title: '수익률', options: RATE_TIERS.map(t => ({ id: t.id, label: t.label, dot: `rounded-full ${t.dot}` })), selected: tierFilters, toggle: toggleTier, clear: () => setTierFilters([]) },
@@ -547,11 +589,11 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
         </select>
 
         <p className="text-xs text-gray-400 px-1">
-          {totalCount}건 · 익절 {winCount} / 손절 {totalCount - winCount}
+          전체 기간 {totalCount}건 · 익절 {winCount} / 손절 {totalCount - winCount}
         </p>
 
         {filterGroups.map(g => (
-          <FilterGroup key={g.key} group={g} open={openFilterGroups.has(g.key)} onToggleOpen={() => toggleFilterGroupOpen(g.key)} />
+          <FilterGroup key={g.key} group={g} counts={facetCounts[g.key] ?? {}} open={openFilterGroups.has(g.key)} onToggleOpen={() => toggleFilterGroupOpen(g.key)} />
         ))}
       </div>
 
@@ -612,25 +654,32 @@ export default function TradeTimeline({ trades, accounts, symbolTypeMap = {}, on
           </div>
         </div>
 
-        {activeChips.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            {activeChips.map(c => (
-              <button
-                key={c.key}
-                onClick={c.remove}
-                className="flex items-center gap-1 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-full pl-2 pr-1.5 py-0.5 hover:bg-blue-100"
-                title="필터 해제"
-              >
-                <span className="text-blue-400">{c.group}</span>
-                {c.label}
-                <span className="text-blue-400 ml-0.5">✕</span>
-              </button>
-            ))}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-gray-600 mr-1">
+            {activeChips.length > 0 ? '필터 결과' : '이 기간'} <b className="tabular-nums">{shownRows.length}</b>건
+            <span className="text-gray-400"> · 익절 {shownWin} / 손절 {shownRows.length - shownWin} · </span>
+            <span className={`font-semibold ${shownTotal >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
+              {shownTotal >= 0 ? '+' : ''}{formatKRW(Math.round(shownTotal))}
+            </span>
+          </span>
+          {activeChips.map(c => (
+            <button
+              key={c.key}
+              onClick={c.remove}
+              className="flex items-center gap-1 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-full pl-2 pr-1.5 py-0.5 hover:bg-blue-100"
+              title="필터 해제"
+            >
+              <span className="text-blue-400">{c.group}</span>
+              {c.label}
+              <span className="text-blue-400 ml-0.5">✕</span>
+            </button>
+          ))}
+          {activeChips.length > 0 && (
             <button onClick={clearAllFilters} className="text-xs text-gray-500 hover:text-gray-800 underline ml-1">
               전체 해제
             </button>
-          </div>
-        )}
+          )}
+        </div>
 
         <div className="grid grid-cols-4 gap-3">
           {columns.map((w, i) => (
