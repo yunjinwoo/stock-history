@@ -29,12 +29,29 @@ model Trade {
   stopLossPrice        Float?
   plannedHoldingPeriod String?
   tradeScore           Int?
+  strategyId           String?
   createdAt            String
   updatedAt            String
   account              Account      @relation(fields: [accountId], references: [id])
+  strategy             Strategy?    @relation(fields: [strategyId], references: [id], onDelete: SetNull)
   buyEntries           BuyEntry[]
   sellEntries          SellEntry[]
   images               TradeImage[]
+}
+
+// 매매 전략 (예: 10일 스윙) — 거래를 묶어 회차별 승패·누적 복리·계획 대비 이탈을 본다
+model Strategy {
+  id            String  @id
+  name          String
+  description   String?
+  targetPct     Float?  // 익절 목표 수익률 (%)
+  stopLossPct   Float?  // 손절 기준 손실률 (%, 양수)
+  plannedDays   Int?    // 계획 보유일
+  seedMoney     Float?  // 시뮬레이션 시작 금액
+  feePct        Float?  // 1회 매매당 수수료·세금 (%)
+  createdAt     String
+  updatedAt     String
+  trades        Trade[]
 }
 
 model TradeImage {

@@ -8,10 +8,12 @@ export async function GET(req: NextRequest) {
   const accountId = searchParams.get('accountId')
   const status = searchParams.get('status')
   const search = searchParams.get('search')
+  const strategyId = searchParams.get('strategyId')
 
   const where: Prisma.TradeWhereInput = {}
   if (accountId) where.accountId = accountId
   if (search) where.symbol = { contains: search }
+  if (strategyId) where.strategyId = strategyId
 
   const trades = await prisma.trade.findMany({
     where,
@@ -28,7 +30,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { accountId, symbol, symbolCode, comment, exitComment, plannedHoldingPeriod, tradeScore, targetPrice, stopLossPrice, buyEntries = [], sellEntries = [] } = body
+  const { accountId, symbol, symbolCode, comment, exitComment, plannedHoldingPeriod, tradeScore, strategyId, targetPrice, stopLossPrice, buyEntries = [], sellEntries = [] } = body
 
   if (!accountId || !symbol) {
     return NextResponse.json({ error: '계좌와 종목명은 필수입니다.' }, { status: 400 })
@@ -62,6 +64,7 @@ export async function POST(req: NextRequest) {
       stopLossPrice: stopLossPrice ? Number(stopLossPrice) : null,
       plannedHoldingPeriod: plannedHoldingPeriod || null,
       tradeScore: tradeScore != null ? Number(tradeScore) : null,
+      strategyId: strategyId || null,
       createdAt: now, updatedAt: now,
       buyEntries: { create: makeEntries(buyEntries) },
       sellEntries: { create: makeEntries(sellEntries) },

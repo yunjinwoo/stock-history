@@ -8,7 +8,7 @@ export default function BottomTabBar() {
   const pathname = usePathname()
   const [showMore, setShowMore] = useState(false)
 
-  const isMore = pathname === '/accounts' || pathname === '/stock-master' || pathname === '/first-entries' || pathname === '/coin-first-entries'
+  const isMore = pathname.startsWith('/strategies') || pathname === '/accounts' || pathname === '/stock-master' || pathname === '/first-entries' || pathname === '/coin-first-entries'
 
   return (
     <>
@@ -17,6 +17,13 @@ export default function BottomTabBar() {
       )}
       {showMore && (
         <div className="fixed bottom-14 right-0 bg-white border border-gray-200 rounded-tl-xl shadow-lg z-50 overflow-hidden w-36">
+          <Link
+            href="/strategies"
+            onClick={() => setShowMore(false)}
+            className="block px-5 py-3 text-sm text-gray-700 hover:bg-gray-50 border-b"
+          >
+            전략
+          </Link>
           <Link
             href="/stock-master"
             onClick={() => setShowMore(false)}
