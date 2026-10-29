@@ -31,6 +31,34 @@ function Tile({ label, value, tone, sub }: { label: string; value: string; tone?
   )
 }
 
+// 네이버 금융 / 토스증권 바로가기 (TradeFeed와 같은 표기)
+function StockLinks({ trade }: { trade: Trade }) {
+  return (
+    <>
+      <a
+        href={
+          trade.symbolCode
+            ? `https://stock.naver.com/domestic/stock/${trade.symbolCode}/price`
+            : `https://finance.naver.com/search/search.naver?query=${encodeURIComponent(trade.symbol)}&endUrl=&encoding=UTF-8`
+        }
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-green-500 hover:text-green-700 text-xs font-bold shrink-0"
+        title="네이버 금융 열기"
+      >N</a>
+      {trade.symbolCode && (
+        <a
+          href={`https://tossinvest.com/stocks/A${trade.symbolCode}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[#3182F6] hover:opacity-70 text-xs font-bold shrink-0"
+          title="토스증권 열기"
+        >T</a>
+      )}
+    </>
+  )
+}
+
 const toneOf = (n: number) => n > 0 ? 'up' : n < 0 ? 'down' : undefined
 
 function firstBuy(t: Trade): string {
@@ -167,6 +195,7 @@ export default function StrategyDetailPage({ params }: { params: Promise<{ id: s
             {open.map(t => (
               <div key={t.id} className="px-3 py-2 border-b last:border-b-0 flex items-center gap-2 text-sm">
                 <button onClick={() => setEditTrade(t)} className="font-medium hover:text-blue-600 truncate">{t.symbol}</button>
+                <StockLinks trade={t} />
                 <span className="text-xs text-gray-400">{firstBuy(t)} 매수</span>
                 <span className="ml-auto text-xs tabular-nums text-gray-500">
                   {t.holdingDays}일{strategy.plannedDays != null ? ` / ${strategy.plannedDays}일` : ''}
@@ -201,7 +230,10 @@ export default function StrategyDetailPage({ params }: { params: Promise<{ id: s
                 <tr key={c.trade.id} className="border-t">
                   <td className="px-2 py-1.5 text-xs text-gray-400 tabular-nums">{c.no}</td>
                   <td className="px-2 py-1.5">
-                    <button onClick={() => setEditTrade(c.trade)} className="hover:text-blue-600 text-left">{c.trade.symbol}</button>
+                    <div className="flex items-center gap-1.5">
+                      <button onClick={() => setEditTrade(c.trade)} className="hover:text-blue-600 text-left">{c.trade.symbol}</button>
+                      <StockLinks trade={c.trade} />
+                    </div>
                   </td>
                   <td className="px-2 py-1.5 text-xs text-gray-500 whitespace-nowrap tabular-nums">{c.startDate.slice(2)} → {c.endDate.slice(5)}</td>
                   <td className="px-2 py-1.5 text-right text-xs tabular-nums">{c.trade.holdingDays}일</td>
