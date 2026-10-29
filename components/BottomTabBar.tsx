@@ -8,7 +8,7 @@ export default function BottomTabBar() {
   const pathname = usePathname()
   const [showMore, setShowMore] = useState(false)
 
-  const isMore = pathname.startsWith('/strategies') || pathname === '/accounts' || pathname === '/stock-master' || pathname === '/first-entries' || pathname === '/coin-first-entries'
+  const isMore = pathname.startsWith('/strategies') || pathname === '/accounts' || pathname === '/stock-master' || pathname === '/first-entries' || pathname === '/coin-first-entries' || pathname === '/calculator'
 
   return (
     <>
@@ -16,7 +16,7 @@ export default function BottomTabBar() {
         <div className="fixed inset-0 z-40" onClick={() => setShowMore(false)} />
       )}
       {showMore && (
-        <div className="fixed bottom-14 right-0 bg-white border border-gray-200 rounded-tl-xl shadow-lg z-50 overflow-hidden w-36">
+        <div className="fixed bottom-14 right-0 bg-white border border-gray-200 rounded-tl-xl shadow-lg z-50 overflow-hidden w-44">
           <Link
             href="/strategies"
             onClick={() => setShowMore(false)}
@@ -48,9 +48,16 @@ export default function BottomTabBar() {
           <Link
             href="/coin-first-entries"
             onClick={() => setShowMore(false)}
-            className="block px-5 py-3 text-sm text-gray-700 hover:bg-gray-50"
+            className="block px-5 py-3 text-sm text-gray-700 hover:bg-gray-50 border-b"
           >
             최초진입(코인)
+          </Link>
+          <Link
+            href="/calculator"
+            onClick={() => setShowMore(false)}
+            className="block px-5 py-3 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            손절·물타기 계산기
           </Link>
         </div>
       )}
