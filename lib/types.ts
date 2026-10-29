@@ -137,6 +137,7 @@ export interface Trade {
   plannedHoldingPeriod?: string | null
   tradeScore?: number | null
   strategyId?: string | null
+  strategy?: { id: string; name: string } | null
   createdAt: string
   updatedAt: string
   buyEntries: BuyEntry[]

@@ -416,6 +416,11 @@ export default function TradeCard({ trade, account, marketType, priceMap = {}, o
               </span>
             )
           })()}
+          {trade.strategy && (
+            <span className="text-xs px-1.5 py-0.5 rounded border ml-1.5 border-purple-200 text-purple-600 bg-purple-50">
+              🎯 {trade.strategy.name}
+            </span>
+          )}
           {trade.isCompleted && trade.tradeScore != null && (
             <span className="text-xs px-1.5 py-0.5 rounded border ml-1.5 border-yellow-200 text-yellow-600 bg-yellow-50">
               ⭐ {trade.tradeScore}점

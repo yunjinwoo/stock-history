@@ -296,6 +296,11 @@ export default function TradeHistory({
                             </span>
                           );
                         })()}
+                        {trade.strategy && (
+                          <span className="text-xs px-1.5 py-0.5 rounded border border-purple-200 text-purple-600 bg-purple-50">
+                            🎯 {trade.strategy.name}
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-1.5 flex-wrap justify-end">
                         {!trade.isCompleted ? (
