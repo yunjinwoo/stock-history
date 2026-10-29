@@ -7,14 +7,16 @@ import type { Trade } from '@/lib/types'
 import { apiFetch } from '@/lib/api'
 import { formatKRW, formatRate, uuid } from '@/lib/utils'
 import {
-  averageDown, qtyForTargetAvg, positionSize,
+  simulateTrades, qtyForTargetAvg, type Side, positionSize,
   stopLossByPrice, stopLossByRate, stopLossByAmount, type StopLossResult,
 } from '@/lib/calculator'
 
 type Tab = 'avg' | 'stop'
 type StopMode = 'rate' | 'price' | 'amount'
 
-interface BuyRow { key: string; price: string; qty: string }
+interface StepRow { key: string; side: Side; price: string; qty: string; repeat: string }
+
+const newStep = (side: Side, price = ''): StepRow => ({ key: uuid(), side, price, qty: '', repeat: '1' })
 
 const num = (s: string) => Number(s.replace(/,/g, '')) || 0
 const won = (n: number) => formatKRW(Math.round(n))
@@ -63,8 +65,10 @@ export default function CalculatorPage() {
   const [qty, setQty] = useState('')
   const [curPrice, setCurPrice] = useState('')
 
-  // 물타기
-  const [buyRows, setBuyRows] = useState<BuyRow[]>([{ key: uuid(), price: '', qty: '' }])
+  // 물타기 (매수·매도)
+  const [stepRows, setStepRows] = useState<StepRow[]>([newStep('buy')])
+  const [cycles, setCycles] = useState('1')
+  const [showSteps, setShowSteps] = useState(false)
   const [targetBuyPrice, setTargetBuyPrice] = useState('')
   const [targetAvg, setTargetAvg] = useState('')
 
@@ -96,7 +100,7 @@ export default function CalculatorPage() {
     setAvgPrice(avg)
     setQty(String(t.remainingQuantity))
     setCurPrice('')
-    setBuyRows([{ key: uuid(), price: '', qty: '' }])
+    setStepRows([newStep('buy')])
     if (t.stopLossPrice) { setStopMode('price'); setStopPrice(String(t.stopLossPrice)) }
     setSizeEntry(avg)
     if (!t.symbolCode) return
@@ -118,7 +122,13 @@ export default function CalculatorPage() {
   const nowRate = cur && holding.price > 0 ? (cur / holding.price - 1) * 100 : null
   const nowProfit = cur && holding.price > 0 ? (cur - holding.price) * holding.qty : null
 
-  const avgResult = averageDown(holding, buyRows.map(r => ({ price: num(r.price), qty: num(r.qty) })), cur)
+  const sim = simulateTrades(
+    holding,
+    stepRows.map(r => ({ side: r.side, price: num(r.price), qty: num(r.qty), repeat: num(r.repeat) || 1 })),
+    num(cycles) || 1,
+    cur,
+  )
+  const simHasTrades = sim != null && sim.rows.length > 0
   const targetResult = qtyForTargetAvg(holding, num(targetBuyPrice), num(targetAvg))
 
   const stopResult: StopLossResult | null =
@@ -127,8 +137,8 @@ export default function CalculatorPage() {
         : stopLossByAmount(holding, num(stopAmount))
   const sizeResult = positionSize(num(sizeEntry), num(sizeStop), num(sizeLoss))
 
-  function updateRow(key: string, field: 'price' | 'qty', value: string) {
-    setBuyRows(rows => rows.map(r => r.key === key ? { ...r, [field]: value } : r))
+  function updateRow(key: string, patch: Partial<StepRow>) {
+    setStepRows(rows => rows.map(r => r.key === key ? { ...r, ...patch } : r))
   }
 
   return (
@@ -171,55 +181,118 @@ export default function CalculatorPage() {
         </section>
 
         <div className="flex border rounded overflow-hidden bg-white w-fit">
-          <button onClick={() => setTab('avg')} className={`text-sm px-4 py-1.5 ${tab === 'avg' ? 'bg-gray-100 font-medium' : 'text-gray-400'}`}>물타기</button>
+          <button onClick={() => setTab('avg')} className={`text-sm px-4 py-1.5 ${tab === 'avg' ? 'bg-gray-100 font-medium' : 'text-gray-400'}`}>물타기·매도</button>
           <button onClick={() => setTab('stop')} className={`text-sm px-4 py-1.5 ${tab === 'stop' ? 'bg-gray-100 font-medium' : 'text-gray-400'}`}>손절</button>
         </div>
 
         {tab === 'avg' && (
           <>
             <section className="bg-white rounded-lg border p-4 space-y-3">
-              <h2 className="text-sm font-semibold">추가 매수</h2>
-              {buyRows.map((r, i) => (
-                <div key={r.key} className="grid grid-cols-[auto_1fr_1fr_auto] gap-2 items-end">
+              <h2 className="text-sm font-semibold">추가 거래</h2>
+              <p className="text-xs text-gray-400">위에서부터 순서대로 체결된다고 보고 계산해요. 같은 가격으로 여러 번 거래했다면 반복 횟수를 넣으세요.</p>
+              {stepRows.map((r, i) => (
+                <div key={r.key} className="grid grid-cols-[auto_auto_1.3fr_1fr_2.75rem_auto] gap-1.5 items-end">
                   <span className="text-xs text-gray-400 pb-2">{i + 1}회</span>
-                  <NumInput label="매수가" value={r.price} onChange={v => updateRow(r.key, 'price', v)} placeholder={curPrice} />
-                  <NumInput label="수량" value={r.qty} onChange={v => updateRow(r.key, 'qty', v)} />
+                  <div className="flex border rounded overflow-hidden text-xs mb-px">
+                    <button type="button" onClick={() => updateRow(r.key, { side: 'buy' })} className={`px-2 py-1.5 ${r.side === 'buy' ? 'bg-red-50 text-red-600 font-medium' : 'text-gray-400'}`}>매수</button>
+                    <button type="button" onClick={() => updateRow(r.key, { side: 'sell' })} className={`px-2 py-1.5 ${r.side === 'sell' ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-400'}`}>매도</button>
+                  </div>
+                  <NumInput label={r.side === 'buy' ? '매수가' : '매도가'} value={r.price} onChange={v => updateRow(r.key, { price: v })} placeholder={curPrice} />
+                  <NumInput label="수량" value={r.qty} onChange={v => updateRow(r.key, { qty: v })} />
+                  <NumInput label="반복" value={r.repeat} onChange={v => updateRow(r.key, { repeat: v })} />
                   <button
                     type="button"
-                    onClick={() => setBuyRows(rows => rows.length > 1 ? rows.filter(x => x.key !== r.key) : rows)}
+                    onClick={() => setStepRows(rows => rows.length > 1 ? rows.filter(x => x.key !== r.key) : rows)}
                     className="text-red-400 hover:text-red-600 pb-1.5 text-lg leading-none"
                   >×</button>
                 </div>
               ))}
-              <button
-                type="button"
-                onClick={() => setBuyRows(rows => [...rows, { key: uuid(), price: curPrice, qty: '' }])}
-                className="text-xs text-blue-500 hover:underline"
-              >+ 회차 추가</button>
+              <div className="flex flex-wrap items-center gap-3 text-xs">
+                <button type="button" onClick={() => setStepRows(rows => [...rows, newStep('buy', curPrice)])} className="text-red-500 hover:underline">+ 매수 추가</button>
+                <button type="button" onClick={() => setStepRows(rows => [...rows, newStep('sell', curPrice)])} className="text-blue-500 hover:underline">+ 매도 추가</button>
+                <label className="ml-auto flex items-center gap-1 text-gray-500">
+                  위 거래 전체를
+                  <input
+                    type="number"
+                    min={1}
+                    value={cycles}
+                    onChange={e => setCycles(e.target.value)}
+                    className="border rounded px-1.5 py-1 w-14 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  />
+                  번 반복
+                </label>
+              </div>
 
-              {avgResult && avgResult.addedQty > 0 ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
-                  <Stat label="새 평단" value={won(avgResult.avgPrice)} sub={`기존 대비 ${formatRate(avgResult.avgDropRate)}`} />
-                  <Stat label="총 수량" value={`${avgResult.totalQty.toLocaleString('ko-KR')}주`} sub={`+${avgResult.addedQty.toLocaleString('ko-KR')}주`} />
-                  <Stat label="추가 투입금" value={won(avgResult.addedCost)} sub={`총 ${won(avgResult.totalCost)}`} />
-                  {avgResult.profitRateAt != null && avgResult.profitAt != null && (
+              {sim && simHasTrades ? (
+                <>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
                     <Stat
-                      label="현재가 기준 손익"
-                      value={formatRate(avgResult.profitRateAt)}
-                      cls={tone(avgResult.profitAt)}
-                      sub={signedWon(avgResult.profitAt)}
+                      label="최종 평단"
+                      value={sim.qty > 0 ? won(sim.avgPrice) : '-'}
+                      sub={sim.avgChangeRate != null ? `기존 대비 ${formatRate(sim.avgChangeRate)}` : undefined}
                     />
+                    <Stat label="남은 수량" value={`${sim.qty.toLocaleString('ko-KR')}주`} sub={`매수 +${sim.boughtQty.toLocaleString('ko-KR')} · 매도 -${sim.soldQty.toLocaleString('ko-KR')}`} />
+                    <Stat label="추가 매수금 / 매도금" value={won(sim.boughtCost)} sub={`매도 ${won(sim.soldAmount)}`} />
+                    <Stat label="실현손익" value={signedWon(sim.realized)} cls={tone(sim.realized)} />
+                    {sim.evalProfitAt != null && sim.qty > 0 && (
+                      <Stat
+                        label="현재가 기준 평가손익"
+                        value={signedWon(sim.evalProfitAt)}
+                        cls={tone(sim.evalProfitAt)}
+                        sub={sim.profitRateAt != null ? formatRate(sim.profitRateAt) : undefined}
+                      />
+                    )}
+                    {sim.totalProfitAt != null && (
+                      <Stat label="총손익 (실현+평가)" value={signedWon(sim.totalProfitAt)} cls={tone(sim.totalProfitAt)} />
+                    )}
+                    {sim.breakevenPrice != null && (
+                      <Stat
+                        label="실현손익 포함 본전가"
+                        value={sim.breakevenPrice > 0 ? won(sim.breakevenPrice) : '이미 본전 이상'}
+                        sub={sim.breakevenPrice > 0 && sim.breakevenRiseRate != null ? `현재가에서 ${formatRate(sim.breakevenRiseRate)}` : undefined}
+                      />
+                    )}
+                  </div>
+                  {sim.rows.some(r => r.clipped) && (
+                    <p className="text-xs text-orange-500">보유수량보다 많이 판 회차가 있어 남은 수량만큼만 매도한 것으로 계산했어요</p>
                   )}
-                  {avgResult.breakevenRiseRate != null && avgResult.breakevenRiseRate > 0 && (
-                    <Stat
-                      label="본전까지 필요 상승"
-                      value={formatRate(avgResult.breakevenRiseRate)}
-                      sub={nowRate != null && nowRate < 0 ? `물타기 전 ${formatRate(holding.price / cur! * 100 - 100)}` : undefined}
-                    />
+                  <button type="button" onClick={() => setShowSteps(v => !v)} className="text-xs text-gray-500 hover:text-gray-800">
+                    {showSteps ? '▲ 거래별 변화 접기' : `▼ 거래별 변화 보기 (${sim.rows.length}${sim.truncated ? '+' : ''}건)`}
+                  </button>
+                  {showSteps && (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-[11px] text-right whitespace-nowrap">
+                        <thead className="text-gray-400">
+                          <tr>
+                            <th className="text-left font-normal py-1">회차</th>
+                            <th className="font-normal">거래</th>
+                            <th className="font-normal">평단</th>
+                            <th className="font-normal">보유</th>
+                            <th className="font-normal">실현</th>
+                            <th className="font-normal">누적 실현</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sim.rows.map((r, i) => (
+                            <tr key={i} className="border-t">
+                              <td className="text-left py-1 text-gray-400">{num(cycles) > 1 ? `${r.cycle}-` : ''}{r.step}회</td>
+                              <td className={r.side === 'buy' ? 'text-red-500' : 'text-blue-500'}>
+                                {r.side === 'buy' ? '매수' : '매도'} {won(r.price)} × {r.qty}{r.clipped ? '*' : ''}
+                              </td>
+                              <td>{r.holdQty > 0 ? won(r.avgPrice) : '-'}</td>
+                              <td>{r.holdQty.toLocaleString('ko-KR')}주</td>
+                              <td className={r.side === 'sell' ? tone(r.realized) : 'text-gray-300'}>{r.side === 'sell' ? signedWon(r.realized) : '-'}</td>
+                              <td className={tone(r.realizedTotal)}>{signedWon(r.realizedTotal)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {sim.truncated && <p className="text-[11px] text-gray-400 pt-1">처음 300건만 표시 (결과 계산은 전체 기준)</p>}
+                    </div>
                   )}
-                </div>
+                </>
               ) : (
-                <p className="text-xs text-gray-300">보유 현황과 추가 매수가·수량을 넣으면 새 평단이 계산됩니다</p>
+                <p className="text-xs text-gray-300">매수·매도 가격과 수량을 넣으면 평단과 손익이 계산됩니다</p>
               )}
             </section>
 

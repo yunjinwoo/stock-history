@@ -1,28 +1,59 @@
 import { describe, it, expect } from 'vitest'
-import { averageDown, qtyForTargetAvg, stopLossByPrice, stopLossByRate, stopLossByAmount, positionSize } from './calculator'
+import { simulateTrades, qtyForTargetAvg, stopLossByPrice, stopLossByRate, stopLossByAmount, positionSize } from './calculator'
 
 const holding = { price: 10000, qty: 100 } // 평단 1만원 100주
 
-describe('averageDown', () => {
-  it('8천원에 100주 추가하면 평단 9천원', () => {
-    const r = averageDown(holding, [{ price: 8000, qty: 100 }], 8000)!
-    expect(r.totalQty).toBe(200)
+describe('simulateTrades', () => {
+  it('8천원에 100주 추가 매수하면 평단 9천원', () => {
+    const r = simulateTrades(holding, [{ side: 'buy', price: 8000, qty: 100 }], 1, 8000)!
+    expect(r.qty).toBe(200)
     expect(r.avgPrice).toBe(9000)
-    expect(r.addedCost).toBe(800000)
-    expect(r.avgDropRate).toBeCloseTo(-10, 10)
+    expect(r.boughtCost).toBe(800000)
+    expect(r.avgChangeRate).toBeCloseTo(-10, 10)
     expect(r.profitRateAt).toBeCloseTo(-11.111, 3)
-    expect(r.profitAt).toBe(-200000)
+    expect(r.evalProfitAt).toBe(-200000)
     expect(r.breakevenRiseRate).toBeCloseTo(12.5, 10)
   })
-  it('여러 회차와 빈 행을 함께 처리', () => {
-    const r = averageDown(holding, [{ price: 9000, qty: 50 }, { price: 0, qty: 10 }, { price: 8000, qty: 50 }])!
-    expect(r.totalQty).toBe(200)
-    expect(r.avgPrice).toBe(9250)
-    expect(r.profitRateAt).toBeNull()
+  it('매도는 평단을 바꾸지 않고 실현손익만 생김', () => {
+    const r = simulateTrades(holding, [{ side: 'sell', price: 11000, qty: 40 }], 1, 11000)!
+    expect(r.qty).toBe(60)
+    expect(r.avgPrice).toBe(10000)
+    expect(r.realized).toBe(40000)
+    expect(r.evalProfitAt).toBe(60000)
+    expect(r.totalProfitAt).toBe(100000)
   })
-  it('보유분이 없으면 null', () => {
-    expect(averageDown({ price: 0, qty: 100 }, [])).toBeNull()
-    expect(averageDown({ price: 10000, qty: 0 }, [])).toBeNull()
+  it('같은 가격 반복 매수', () => {
+    const r = simulateTrades(holding, [{ side: 'buy', price: 8000, qty: 50, repeat: 2 }])!
+    expect(r.rows).toHaveLength(2)
+    expect(r.rows[0].avgPrice).toBeCloseTo(9333.33, 1)
+    expect(r.avgPrice).toBe(9000)
+  })
+  it('매수·매도 묶음을 여러 번 반복 (박스권 매매)', () => {
+    const steps = [{ side: 'buy' as const, price: 8000, qty: 100 }, { side: 'sell' as const, price: 8500, qty: 100 }]
+    const r = simulateTrades(holding, steps, 3, 8500)!
+    expect(r.rows).toHaveLength(6)
+    // 1회: 평단 9000 → 9000원에 산 100주를 8500에 팔면 -50000, 평단은 그대로 9000
+    expect(r.rows[1].realized).toBe(-50000)
+    expect(r.qty).toBe(100)
+    expect(r.avgPrice).toBeLessThan(10000)
+    expect(r.realized).toBeLessThan(0)
+    expect(r.breakevenPrice).toBeCloseTo(r.avgPrice - r.realized / r.qty, 6)
+  })
+  it('보유수량보다 많이 팔면 보유분만 매도', () => {
+    const r = simulateTrades(holding, [{ side: 'sell', price: 9000, qty: 150 }])!
+    expect(r.rows[0].qty).toBe(100)
+    expect(r.rows[0].clipped).toBe(true)
+    expect(r.qty).toBe(0)
+    expect(r.realized).toBe(-100000)
+  })
+  it('보유 없이 새로 시작해도 계산', () => {
+    const r = simulateTrades({ price: 0, qty: 0 }, [{ side: 'buy', price: 5000, qty: 10 }, { side: 'sell', price: 6000, qty: 10 }])!
+    expect(r.realized).toBe(10000)
+    expect(r.qty).toBe(0)
+  })
+  it('입력이 없으면 null', () => {
+    expect(simulateTrades({ price: 0, qty: 0 }, [])).toBeNull()
+    expect(simulateTrades({ price: 0, qty: 0 }, [{ side: 'buy', price: 0, qty: 10 }])).toBeNull()
   })
 })
 
