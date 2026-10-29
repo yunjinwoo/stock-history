@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
+import StockNav from '@/components/StockNav'
 import type { MemoImage } from '@/lib/types'
 import { apiFetch } from '@/lib/api'
 import MemoImageZone from '@/components/MemoImageZone'
@@ -184,9 +185,10 @@ export default function StockMasterPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="bg-white border-b px-4 py-3 flex justify-between items-center sticky top-0 z-10">
+      <header className="bg-white border-b px-4 py-3 flex flex-wrap gap-y-2 justify-between items-center sticky top-0 z-10">
         <h1 className="text-lg font-bold">종목 마스터</h1>
-        <Link href="/" className="text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">← 돌아가기</Link>
+        <StockNav className="lg:ml-auto" />
+        <Link href="/" className="sm:hidden text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">← 돌아가기</Link>
       </header>
 
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">

@@ -2,6 +2,7 @@
 
 import { use, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import StockNav from '@/components/StockNav'
 import { useRouter } from 'next/navigation'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Legend } from 'recharts'
 import { HOLDING_PLAN_OPTIONS, type Account, type Strategy, type Trade } from '@/lib/types'
@@ -106,10 +107,11 @@ export default function StrategyDetailPage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="min-h-screen">
-      <header className="bg-white border-b px-4 py-3 flex items-center gap-3 sticky top-0 z-10">
+      <header className="bg-white border-b px-4 py-3 flex flex-wrap gap-y-2 items-center gap-3 sticky top-0 z-10">
         <Link href="/strategies" className="text-gray-400 hover:text-gray-700 text-sm">← 전략</Link>
         <h1 className="text-lg font-bold truncate">{strategy.name}</h1>
-        <div className="ml-auto flex gap-2 shrink-0">
+        <StockNav className="lg:ml-auto" />
+        <div className="ml-auto lg:ml-0 flex gap-2 shrink-0">
           <button onClick={() => setEditing(v => !v)} className="text-sm px-3 py-1.5 rounded border text-gray-500 hover:text-gray-800">수정</button>
           <button onClick={handleDelete} className="text-sm px-3 py-1.5 rounded border border-red-200 text-red-500 hover:bg-red-50">삭제</button>
         </div>
