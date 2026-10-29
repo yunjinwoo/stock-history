@@ -8,6 +8,7 @@ const LINKS = [
   { href: '/stats', label: '통계' },
   { href: '/strategies', label: '전략' },
   { href: '/first-entries', label: '최초진입' },
+  { href: '/calculator', label: '계산기' },
   { href: '/stock-master', label: '종목관리' },
   { href: '/accounts', label: '계좌관리' },
 ]
