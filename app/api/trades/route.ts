@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
 
   const trades = await prisma.trade.findMany({
     where,
-    include: { buyEntries: { orderBy: { date: 'asc' } }, sellEntries: { orderBy: { date: 'asc' } }, images: { orderBy: { createdAt: 'asc' } } },
+    include: { buyEntries: { orderBy: { date: 'asc' } }, sellEntries: { orderBy: { date: 'asc' } }, images: { orderBy: { createdAt: 'asc' } }, strategy: { select: { id: true, name: true } } },
     orderBy: { createdAt: 'desc' },
   })
 
