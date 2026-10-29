@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db'
 import { enrichTrade, enrichCoinTrade } from '@/lib/utils'
 
 export async function GET() {
-  const [rawTrades, accounts, rawCoins] = await Promise.all([
+  const [rawTrades, accounts, rawCoins, strategies] = await Promise.all([
     prisma.trade.findMany({
       include: { buyEntries: true, sellEntries: true, images: true },
       orderBy: { createdAt: 'desc' },
@@ -14,9 +14,11 @@ export async function GET() {
       include: { buyEntries: true, sellEntries: true },
       orderBy: { createdAt: 'desc' },
     }),
+    prisma.strategy.findMany(),
   ])
 
   const accountMap = Object.fromEntries(accounts.map(a => [a.id, a]))
+  const strategyMap = Object.fromEntries(strategies.map(s => [s.id, s.name]))
 
   const tradeRows = rawTrades.map(t => {
     const e = enrichTrade(t)
@@ -41,6 +43,7 @@ export async function GET() {
       '보유일': e.holdingDays,
       '매수일': firstBuy,
       '최종매도일': lastSell,
+      '전략': t.strategyId ? strategyMap[t.strategyId] ?? '' : '',
       '코멘트': t.comment ?? '',
     }
   })

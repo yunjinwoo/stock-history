@@ -158,3 +158,10 @@ export function formatRate(n: number | null | undefined): string {
   if (n == null || !isFinite(n)) return '-'
   return (n >= 0 ? '+' : '') + n.toFixed(1) + '%'
 }
+
+// 폼 숫자 입력: 빈 값이나 숫자가 아니면 null
+export function numOrNull(v: unknown): number | null {
+  if (v === undefined || v === null || v === '') return null
+  const n = Number(v)
+  return isFinite(n) ? n : null
+}

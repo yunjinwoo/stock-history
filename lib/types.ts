@@ -50,6 +50,20 @@ export interface Account {
   updatedAt: string
 }
 
+export interface Strategy {
+  id: string
+  name: string
+  description?: string | null
+  targetPct?: number | null
+  stopLossPct?: number | null
+  plannedDays?: number | null
+  seedMoney?: number | null
+  feePct?: number | null
+  createdAt: string
+  updatedAt: string
+  tradeCount?: number
+}
+
 export interface BuyEntry {
   id: string
   tradeId: string
@@ -122,6 +136,7 @@ export interface Trade {
   stopLossPrice?: number | null
   plannedHoldingPeriod?: string | null
   tradeScore?: number | null
+  strategyId?: string | null
   createdAt: string
   updatedAt: string
   buyEntries: BuyEntry[]
