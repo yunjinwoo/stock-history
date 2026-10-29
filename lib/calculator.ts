@@ -5,42 +5,106 @@ export interface Lot {
   qty: number
 }
 
-export interface AverageDownResult {
-  totalQty: number
-  totalCost: number
+export type Side = 'buy' | 'sell'
+
+export interface TradeStep {
+  side: Side
+  price: number
+  qty: number
+  repeat?: number  // 같은 가격·수량으로 몇 번 거래했는지 (기본 1)
+}
+
+export interface SimRow {
+  cycle: number       // 전체 반복 몇 번째 (1부터)
+  step: number        // 회차 번호 (1부터)
+  side: Side
+  price: number
+  qty: number         // 실제 체결 수량 (매도는 보유수량을 넘지 않음)
+  clipped: boolean    // 매도 수량이 보유수량보다 많아 잘림
+  avgPrice: number    // 거래 후 평단
+  holdQty: number     // 거래 후 보유수량
+  realized: number    // 이 거래의 실현손익
+  realizedTotal: number
+}
+
+export interface SimResult {
+  rows: SimRow[]
+  truncated: boolean     // 행이 너무 많아 일부만 담음 (계산은 끝까지 함)
   avgPrice: number
-  addedQty: number
-  addedCost: number
-  avgDropRate: number           // 기존 평단 대비 새 평단 변화율(%)
-  profitRateAt: number | null   // 기준가(현재가) 기준 새 평단 손익률(%)
-  profitAt: number | null       // 기준가 기준 평가손익
-  breakevenRiseRate: number | null // 기준가에서 새 평단까지 필요한 상승률(%)
+  qty: number
+  boughtQty: number
+  boughtCost: number     // 추가 매수에 들어간 금액
+  soldQty: number
+  soldAmount: number
+  realized: number       // 누적 실현손익
+  avgChangeRate: number | null     // 시작 평단 대비 평단 변화율(%)
+  evalProfitAt: number | null      // 기준가 기준 평가손익 (남은 보유분)
+  profitRateAt: number | null      // 기준가 기준 평단 손익률(%)
+  totalProfitAt: number | null     // 실현 + 평가
+  breakevenPrice: number | null    // 실현손익까지 합쳐 본전이 되는 가격
+  breakevenRiseRate: number | null // 기준가에서 본전가까지 필요한 상승률(%)
 }
 
-function validLots(lots: Lot[]): Lot[] {
-  return lots.filter(l => l.price > 0 && l.qty > 0)
-}
+const MAX_ROWS = 300
 
-// 기존 보유분 + 추가 매수분을 합친 평단
-export function averageDown(holding: Lot, buys: Lot[], refPrice?: number | null): AverageDownResult | null {
-  if (!(holding.price > 0) || !(holding.qty > 0)) return null
-  const added = validLots(buys)
-  const addedQty = added.reduce((s, l) => s + l.qty, 0)
-  const addedCost = added.reduce((s, l) => s + l.price * l.qty, 0)
-  const totalQty = holding.qty + addedQty
-  const totalCost = holding.price * holding.qty + addedCost
-  const avgPrice = totalCost / totalQty
+// 이동평균 방식: 매수하면 평단이 바뀌고, 매도는 평단을 바꾸지 않고 (매도가 - 평단)만큼 실현손익이 생김
+export function simulateTrades(holding: Lot, steps: TradeStep[], cycles = 1, refPrice?: number | null): SimResult | null {
+  const startPrice = holding.price > 0 && holding.qty > 0 ? holding.price : 0
+  let qty = startPrice > 0 ? holding.qty : 0
+  let cost = startPrice * qty
+  let boughtQty = 0, boughtCost = 0, soldQty = 0, soldAmount = 0, realized = 0
+  const rows: SimRow[] = []
+  let truncated = false
+  const valid = steps
+    .map((s, i) => ({ ...s, step: i + 1, repeat: Math.max(1, Math.floor(s.repeat ?? 1)) }))
+    .filter(s => s.price > 0 && s.qty > 0)
+  if (valid.length === 0 && qty === 0) return null
+  const nCycles = Math.max(1, Math.floor(cycles))
+
+  for (let c = 1; c <= nCycles; c++) {
+    for (const s of valid) {
+      for (let r = 0; r < s.repeat; r++) {
+        let filled = s.qty
+        let clipped = false
+        let gain = 0
+        if (s.side === 'buy') {
+          qty += filled
+          cost += filled * s.price
+          boughtQty += filled
+          boughtCost += filled * s.price
+        } else {
+          if (filled > qty) { filled = qty; clipped = true }
+          const avg = qty > 0 ? cost / qty : 0
+          gain = (s.price - avg) * filled
+          cost -= avg * filled
+          qty -= filled
+          if (qty === 0) cost = 0
+          soldQty += filled
+          soldAmount += filled * s.price
+          realized += gain
+        }
+        if (rows.length < MAX_ROWS) {
+          rows.push({
+            cycle: c, step: s.step, side: s.side, price: s.price, qty: filled, clipped,
+            avgPrice: qty > 0 ? cost / qty : 0, holdQty: qty, realized: gain, realizedTotal: realized,
+          })
+        } else truncated = true
+      }
+    }
+  }
+
+  const avgPrice = qty > 0 ? cost / qty : 0
   const ref = refPrice != null && refPrice > 0 ? refPrice : null
+  const evalProfitAt = ref != null ? (ref - avgPrice) * qty : null
+  const breakevenPrice = qty > 0 ? avgPrice - realized / qty : null
   return {
-    totalQty,
-    totalCost,
-    avgPrice,
-    addedQty,
-    addedCost,
-    avgDropRate: (avgPrice / holding.price - 1) * 100,
-    profitRateAt: ref != null ? (ref / avgPrice - 1) * 100 : null,
-    profitAt: ref != null ? (ref - avgPrice) * totalQty : null,
-    breakevenRiseRate: ref != null ? (avgPrice / ref - 1) * 100 : null,
+    rows, truncated, avgPrice, qty, boughtQty, boughtCost, soldQty, soldAmount, realized,
+    avgChangeRate: startPrice > 0 && qty > 0 ? (avgPrice / startPrice - 1) * 100 : null,
+    evalProfitAt,
+    profitRateAt: ref != null && qty > 0 ? (ref / avgPrice - 1) * 100 : null,
+    totalProfitAt: evalProfitAt != null ? evalProfitAt + realized : null,
+    breakevenPrice,
+    breakevenRiseRate: ref != null && breakevenPrice != null ? (breakevenPrice / ref - 1) * 100 : null,
   }
 }
 
