@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import StockNav from '@/components/StockNav'
 import type { Account } from '@/lib/types'
 import { apiFetch } from '@/lib/api'
 import AccountList from '@/components/AccountList'
@@ -95,9 +96,10 @@ export default function AccountsPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="bg-white border-b px-4 py-3 flex items-center gap-3 sticky top-0 z-10">
+      <header className="bg-white border-b px-4 py-3 flex flex-wrap gap-y-2 items-center gap-3 sticky top-0 z-10">
         <Link href="/" className="text-gray-400 hover:text-gray-700 text-sm">← 돌아가기</Link>
         <h1 className="text-lg font-bold">계좌 관리</h1>
+        <StockNav className="lg:ml-auto" />
       </header>
       <div className="max-w-2xl mx-auto px-4 py-4 space-y-6">
         <AccountList accounts={accounts} onRefresh={load} />

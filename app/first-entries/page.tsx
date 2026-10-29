@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
+import StockNav from '@/components/StockNav'
 import dayjs from 'dayjs'
 import type { Trade } from '@/lib/types'
 import { apiFetch } from '@/lib/api'
@@ -104,12 +105,13 @@ export default function FirstEntriesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b px-4 py-3 flex items-center gap-3 sticky top-0 z-10">
+      <header className="bg-white border-b px-4 py-3 flex flex-wrap gap-y-2 items-center gap-3 sticky top-0 z-10">
         <Link href="/" className="text-gray-400 hover:text-gray-700 text-sm">← 뒤로</Link>
         <h1 className="text-lg font-bold">최초진입 타임라인</h1>
         <span className="text-xs text-gray-400 ml-auto">
           {dormantMonths != null ? `${groups.reduce((s, g) => s + g.days.reduce((s2, d) => s2 + d.items.length, 0), 0)} / ` : ''}종목 {bySymbol.length}개
         </span>
+        <StockNav />
       </header>
 
       <div className="px-4 py-5 max-w-6xl mx-auto flex gap-4 items-start">

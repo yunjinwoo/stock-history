@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import StockNav from '@/components/StockNav'
 import type { Strategy, Trade } from '@/lib/types'
 import { apiFetch } from '@/lib/api'
 import { formatRate } from '@/lib/utils'
@@ -34,10 +35,11 @@ export default function StrategiesPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="bg-white border-b px-4 py-3 flex items-center gap-3 sticky top-0 z-10">
+      <header className="bg-white border-b px-4 py-3 flex flex-wrap gap-y-2 items-center gap-3 sticky top-0 z-10">
         <Link href="/" className="text-gray-400 hover:text-gray-700 text-sm">← 돌아가기</Link>
         <h1 className="text-lg font-bold">전략</h1>
-        <button onClick={() => setShowForm(v => !v)} className="ml-auto bg-blue-600 text-white text-sm px-3 py-1.5 rounded hover:bg-blue-700">
+        <StockNav className="lg:ml-auto" />
+        <button onClick={() => setShowForm(v => !v)} className="ml-auto lg:ml-0 bg-blue-600 text-white text-sm px-3 py-1.5 rounded hover:bg-blue-700">
           + 새 전략
         </button>
       </header>
