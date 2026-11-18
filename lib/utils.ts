@@ -165,3 +165,25 @@ export function numOrNull(v: unknown): number | null {
   const n = Number(v)
   return isFinite(n) ? n : null
 }
+
+// 보유일 구역 — 카드·표의 보유일 배지 색과 같은 기준
+export const HOLDING_ZONES = [
+  { id: 'd7',  label: '7일 이내',  max: 7,        color: 'bg-green-100 text-green-700',   ring: 'ring-green-400' },
+  { id: 'd30', label: '8~30일',    max: 30,       color: 'bg-blue-100 text-blue-700',     ring: 'ring-blue-400' },
+  { id: 'd90', label: '31~90일',   max: 90,       color: 'bg-orange-100 text-orange-700', ring: 'ring-orange-400' },
+  { id: 'd90+', label: '91일 이상', max: Infinity, color: 'bg-red-100 text-red-700',       ring: 'ring-red-400' },
+] as const
+
+export type HoldingZoneId = (typeof HOLDING_ZONES)[number]['id']
+
+export function holdingZoneOf(days: number): HoldingZoneId {
+  return HOLDING_ZONES.find(z => days <= z.max)!.id
+}
+
+// 평균 보유일(반올림)과 구역별 개수
+export function holdingZoneStats(list: { holdingDays: number }[]) {
+  const counts = Object.fromEntries(HOLDING_ZONES.map(z => [z.id, 0])) as Record<HoldingZoneId, number>
+  list.forEach(t => { counts[holdingZoneOf(t.holdingDays)]++ })
+  const avgDays = list.length ? Math.round(list.reduce((s, t) => s + t.holdingDays, 0) / list.length) : null
+  return { counts, avgDays }
+}
