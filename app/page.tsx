@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import type { Trade, Account } from '@/lib/types'
 import { apiFetch } from '@/lib/api'
-import { formatKRW, formatRate } from '@/lib/utils'
+import { formatKRW, formatRate, HOLDING_ZONES, holdingZoneOf, holdingZoneStats, type HoldingZoneId } from '@/lib/utils'
 
 interface StockMasterItem { symbol: string; symbolCode: string; tags: string | null; marketType: string | null }
 import TradeCard from '@/components/TradeCard'
@@ -27,6 +27,7 @@ export default function HomePage() {
   const [showModal, setShowModal] = useState(false)
   const [editTrade, setEditTrade] = useState<Trade | null>(null)
   const [holdingOpen, setHoldingOpen] = useState(false)
+  const [holdingZoneFilter, setHoldingZoneFilter] = useState<HoldingZoneId | null>(null)
   const [simRows, setSimRows] = useState<Record<string, { price: string; qty: string }[]>>({})
   const [savedSims, setSavedSims] = useState<Record<string, { id: string; price: number; quantity: number }[]>>({})
   const [priceMap, setPriceMap] = useState<Record<string, number>>({})
@@ -186,6 +187,11 @@ export default function HomePage() {
 
   const holding = displayTrades.filter(t => !t.isCompleted)
   const completed = displayTrades.filter(t => t.isCompleted)
+  const holdingStats = holdingZoneStats(holding)
+  const visibleHolding = holdingZoneFilter
+    ? holding.filter(t => holdingZoneOf(t.holdingDays) === holdingZoneFilter)
+    : holding
+  const visibleAvgDays = holdingZoneStats(visibleHolding).avgDays
 
   async function loadPrices() {
     const codes = [...new Set(holding.map(t => t.symbolCode).filter((c): c is string => !!c))]
@@ -364,6 +370,33 @@ export default function HomePage() {
                   <span className="text-xs text-gray-400">{holdingOpen ? '▲' : '▼'}</span>
                 </span>
               </div>
+              {/* 평균 보유일 · 보유일 구역별 개수 (구역을 누르면 해당 구역만 보기) */}
+              <div className="flex flex-wrap items-center gap-1.5 px-3 py-1.5 border-b text-xs">
+                <span className="text-gray-500 mr-1">
+                  평균 보유일 <span className="font-semibold text-gray-800 tabular-nums">{visibleAvgDays != null ? `${visibleAvgDays}일` : '-'}</span>
+                  {holdingZoneFilter && <span className="text-gray-400"> ({visibleHolding.length}종목)</span>}
+                </span>
+                <button
+                  onClick={() => setHoldingZoneFilter(null)}
+                  className={`px-2 py-0.5 rounded-full border transition-colors ${holdingZoneFilter === null ? 'bg-gray-700 text-white border-gray-700' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'}`}
+                >
+                  전체 <span className="tabular-nums">{holding.length}</span>
+                </button>
+                {HOLDING_ZONES.map(z => {
+                  const n = holdingStats.counts[z.id]
+                  const active = holdingZoneFilter === z.id
+                  return (
+                    <button
+                      key={z.id}
+                      disabled={n === 0}
+                      onClick={() => { setHoldingZoneFilter(active ? null : z.id); if (!active) setHoldingOpen(true) }}
+                      className={`px-2 py-0.5 rounded-full transition-all disabled:opacity-40 ${z.color} ${active ? `ring-2 ${z.ring} font-semibold` : ''}`}
+                    >
+                      {z.label} <span className="tabular-nums font-semibold">{n}</span>
+                    </button>
+                  )
+                })}
+              </div>
               {holdingOpen && (
                 <>
                   <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto] text-xs text-gray-400 bg-gray-50 border-b px-3 py-1.5 gap-3">
@@ -375,7 +408,7 @@ export default function HomePage() {
                     <span />
                     <span />
                   </div>
-                  {holding.map(trade => {
+                  {visibleHolding.map(trade => {
                     const rows = simRows[trade.id] ?? []
                     const saved = savedSims[trade.id] ?? []
                     const newAvg = calcNewAvg(trade, rows, saved)
