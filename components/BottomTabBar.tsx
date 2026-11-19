@@ -3,12 +3,13 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
+import { NAV_GROUPS, isActive } from '@/lib/nav'
 
 export default function BottomTabBar() {
   const pathname = usePathname()
   const [showMore, setShowMore] = useState(false)
 
-  const isMore = pathname.startsWith('/strategies') || pathname === '/reviews' || pathname === '/accounts' || pathname === '/stock-master' || pathname === '/first-entries' || pathname === '/coin-first-entries' || pathname === '/calculator'
+  const isMore = NAV_GROUPS.some(g => g.items.some(i => isActive(i.href, pathname)))
 
   return (
     <>
@@ -16,56 +17,22 @@ export default function BottomTabBar() {
         <div className="fixed inset-0 z-40" onClick={() => setShowMore(false)} />
       )}
       {showMore && (
-        <div className="fixed bottom-14 right-0 bg-white border border-gray-200 rounded-tl-xl shadow-lg z-50 overflow-hidden w-44">
-          <Link
-            href="/strategies"
-            onClick={() => setShowMore(false)}
-            className="block px-5 py-3 text-sm text-gray-700 hover:bg-gray-50 border-b"
-          >
-            전략
-          </Link>
-          <Link
-            href="/reviews"
-            onClick={() => setShowMore(false)}
-            className="block px-5 py-3 text-sm text-gray-700 hover:bg-gray-50 border-b"
-          >
-            복기
-          </Link>
-          <Link
-            href="/stock-master"
-            onClick={() => setShowMore(false)}
-            className="block px-5 py-3 text-sm text-gray-700 hover:bg-gray-50 border-b"
-          >
-            종목관리
-          </Link>
-          <Link
-            href="/accounts"
-            onClick={() => setShowMore(false)}
-            className="block px-5 py-3 text-sm text-gray-700 hover:bg-gray-50 border-b"
-          >
-            계좌관리
-          </Link>
-          <Link
-            href="/first-entries"
-            onClick={() => setShowMore(false)}
-            className="block px-5 py-3 text-sm text-gray-700 hover:bg-gray-50 border-b"
-          >
-            최초진입(주식)
-          </Link>
-          <Link
-            href="/coin-first-entries"
-            onClick={() => setShowMore(false)}
-            className="block px-5 py-3 text-sm text-gray-700 hover:bg-gray-50 border-b"
-          >
-            최초진입(코인)
-          </Link>
-          <Link
-            href="/calculator"
-            onClick={() => setShowMore(false)}
-            className="block px-5 py-3 text-sm text-gray-700 hover:bg-gray-50"
-          >
-            손절·물타기 계산기
-          </Link>
+        <div className="fixed bottom-14 right-0 bg-white border border-gray-200 rounded-tl-xl shadow-lg z-50 overflow-hidden w-48 max-h-[70vh] overflow-y-auto">
+          {NAV_GROUPS.map((g, gi) => (
+            <div key={g.key} className={gi > 0 ? 'border-t' : ''}>
+              <div className="px-5 pt-2.5 pb-1 text-[11px] font-medium text-gray-400">{g.label}</div>
+              {g.items.map(item => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setShowMore(false)}
+                  className={`block px-5 py-2.5 text-sm hover:bg-gray-50 ${isActive(item.href, pathname) ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          ))}
         </div>
       )}
       <nav className="sm:hidden fixed bottom-0 inset-x-0 bg-white border-t z-30 flex h-14">
