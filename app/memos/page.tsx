@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
+import StockNav from "@/components/StockNav";
 import dynamic from "next/dynamic";
 import type { MemoImage } from "@/lib/types";
 import { apiFetch } from "@/lib/api";
@@ -452,8 +453,9 @@ export default function MemosPage() {
   return (
     <div className="min-h-screen">
       {/* 헤더 */}
-      <header className="bg-white border-b px-4 py-3 flex justify-between items-center sticky top-0 z-10">
+      <header className="bg-white border-b px-4 py-3 flex flex-wrap gap-y-2 justify-between items-center gap-3 sticky top-0 z-10">
         <h1 className="text-lg font-bold">메모 관리</h1>
+        <StockNav className="lg:ml-auto" />
         <div className="flex items-center gap-2">
           <div className="flex border rounded overflow-hidden">
             <button

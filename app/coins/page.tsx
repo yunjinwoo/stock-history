@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import Link from 'next/link'
+import StockNav from '@/components/StockNav'
 import type { CoinTrade } from '@/lib/types'
 import { apiFetch } from '@/lib/api'
 import { formatKRW, formatQty, formatRate } from '@/lib/utils'
@@ -146,18 +146,15 @@ export default function CoinsPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="bg-white border-b px-4 py-3 flex justify-between items-center sticky top-0 z-10">
+      <header className="bg-white border-b px-4 py-3 flex flex-wrap gap-y-2 justify-between items-center gap-3 sticky top-0 z-10">
         <h1 className="text-lg font-bold">코인 매매일지</h1>
+        <StockNav className="lg:ml-auto" />
         <div className="flex gap-2">
           <div className="flex border rounded overflow-hidden">
             <button onClick={() => setViewMode('list')} className={`text-xs px-2.5 py-1.5 ${viewMode === 'list' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>≡</button>
             <button onClick={() => setViewMode('calendar')} className={`text-xs px-2.5 py-1.5 ${viewMode === 'calendar' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>📅</button>
             <button onClick={() => setViewMode('timeline')} className={`text-xs px-2.5 py-1.5 ${viewMode === 'timeline' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>복기</button>
           </div>
-          <Link href="/" className="hidden sm:inline-flex text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">주식</Link>
-          <Link href="/coin-first-entries" className="hidden sm:inline-flex text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">최초진입</Link>
-          <Link href="/stats" className="hidden sm:inline-flex text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">통계</Link>
-          <Link href="/memos" className="hidden sm:inline-flex text-sm text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded border">메모</Link>
           <button
             onClick={() => { setEditTrade(null); setShowModal(true) }}
             className="bg-blue-600 text-white text-sm px-3 py-1.5 rounded hover:bg-blue-700"
