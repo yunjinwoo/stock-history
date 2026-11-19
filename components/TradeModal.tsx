@@ -5,6 +5,8 @@ import { HOLDING_PLAN_OPTIONS, HOLDING_PLAN_STOP_LOSS_PCT, HOLDING_PLAN_TARGET_P
 import { matchAccountId, type ParsedTrade } from '@/lib/kakaoParser'
 import KakaoParser from './KakaoParser'
 import { ruleText } from '@/lib/strategy'
+import { ENTRY_REASONS, EXIT_REASONS, evaluateTrade } from '@/lib/review'
+import ReasonChips from './ReasonChips'
 import { apiFetch } from '@/lib/api'
 import { uuid, today, splitDateTime, toDateTimeStr, formatKRW, formatQty, calcAutoTradeScore } from '@/lib/utils'
 
@@ -38,6 +40,8 @@ interface FormState {
   plannedHoldingPeriod: string
   strategyId: string
   tradeScore: number | null
+  entryReason: string | null
+  exitReason: string | null
   buyEntries: EntryRow[]
   sellEntries: EntryRow[]
 }
@@ -122,6 +126,8 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
     plannedHoldingPeriod: trade?.plannedHoldingPeriod ?? '1주일',
     strategyId: trade?.strategyId ?? '',
     tradeScore: trade?.tradeScore ?? null,
+    entryReason: trade?.entryReason ?? null,
+    exitReason: trade?.exitReason ?? null,
     buyEntries: trade ? trade.buyEntries.map(toEntry) : [],
     sellEntries: trade ? trade.sellEntries.map(toEntry) : [],
   })
@@ -200,7 +206,25 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
     setMergeTarget(existingHolding)
   }
 
-  function setField(key: keyof Omit<FormState, 'buyEntries' | 'sellEntries'>, value: string) {
+  // 청산 이유가 '목표가 도달'인데 실제 매도 체결은 목표가 미만일 때 경고 (저장은 막지 않음)
+  const exitReasonWarning = useMemo(() => {
+    if (form.exitReason !== '목표가 도달' || !form.targetPrice) return null
+    const sells = form.sellEntries
+      .filter(r => r.price && r.quantity)
+      .map(r => ({ date: r.date, price: Number(r.price.replace(/,/g, '')), quantity: Number(r.quantity.replace(/,/g, '')) }))
+    return evaluateTrade({
+      targetPrice: Number(form.targetPrice.replace(/,/g, '')),
+      planExceeded: null,
+      exitReason: form.exitReason,
+      isCompleted: isFormCompleted,
+      avgBuyPrice,
+      profitAmount: 0,
+      profitRate: 0,
+      sellEntries: sells,
+    }).exitReasonMismatch
+  }, [form.exitReason, form.targetPrice, form.sellEntries, isFormCompleted, avgBuyPrice])
+
+  function setField(key: keyof Omit<FormState, 'buyEntries' | 'sellEntries' | 'tradeScore' | 'entryReason' | 'exitReason'>, value: string) {
     if (key === 'accountId' || key === 'symbol') setMergeTarget(null)
     setForm(f => ({ ...f, [key]: value }))
   }
@@ -266,6 +290,10 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
         plannedHoldingPeriod: form.plannedHoldingPeriod || null,
         strategyId: form.strategyId || null,
         tradeScore: form.tradeScore,
+        entryReason: form.entryReason,
+        exitReason: form.exitReason,
+        // 매도 완료 거래에 청산 이유를 남기면 복기 완료로 본다 (이미 복기한 시각은 유지)
+        ...(isFormCompleted && form.exitReason && !trade?.reviewedAt && { reviewedAt: new Date().toISOString() }),
         buyEntries: validBuy.map(r => ({
           date: toDateTimeStr(r.date, r.time),
           price: Number(r.price.replace(/,/g, '')),
@@ -410,6 +438,11 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
               </div>
 
               <div>
+                <label className={labelCls}>진입 이유 <span className="text-gray-400">(선택)</span></label>
+                <ReasonChips options={ENTRY_REASONS} value={form.entryReason} onChange={v => setForm(f => ({ ...f, entryReason: v }))} />
+              </div>
+
+              <div>
                 <label className={labelCls}>매매 점수</label>
                 <select
                   value={form.tradeScore ?? ''}
@@ -485,6 +518,14 @@ export default function TradeModal({ trade, trades, accounts, defaultAccountId, 
                   maxLength={500}
                 />
               </div>
+
+              {sellQty > 0 && (
+                <div>
+                  <label className={labelCls}>청산 이유 <span className="text-gray-400">(선택)</span></label>
+                  <ReasonChips options={EXIT_REASONS} value={form.exitReason} onChange={v => setForm(f => ({ ...f, exitReason: v }))} />
+                  {exitReasonWarning && <p className="text-xs text-amber-600 mt-1">{exitReasonWarning}</p>}
+                </div>
+              )}
 
               <div>
                 <label className={labelCls}>거래완료 코멘트</label>

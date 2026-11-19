@@ -8,7 +8,7 @@ export default function BottomTabBar() {
   const pathname = usePathname()
   const [showMore, setShowMore] = useState(false)
 
-  const isMore = pathname.startsWith('/strategies') || pathname === '/accounts' || pathname === '/stock-master' || pathname === '/first-entries' || pathname === '/coin-first-entries' || pathname === '/calculator'
+  const isMore = pathname.startsWith('/strategies') || pathname === '/reviews' || pathname === '/accounts' || pathname === '/stock-master' || pathname === '/first-entries' || pathname === '/coin-first-entries' || pathname === '/calculator'
 
   return (
     <>
@@ -23,6 +23,13 @@ export default function BottomTabBar() {
             className="block px-5 py-3 text-sm text-gray-700 hover:bg-gray-50 border-b"
           >
             전략
+          </Link>
+          <Link
+            href="/reviews"
+            onClick={() => setShowMore(false)}
+            className="block px-5 py-3 text-sm text-gray-700 hover:bg-gray-50 border-b"
+          >
+            복기
           </Link>
           <Link
             href="/stock-master"

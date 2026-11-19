@@ -30,6 +30,9 @@ model Trade {
   plannedHoldingPeriod String?
   tradeScore           Int?
   strategyId           String?
+  entryReason          String?      // 진입 이유 1개 (lib/review.ts ENTRY_REASONS)
+  exitReason           String?      // 청산 이유 1개 (lib/review.ts EXIT_REASONS)
+  reviewedAt           String?      // 매도 완료 후 복기한 시각 — 없으면 복기 대기
   createdAt            String
   updatedAt            String
   account              Account      @relation(fields: [accountId], references: [id])

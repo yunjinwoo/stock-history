@@ -44,6 +44,8 @@ export async function GET() {
       '매수일': firstBuy,
       '최종매도일': lastSell,
       '전략': t.strategyId ? strategyMap[t.strategyId] ?? '' : '',
+      '진입 이유': t.entryReason ?? '',
+      '청산 이유': t.exitReason ?? '',
       '코멘트': t.comment ?? '',
     }
   })
