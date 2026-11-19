@@ -10,7 +10,7 @@ export async function PATCH(
 ) {
   const { id } = await params
   const body = await req.json()
-  const { accountId, symbol, symbolCode, comment, exitComment, buyEntries, sellEntries, targetPrice, stopLossPrice, plannedHoldingPeriod, tradeScore, strategyId } = body
+  const { accountId, symbol, symbolCode, comment, exitComment, buyEntries, sellEntries, targetPrice, stopLossPrice, plannedHoldingPeriod, tradeScore, strategyId, entryReason, exitReason, reviewedAt } = body
   const now = new Date().toISOString()
 
   if (symbolCode && symbol) {
@@ -44,6 +44,9 @@ export async function PATCH(
         ...(plannedHoldingPeriod !== undefined && { plannedHoldingPeriod: plannedHoldingPeriod || null }),
         ...(tradeScore !== undefined && { tradeScore: tradeScore != null ? Number(tradeScore) : null }),
         ...(strategyId !== undefined && { strategyId: strategyId || null }),
+        ...(entryReason !== undefined && { entryReason: entryReason || null }),
+        ...(exitReason !== undefined && { exitReason: exitReason || null }),
+        ...(reviewedAt !== undefined && { reviewedAt: reviewedAt || null }),
         updatedAt: now,
         ...(buyEntries !== undefined && {
           buyEntries: {

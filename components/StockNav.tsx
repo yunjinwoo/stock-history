@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 const LINKS = [
   { href: '/', label: '주식' },
   { href: '/stats', label: '통계' },
+  { href: '/reviews', label: '복기' },
   { href: '/strategies', label: '전략' },
   { href: '/first-entries', label: '최초진입' },
   { href: '/calculator', label: '계산기' },

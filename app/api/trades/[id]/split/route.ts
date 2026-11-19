@@ -41,6 +41,7 @@ export async function POST(
         symbol: original.symbol,
         symbolCode: original.symbolCode,
         strategyId: original.strategyId,
+        entryReason: original.entryReason,
         comment: `${today} 기존 포지션에서 일부 내역 분리됨`,
         createdAt: now,
         updatedAt: now,

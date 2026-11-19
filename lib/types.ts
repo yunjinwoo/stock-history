@@ -138,6 +138,9 @@ export interface Trade {
   tradeScore?: number | null
   strategyId?: string | null
   strategy?: { id: string; name: string } | null
+  entryReason?: string | null
+  exitReason?: string | null
+  reviewedAt?: string | null
   createdAt: string
   updatedAt: string
   buyEntries: BuyEntry[]
