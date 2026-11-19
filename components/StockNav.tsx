@@ -33,6 +33,8 @@ export default function StockNav({ className = '' }: { className?: string }) {
   useEffect(() => { setOpen(null) }, [pathname])
 
   return (
+    <>
+    <MobileNavStrip pathname={pathname} />
     <nav ref={navRef} className={`hidden sm:flex flex-wrap items-center gap-2 w-full lg:w-auto order-last lg:order-none ${className}`}>
       {PRIMARY_LINKS.map(l => (
         <Link key={l.href} href={l.href} className={`${BTN} ${isActive(l.href, pathname) ? ON : OFF}`}>
@@ -55,6 +57,43 @@ export default function StockNav({ className = '' }: { className?: string }) {
               onToggle={() => setOpen(v => (v === g.key ? null : g.key))}
             />
       )}
+    </nav>
+    </>
+  )
+}
+
+// 모바일 전용: 하단 탭바(주식·코인·메모)에 없는 메뉴를 헤더 아랫줄에 가로 스크롤로 항상 노출
+function MobileNavStrip({ pathname }: { pathname: string }) {
+  const stripRef = useRef<HTMLElement>(null)
+  // 현재 화면 메뉴가 보이도록 가로 스크롤 맞춤
+  useEffect(() => {
+    const el = stripRef.current?.querySelector('[data-active="true"]') as HTMLElement | null
+    el?.scrollIntoView({ block: 'nearest', inline: 'center' })
+  }, [pathname])
+  return (
+    <nav
+      ref={stripRef}
+      className="sm:hidden order-last w-full -mx-4 px-4 flex items-center gap-1.5 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      style={{ width: 'calc(100% + 2rem)' }}
+    >
+      {NAV_GROUPS.map((g, gi) => (
+        <div key={g.key} className="flex items-center gap-1.5 shrink-0">
+          {gi > 0 && <span className="w-px h-4 bg-gray-200 mx-0.5" aria-hidden />}
+          {g.items.map(i => {
+            const active = isActive(i.href, pathname)
+            return (
+              <Link
+                key={i.href}
+                href={i.href}
+                data-active={active}
+                className={`text-xs px-2.5 py-1 rounded-full border shrink-0 ${active ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-600 border-gray-200'}`}
+              >
+                {i.short ?? i.label}
+              </Link>
+            )
+          })}
+        </div>
+      ))}
     </nav>
   )
 }

@@ -217,11 +217,11 @@ export default function HomePage() {
         <StockNav className="lg:ml-auto" />
         <div className="flex gap-2">
           <div className="flex border rounded overflow-hidden">
-            <button onClick={() => setViewMode('table')} className={`text-xs px-2 py-1.5 ${viewMode === 'table' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>≡</button>
+            <button onClick={() => setViewMode('table')} className={`text-xs px-2 py-1.5 ${viewMode === 'table' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>표</button>
             <button onClick={() => setViewMode('symbol')} className={`text-xs px-2 py-1.5 ${viewMode === 'symbol' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>종목</button>
             <button onClick={() => setViewMode('feed')} className={`text-xs px-2 py-1.5 ${viewMode === 'feed' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>입력순</button>
-            <button onClick={() => setViewMode('card')} className={`text-xs px-2 py-1.5 ${viewMode === 'card' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>▦</button>
-            <button onClick={() => setViewMode('calendar')} className={`text-xs px-2 py-1.5 ${viewMode === 'calendar' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>📅</button>
+            <button onClick={() => setViewMode('card')} className={`text-xs px-2 py-1.5 ${viewMode === 'card' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>카드</button>
+            <button onClick={() => setViewMode('calendar')} className={`text-xs px-2 py-1.5 ${viewMode === 'calendar' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>달력</button>
             <button onClick={() => setViewMode('timeline')} className={`text-xs px-2 py-1.5 ${viewMode === 'timeline' ? 'bg-gray-100 text-gray-800' : 'text-gray-400'}`}>복기</button>
           </div>
           <button

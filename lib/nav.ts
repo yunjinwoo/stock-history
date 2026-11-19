@@ -4,6 +4,8 @@
 export interface NavLink {
   href: string
   label: string
+  // 모바일 헤더 메뉴 줄에서 쓰는 짧은 이름
+  short?: string
 }
 
 export interface NavGroup {
@@ -30,8 +32,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/stats', label: '통계' },
       { href: '/reviews', label: '복기' },
       { href: '/strategies', label: '전략' },
-      { href: '/first-entries', label: '최초진입(주식)' },
-      { href: '/coin-first-entries', label: '최초진입(코인)' },
+      { href: '/first-entries', label: '최초진입(주식)', short: '최초진입' },
+      { href: '/coin-first-entries', label: '최초진입(코인)', short: '코인 최초진입' },
     ],
   },
   {
@@ -46,8 +48,8 @@ export const NAV_GROUPS: NavGroup[] = [
     key: 'settings',
     label: '설정',
     items: [
-      { href: '/stock-master', label: '종목관리' },
-      { href: '/accounts', label: '계좌관리·백업' },
+      { href: '/stock-master', label: '종목관리', short: '⚙ 종목' },
+      { href: '/accounts', label: '계좌관리·백업', short: '⚙ 계좌·백업' },
     ],
   },
 ]
