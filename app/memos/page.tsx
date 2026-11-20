@@ -465,13 +465,13 @@ export default function MemosPage() {
               }}
               className={`text-xs px-2.5 py-1.5 ${viewMode === "list" ? "bg-gray-100 text-gray-800" : "text-gray-400"}`}
             >
-              ≡
+              목록
             </button>
             <button
               onClick={() => setViewMode("calendar")}
               className={`text-xs px-2.5 py-1.5 ${viewMode === "calendar" ? "bg-gray-100 text-gray-800" : "text-gray-400"}`}
             >
-              📅
+              달력
             </button>
           </div>
           <button
